@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.article.mapper.ArticleMapper">
+
+    <sql id="ListColumns">
+        ARTICLE_ID AS articleId, TITLE AS title, SUMMARY AS summary, COVER_IMAGE_ID AS coverImageId,
+        CATEGORY AS category, VIEW_COUNT AS viewCount, PUBLISHED_AT AS publishedAt
+    </sql>
+
+    <select id="findPublished" resultType="com.diabetes.article.entity.Article">
+        SELECT <include refid="ListColumns"/>
+        FROM ARTICLES
+        WHERE DEL_FLAG = 0 AND STATUS = 3
+        <if test="category != null">AND CATEGORY = #{category}</if>
+        ORDER BY PUBLISHED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPublished" resultType="int">
+        SELECT COUNT(1) FROM ARTICLES WHERE DEL_FLAG = 0 AND STATUS = 3
+        <if test="category != null">AND CATEGORY = #{category}</if>
+    </select>
+
+    <select id="searchPublished" resultType="com.diabetes.article.entity.Article">
+        SELECT <include refid="ListColumns"/>
+        FROM ARTICLES
+        WHERE DEL_FLAG = 0 AND STATUS = 3
+          AND (TITLE LIKE CONCAT('%', #{keyword}, '%') OR SUMMARY LIKE CONCAT('%', #{keyword}, '%'))
+        ORDER BY PUBLISHED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countSearch" resultType="int">
+        SELECT COUNT(1) FROM ARTICLES
+        WHERE DEL_FLAG = 0 AND STATUS = 3
+          AND (TITLE LIKE CONCAT('%', #{keyword}, '%') OR SUMMARY LIKE CONCAT('%', #{keyword}, '%'))
+    </select>
+
+    <select id="findById" resultType="com.diabetes.article.entity.Article">
+        SELECT ARTICLE_ID AS articleId, TITLE AS title, CONTENT AS content, SUMMARY AS summary,
+               COVER_IMAGE_ID AS coverImageId, CATEGORY AS category, STATUS AS status,
+               VIEW_COUNT AS viewCount, PUBLISHED_AT AS publishedAt, REJECT_REASON AS rejectReason
+        FROM ARTICLES WHERE ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+    </select>
+
+    <insert id="insert">
+        INSERT INTO ARTICLES (
+            ARTICLE_ID, TITLE, CONTENT, SUMMARY, COVER_IMAGE_ID, CATEGORY, STATUS, DEL_FLAG, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{articleId}, #{title}, #{content}, #{summary}, #{coverImageId}, #{category}, #{status}, 0, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE ARTICLES SET
+            TITLE = #{title}, CONTENT = #{content}, SUMMARY = #{summary},
+            COVER_IMAGE_ID = #{coverImageId}, CATEGORY = #{category}, UPDATED_AT = NOW()
+        WHERE ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE ARTICLES SET DEL_FLAG = 1, UPDATED_AT = NOW() WHERE ARTICLE_ID = #{articleId}
+    </update>
+
+    <select id="findPendingReview" resultType="com.diabetes.article.entity.Article">
+        SELECT <include refid="ListColumns"/>, STATUS AS status
+        FROM ARTICLES WHERE DEL_FLAG = 0 AND STATUS = 2
+        ORDER BY CREATED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPendingReview" resultType="int">
+        SELECT COUNT(1) FROM ARTICLES WHERE DEL_FLAG = 0 AND STATUS = 2
+    </select>
+
+    <update id="incrementViewCount">
+        UPDATE ARTICLES SET VIEW_COUNT = VIEW_COUNT + 1 WHERE ARTICLE_ID = #{articleId}
+    </update>
+
+    <insert id="upsertFavorite">
+        INSERT INTO ARTICLE_FAVORITES (FAV_ID, USER_ID, ARTICLE_ID, IS_ACTIVE, DEL_FLAG, CREATED_AT, UPDATED_AT)
+        VALUES (#{favId}, #{userId}, #{articleId}, #{isActive}, 0, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE IS_ACTIVE = #{isActive}, UPDATED_AT = NOW()
+    </insert>
+
+    <select id="findFavoriteStatus" resultType="java.lang.Integer">
+        SELECT IS_ACTIVE FROM ARTICLE_FAVORITES
+        WHERE USER_ID = #{userId} AND ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findFavorites" resultType="com.diabetes.article.entity.Article">
+        SELECT a.ARTICLE_ID AS articleId, a.TITLE AS title, a.SUMMARY AS summary,
+               a.COVER_IMAGE_ID AS coverImageId, a.CATEGORY AS category, a.VIEW_COUNT AS viewCount,
+               a.PUBLISHED_AT AS publishedAt
+        FROM ARTICLE_FAVORITES f
+        JOIN ARTICLES a ON a.ARTICLE_ID = f.ARTICLE_ID
+        WHERE f.USER_ID = #{userId} AND f.IS_ACTIVE = 1 AND f.DEL_FLAG = 0 AND a.DEL_FLAG = 0
+        ORDER BY f.UPDATED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countFavorites" resultType="int">
+        SELECT COUNT(1) FROM ARTICLE_FAVORITES
+        WHERE USER_ID = #{userId} AND IS_ACTIVE = 1 AND DEL_FLAG = 0
+    </select>
+
+    <update id="updateReview">
+        UPDATE ARTICLES SET STATUS = #{status},
+            REJECT_REASON = #{rejectReason},
+            PUBLISHED_AT = CASE WHEN #{status} = 3 THEN NOW() ELSE PUBLISHED_AT END,
+            REVIEWED_AT = NOW(),
+            UPDATED_AT = NOW()
+        WHERE ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+    </update>
+
+    <select id="findAdminList" resultType="com.diabetes.article.entity.Article">
+        SELECT ARTICLE_ID AS articleId, TITLE AS title, SUMMARY AS summary, COVER_IMAGE_ID AS coverImageId,
+               CATEGORY AS category, STATUS AS status, VIEW_COUNT AS viewCount,
+               PUBLISHED_AT AS publishedAt, REJECT_REASON AS rejectReason, CREATED_AT AS createdAt, UPDATED_AT AS updatedAt
+        FROM ARTICLES
+        WHERE DEL_FLAG = 0
+        <if test="status != null">AND STATUS = #{status}</if>
+        <if test="keyword != null and keyword != ''">
+            AND (TITLE LIKE CONCAT('%', #{keyword}, '%') OR SUMMARY LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY UPDATED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAdminList" resultType="int">
+        SELECT COUNT(1) FROM ARTICLES
+        WHERE DEL_FLAG = 0
+        <if test="status != null">AND STATUS = #{status}</if>
+        <if test="keyword != null and keyword != ''">
+            AND (TITLE LIKE CONCAT('%', #{keyword}, '%') OR SUMMARY LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+    </select>
+
+    <update id="updateStatus">
+        UPDATE ARTICLES SET STATUS = #{status}, UPDATED_AT = NOW()
+        WHERE ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+    </update>
+
+    <update id="updateCoverImageId">
+        UPDATE ARTICLES SET COVER_IMAGE_ID = #{coverImageId}, UPDATED_AT = NOW()
+        WHERE ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+    </update>
+
+    <update id="adjustFavoriteCount">
+        UPDATE ARTICLES SET FAVORITE_COUNT = GREATEST(FAVORITE_COUNT + #{delta}, 0), UPDATED_AT = NOW()
+        WHERE ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+    </update>
+
+    <select id="findTagsByArticleId" resultType="java.lang.String">
+        SELECT TAG_NAME FROM ARTICLE_TAGS
+        WHERE ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+        ORDER BY CREATED_AT ASC
+    </select>
+
+    <update id="softDeleteTagsByArticleId">
+        UPDATE ARTICLE_TAGS SET DEL_FLAG = 1
+        WHERE ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+    </update>
+
+    <insert id="insertTag">
+        INSERT INTO ARTICLE_TAGS (TAG_ID, ARTICLE_ID, TAG_NAME, DEL_FLAG, CREATED_AT)
+        VALUES (#{tagId}, #{articleId}, #{tagName}, 0, NOW())
+    </insert>
+</mapper>

@@ -1,0 +1,49 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: consultation-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3307}/DIABETES_CONSULTATION?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_ROOT_PASSWORD:mysql123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${JWT_SECRET:diabetes_jwt_secret_key_at_least_32_chars}
+
+dify:
+  base-url: ${DIFY_BASE_URL:http://host.docker.internal:58080}
+  timeout-seconds: ${DIFY_CONSULTATION_TIMEOUT_SECONDS:120}
+  workflows:
+    consultation:
+      api-key: ${DIFY_CONSULTATION_API_KEY:app-2GKxEwwawkXoFSH0APRwPWHD}
+      response-mode: ${DIFY_CONSULTATION_RESPONSE_MODE:blocking}
+
+services:
+  health:
+    base-url: http://${HEALTH_SERVICE_HOST:localhost}:${HEALTH_SERVICE_PORT:8083}
+  user:
+    base-url: http://${USER_SERVICE_HOST:localhost}:${USER_SERVICE_PORT:8081}
+
+dify-internal:
+  key: ${DIFY_INTERNAL_KEY:}
+
+minio:
+  endpoint: http://${MINIO_HOST:localhost}:${MINIO_PORT:9000}
+  access-key: ${MINIO_USER:minio}
+  secret-key: ${MINIO_PASSWORD:minio123456}
+  avatar-bucket: avatar
+  public-base-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

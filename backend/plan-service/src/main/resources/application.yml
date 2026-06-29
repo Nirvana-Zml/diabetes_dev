@@ -1,0 +1,48 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: plan-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3307}/DIABETES_PLAN?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_ROOT_PASSWORD:mysql123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-jwt-secret-change-me-in-production-32chars}
+
+dify:
+  # 与其他模块相同：POST {base-url}/v1/workflows/run
+  base-url: ${DIFY_BASE_URL:http://host.docker.internal:58080}
+  timeout-seconds: ${DIFY_TIMEOUT_SECONDS:180}
+  workflows:
+    plan-generation:
+      # Authorization: Bearer {api-key}
+      api-key: ${DIFY_PLAN_API_KEY:app-fHORDdQjVq9GVtLcyD9WaL3g}
+      # 开始节点 7 个独立变量平铺传入 API inputs：query/user_id/daily_calories/user_profile/health_profile/risk_data/checkin_data
+      # blocking：一次返回完整 health_plan；前端 SSE 分阶段由 plan-service 拆分推送
+      response-mode: ${DIFY_PLAN_RESPONSE_MODE:blocking}
+
+services:
+  user:
+    base-url: http://${USER_SERVICE_HOST:localhost}:${USER_SERVICE_PORT:8081}
+  health:
+    base-url: http://${HEALTH_SERVICE_HOST:localhost}:${HEALTH_SERVICE_PORT:8083}
+  checkin:
+    base-url: http://${CHECKIN_SERVICE_HOST:localhost}:${CHECKIN_SERVICE_PORT:8084}
+
+dify-internal:
+  key: ${DIFY_INTERNAL_KEY:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.plan.mapper.HealthPlanRestItemMapper">
+
+    <insert id="insert">
+        INSERT INTO HEALTH_PLAN_REST_ITEMS (
+            ITEM_ID, PLAN_ID, SCHEDULE_TYPE, TIME_POINT, SUGGESTION, SORT_ORDER, DEL_FLAG
+        ) VALUES (
+            #{itemId}, #{planId}, #{scheduleType}, #{timePoint}, #{suggestion}, #{sortOrder}, 0
+        )
+    </insert>
+</mapper>

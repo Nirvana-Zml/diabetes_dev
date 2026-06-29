@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.article.mapper.RecommendMapper">
+
+    <select id="findPublishedCandidates" resultType="com.diabetes.article.entity.ArticleCandidate">
+        SELECT a.ARTICLE_ID AS articleId, a.TITLE AS title, a.SUMMARY AS summary,
+               a.COVER_IMAGE_ID AS coverImageId, a.CATEGORY AS category,
+               a.VIEW_COUNT AS viewCount, a.FAVORITE_COUNT AS favoriteCount,
+               a.PUBLISHED_AT AS publishedAt, e.TEXT_FINGERPRINT AS textFingerprint
+        FROM ARTICLES a
+        LEFT JOIN ARTICLE_EMBEDDINGS e ON e.ARTICLE_ID = a.ARTICLE_ID
+        WHERE a.DEL_FLAG = 0 AND a.STATUS = 3
+        ORDER BY a.PUBLISHED_AT DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findTagsByArticleId" resultType="java.lang.String">
+        SELECT TAG_NAME FROM ARTICLE_TAGS
+        WHERE ARTICLE_ID = #{articleId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findCategoryWeightsByUser" resultType="map">
+        SELECT a.CATEGORY AS category, COUNT(1) AS cnt
+        FROM ARTICLE_USER_READS r
+        JOIN ARTICLES a ON a.ARTICLE_ID = r.ARTICLE_ID
+        WHERE r.USER_ID = #{userId} AND r.DEL_FLAG = 0
+          AND r.READ_AT >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        GROUP BY a.CATEGORY
+        UNION ALL
+        SELECT a.CATEGORY AS category, COUNT(1) * 2 AS cnt
+        FROM ARTICLE_FAVORITES f
+        JOIN ARTICLES a ON a.ARTICLE_ID = f.ARTICLE_ID
+        WHERE f.USER_ID = #{userId} AND f.IS_ACTIVE = 1 AND f.DEL_FLAG = 0
+        GROUP BY a.CATEGORY
+    </select>
+
+    <select id="findRecentReadArticleIds" resultType="java.lang.String">
+        SELECT ARTICLE_ID FROM ARTICLE_USER_READS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+          AND READ_AT >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+    </select>
+
+    <select id="findFavoriteArticleIds" resultType="java.lang.String">
+        SELECT ARTICLE_ID FROM ARTICLE_FAVORITES
+        WHERE USER_ID = #{userId} AND IS_ACTIVE = 1 AND DEL_FLAG = 0
+    </select>
+
+    <insert id="upsertUserRead">
+        INSERT INTO ARTICLE_USER_READS (READ_ID, USER_ID, ARTICLE_ID, READ_DURATION, READ_SOURCE, READ_AT, DEL_FLAG)
+        VALUES (#{readId}, #{userId}, #{articleId}, #{durationSec}, #{source}, NOW(), 0)
+        ON DUPLICATE KEY UPDATE
+            READ_DURATION = GREATEST(COALESCE(READ_DURATION, 0), COALESCE(#{durationSec}, 0)),
+            READ_SOURCE = COALESCE(#{source}, READ_SOURCE),
+            READ_AT = NOW()
+    </insert>
+
+    <select id="findCoReadArticles" resultType="map">
+        SELECT r2.ARTICLE_ID AS articleId, COUNT(DISTINCT r2.USER_ID) AS coCount
+        FROM ARTICLE_USER_READS r1
+        JOIN ARTICLE_USER_READS r2 ON r1.ARTICLE_ID = r2.ARTICLE_ID AND r1.USER_ID != r2.USER_ID
+        WHERE r1.USER_ID = #{userId} AND r1.DEL_FLAG = 0 AND r2.DEL_FLAG = 0
+        <if test="excludeIds != null and excludeIds.size() > 0">
+            AND r2.ARTICLE_ID NOT IN
+            <foreach collection="excludeIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        </if>
+        GROUP BY r2.ARTICLE_ID
+        HAVING coCount >= 1
+        ORDER BY coCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findCoFavoriteArticles" resultType="map">
+        SELECT f2.ARTICLE_ID AS articleId, COUNT(DISTINCT f2.USER_ID) AS coCount
+        FROM ARTICLE_FAVORITES f1
+        JOIN ARTICLE_FAVORITES f2 ON f1.ARTICLE_ID = f2.ARTICLE_ID AND f1.USER_ID != f2.USER_ID
+        WHERE f1.USER_ID = #{userId} AND f1.IS_ACTIVE = 1 AND f1.DEL_FLAG = 0 AND f2.IS_ACTIVE = 1 AND f2.DEL_FLAG = 0
+        <if test="excludeIds != null and excludeIds.size() > 0">
+            AND f2.ARTICLE_ID NOT IN
+            <foreach collection="excludeIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        </if>
+        GROUP BY f2.ARTICLE_ID
+        ORDER BY coCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <update id="softDeleteUserRecommendations">
+        UPDATE ARTICLE_RECOMMENDATIONS SET DEL_FLAG = 1 WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+    </update>
+
+    <insert id="insertRecommendation">
+        INSERT INTO ARTICLE_RECOMMENDATIONS (
+            REC_ID, USER_ID, ARTICLE_ID, REC_SCORE, REC_REASON, REC_BATCH_ID,
+            REC_PHASE, DIFY_RUN_ID, EXPIRED_AT, DEL_FLAG, CREATED_AT
+        ) VALUES (
+            #{recId}, #{userId}, #{articleId}, #{recScore}, #{recReason}, #{batchId},
+            #{recPhase}, #{difyRunId}, #{expiredAt}, 0, NOW()
+        )
+    </insert>
+
+    <select id="findActiveRecommendations" resultType="map">
+        SELECT r.ARTICLE_ID AS articleId, r.REC_SCORE AS recScore, r.REC_REASON AS recReason,
+               r.REC_PHASE AS recPhase,
+               a.TITLE AS title, a.SUMMARY AS summary, a.COVER_IMAGE_ID AS coverImageId,
+               a.CATEGORY AS category, a.VIEW_COUNT AS viewCount, a.PUBLISHED_AT AS publishedAt
+        FROM ARTICLE_RECOMMENDATIONS r
+        JOIN ARTICLES a ON a.ARTICLE_ID = r.ARTICLE_ID
+        WHERE r.USER_ID = #{userId} AND r.DEL_FLAG = 0
+          AND (r.EXPIRED_AT IS NULL OR r.EXPIRED_AT > NOW())
+          AND a.DEL_FLAG = 0 AND a.STATUS = 3
+        ORDER BY r.REC_SCORE DESC, r.CREATED_AT DESC
+    </select>
+
+    <insert id="upsertEmbedding">
+        INSERT INTO ARTICLE_EMBEDDINGS (ARTICLE_ID, TEXT_FINGERPRINT, UPDATED_AT)
+        VALUES (#{articleId}, #{fingerprint}, NOW())
+        ON DUPLICATE KEY UPDATE TEXT_FINGERPRINT = #{fingerprint}, UPDATED_AT = NOW()
+    </insert>
+
+    <select id="findFingerprint" resultType="java.lang.String">
+        SELECT TEXT_FINGERPRINT FROM ARTICLE_EMBEDDINGS WHERE ARTICLE_ID = #{articleId}
+    </select>
+
+    <select id="findRelatedCandidates" resultType="com.diabetes.article.entity.ArticleCandidate">
+        SELECT a.ARTICLE_ID AS articleId, a.TITLE AS title, a.SUMMARY AS summary,
+               a.COVER_IMAGE_ID AS coverImageId, a.CATEGORY AS category,
+               a.VIEW_COUNT AS viewCount, a.FAVORITE_COUNT AS favoriteCount,
+               a.PUBLISHED_AT AS publishedAt, e.TEXT_FINGERPRINT AS textFingerprint
+        FROM ARTICLES a
+        LEFT JOIN ARTICLE_EMBEDDINGS e ON e.ARTICLE_ID = a.ARTICLE_ID
+        WHERE a.DEL_FLAG = 0 AND a.STATUS = 3 AND a.ARTICLE_ID != #{articleId}
+          AND a.CATEGORY = #{category}
+        ORDER BY a.VIEW_COUNT DESC, a.PUBLISHED_AT DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

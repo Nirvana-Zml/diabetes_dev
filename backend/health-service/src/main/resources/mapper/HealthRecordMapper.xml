@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.health.mapper.HealthRecordMapper">
+
+    <insert id="insert">
+        INSERT INTO HEALTH_RECORDS (
+            RECORD_ID, USER_ID, HEIGHT, WEIGHT, BMI,
+            FASTING_GLUCOSE, POSTPRANDIAL_GLUCOSE, RANDOM_GLUCOSE, HBA1C,
+            SYSTOLIC_BP, DIASTOLIC_BP, DIABETES_TYPE, DIAGNOSED_DATE, IS_PREGNANT,
+            HAS_DIABETES_FAMILY, IS_INSULIN_TAKEN, SMOKING, ALCOHOL, EXERCISE_FREQ,
+            DIET_TYPE, TEST_SOURCE, DEL_FLAG, RECORDED_AT
+        ) VALUES (
+            #{recordId}, #{userId}, #{height}, #{weight}, #{bmi},
+            #{fastingGlucose}, #{postprandialGlucose}, #{randomGlucose}, #{hba1c},
+            #{systolicBp}, #{diastolicBp}, #{diabetesType}, #{diagnosedDate}, #{isPregnant},
+            #{hasDiabetesFamily}, #{isInsulinTaken}, #{smoking}, #{alcohol}, #{exerciseFreq},
+            #{dietType}, #{testSource}, 0, NOW()
+        )
+    </insert>
+
+    <select id="findByUserId" resultType="com.diabetes.health.entity.HealthRecord">
+        SELECT RECORD_ID AS recordId, USER_ID AS userId, HEIGHT AS height, WEIGHT AS weight,
+               BMI AS bmi, FASTING_GLUCOSE AS fastingGlucose, SYSTOLIC_BP AS systolicBp,
+               DIASTOLIC_BP AS diastolicBp, HAS_DIABETES_FAMILY AS hasDiabetesFamily,
+               SMOKING AS smoking, DEL_FLAG AS delFlag, RECORDED_AT AS recordedAt
+        FROM HEALTH_RECORDS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+        ORDER BY RECORDED_AT DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findLatestByUserId" resultType="com.diabetes.health.entity.HealthRecord">
+        SELECT RECORD_ID AS recordId, USER_ID AS userId, HEIGHT AS height, WEIGHT AS weight,
+               BMI AS bmi, FASTING_GLUCOSE AS fastingGlucose, POSTPRANDIAL_GLUCOSE AS postprandialGlucose,
+               RANDOM_GLUCOSE AS randomGlucose, HBA1C AS hba1c,
+               SYSTOLIC_BP AS systolicBp, DIASTOLIC_BP AS diastolicBp,
+               DIABETES_TYPE AS diabetesType, DIAGNOSED_DATE AS diagnosedDate, IS_PREGNANT AS isPregnant,
+               HAS_DIABETES_FAMILY AS hasDiabetesFamily, IS_INSULIN_TAKEN AS isInsulinTaken,
+               SMOKING AS smoking, ALCOHOL AS alcohol, EXERCISE_FREQ AS exerciseFreq,
+               DIET_TYPE AS dietType, TEST_SOURCE AS testSource, RECORDED_AT AS recordedAt
+        FROM HEALTH_RECORDS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+        ORDER BY RECORDED_AT DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insertMedicalHistory">
+        INSERT INTO HEALTH_RECORD_MEDICAL_HISTORIES (
+            HISTORY_ID, RECORD_ID, USER_ID, DISEASE_CODE, DISEASE_NAME,
+            DIAGNOSED_DATE, STATUS, NOTE, SOURCE, DEL_FLAG, CREATED_AT
+        ) VALUES (
+            #{historyId}, #{recordId}, #{userId}, #{diseaseCode}, #{diseaseName},
+            #{diagnosedDate}, #{status}, #{note}, #{source}, 0, NOW()
+        )
+    </insert>
+
+    <insert id="insertMedication">
+        INSERT INTO HEALTH_RECORD_MEDICATIONS (
+            MEDICATION_ID, RECORD_ID, USER_ID, DRUG_NAME, GENERIC_NAME, DOSAGE,
+            FREQUENCY, FREQUENCY_DESC, ROUTE, PURPOSE, IS_INSULIN,
+            START_DATE, END_DATE, STATUS, SOURCE, DEL_FLAG, CREATED_AT
+        ) VALUES (
+            #{medicationId}, #{recordId}, #{userId}, #{drugName}, #{genericName}, #{dosage},
+            #{frequency}, #{frequencyDesc}, #{route}, #{purpose}, #{isInsulin},
+            #{startDate}, #{endDate}, #{status}, #{source}, 0, NOW()
+        )
+    </insert>
+
+    <insert id="insertFamilyHistory">
+        INSERT INTO HEALTH_RECORD_FAMILY_HISTORIES (
+            FAMILY_HISTORY_ID, RECORD_ID, USER_ID, RELATION, MEMBER_AGE, IS_ALIVE,
+            DISEASE_CODE, DISEASE_NAME, DIAGNOSED_AGE, IS_DIABETES, NOTE, SOURCE, DEL_FLAG, CREATED_AT
+        ) VALUES (
+            #{familyHistoryId}, #{recordId}, #{userId}, #{relation}, #{memberAge}, #{isAlive},
+            #{diseaseCode}, #{diseaseName}, #{diagnosedAge}, #{isDiabetes}, #{note}, #{source}, 0, NOW()
+        )
+    </insert>
+
+    <select id="findMedicalHistoriesByRecordId" resultType="com.diabetes.health.entity.HealthRecordMedicalHistory">
+        SELECT HISTORY_ID AS historyId, RECORD_ID AS recordId, USER_ID AS userId,
+               DISEASE_CODE AS diseaseCode, DISEASE_NAME AS diseaseName,
+               DIAGNOSED_DATE AS diagnosedDate, STATUS AS status, NOTE AS note
+        FROM HEALTH_RECORD_MEDICAL_HISTORIES
+        WHERE RECORD_ID = #{recordId} AND DEL_FLAG = 0
+        ORDER BY CREATED_AT
+    </select>
+
+    <select id="findMedicationsByRecordId" resultType="com.diabetes.health.entity.HealthRecordMedication">
+        SELECT MEDICATION_ID AS medicationId, RECORD_ID AS recordId, USER_ID AS userId,
+               DRUG_NAME AS drugName, GENERIC_NAME AS genericName, DOSAGE AS dosage,
+               FREQUENCY AS frequency, FREQUENCY_DESC AS frequencyDesc, ROUTE AS route,
+               PURPOSE AS purpose, IS_INSULIN AS isInsulin, START_DATE AS startDate,
+               END_DATE AS endDate, STATUS AS status
+        FROM HEALTH_RECORD_MEDICATIONS
+        WHERE RECORD_ID = #{recordId} AND DEL_FLAG = 0
+        ORDER BY CREATED_AT
+    </select>
+
+    <select id="findFamilyHistoriesByRecordId" resultType="com.diabetes.health.entity.HealthRecordFamilyHistory">
+        SELECT FAMILY_HISTORY_ID AS familyHistoryId, RECORD_ID AS recordId, USER_ID AS userId,
+               RELATION AS relation, MEMBER_AGE AS memberAge, IS_ALIVE AS isAlive,
+               DISEASE_CODE AS diseaseCode, DISEASE_NAME AS diseaseName,
+               DIAGNOSED_AGE AS diagnosedAge, IS_DIABETES AS isDiabetes, NOTE AS note
+        FROM HEALTH_RECORD_FAMILY_HISTORIES
+        WHERE RECORD_ID = #{recordId} AND DEL_FLAG = 0
+        ORDER BY CREATED_AT
+    </select>
+</mapper>

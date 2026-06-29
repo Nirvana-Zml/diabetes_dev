@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.user.mapper.AdminMapper">
+
+    <select id="findByUsername" resultType="com.diabetes.user.entity.Admin">
+        SELECT ADMIN_ID AS adminId, USERNAME AS username, PASSWORD_HASH AS passwordHash
+        FROM ADMINS
+        WHERE USERNAME = #{username} AND IS_DELETED = 0
+    </select>
+</mapper>

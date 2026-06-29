@@ -1,0 +1,57 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: home-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3307}/DIABETES_RESOURCES?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_ROOT_PASSWORD:mysql123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${JWT_SECRET:diabetes_jwt_secret_key_at_least_32_chars}
+
+minio:
+  endpoint: http://${MINIO_HOST:localhost}:${MINIO_PORT:9000}
+  access-key: ${MINIO_USER:minio}
+  secret-key: ${MINIO_PASSWORD:minio123456}
+  banner-bucket: banner
+  video-cover-bucket: video-cover
+  public-base-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
+
+dify:
+  base-url: ${DIFY_BASE_URL:http://host.docker.internal:58080}
+  timeout-seconds: ${DIFY_TIMEOUT_SECONDS:120}
+  chatbots:
+    qa:
+      api-key: ${DIFY_QA_API_KEY:app-B3WaGEZUVWU8Lbp7qo0lzdVj}
+      query-max-length: 500
+
+knowledge:
+  milvus:
+    enabled: ${MILVUS_ENABLED:true}
+    host: ${MILVUS_HOST:localhost}
+    port: ${MILVUS_PORT:19530}
+    collection: diabetes_knowledge
+    dimension: ${MILVUS_DIMENSION:1024}
+    metric-type: COSINE
+    search-top-k: 5
+    score-threshold: 0.0
+    embedding:
+      provider: ${EMBEDDING_PROVIDER:openai}
+      openai-base-url: ${EMBEDDING_BASE_URL:http://host.docker.internal:11434}
+      openai-api-key: ${EMBEDDING_API_KEY:ollama}
+      openai-model: ${EMBEDDING_MODEL:qwen3-embedding:0.6b}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

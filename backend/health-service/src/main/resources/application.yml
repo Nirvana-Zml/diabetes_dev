@@ -1,0 +1,48 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: health-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3307}/DIABETES_HEALTH?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_ROOT_PASSWORD:mysql123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-jwt-secret-change-me-in-production-32chars}
+
+dify:
+  base-url: ${DIFY_BASE_URL:http://host.docker.internal:58080}
+  timeout-seconds: ${DIFY_TIMEOUT_SECONDS:120}
+  workflows:
+    risk-assessment:
+      # api=Workflow Run API（/v1/workflows/run）；webhook=Webhook 触发器
+      trigger-mode: ${DIFY_RISK_TRIGGER_MODE:api}
+      api-key: ${DIFY_RISK_API_KEY:app-XuGJ0yp3XhejVrzE88dL1kHk}
+      response-mode: ${DIFY_RISK_RESPONSE_MODE:blocking}
+      # flat=开始节点各变量平铺传入（user_id/user_profile/...）；其他值=单变量包裹整个 payload
+      input-var-name: ${DIFY_RISK_INPUT_VAR:flat}
+      # 仅单变量包裹模式有效：object=JSON 对象；string=JSON 字符串
+      input-format: ${DIFY_RISK_INPUT_FORMAT:object}
+      webhook-path: ${DIFY_RISK_WEBHOOK_PATH:}
+      webhook-payload-mode: ${DIFY_RISK_WEBHOOK_PAYLOAD_MODE:auto}
+
+services:
+  user:
+    base-url: http://${USER_SERVICE_HOST:localhost}:${USER_SERVICE_PORT:8081}
+
+dify-internal:
+  key: ${DIFY_INTERNAL_KEY:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

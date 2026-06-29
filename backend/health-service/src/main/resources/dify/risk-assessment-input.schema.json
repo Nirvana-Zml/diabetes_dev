@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "user_id": { "type": "string" },
+    "user_profile": { "type": "string" },
+    "questionnaire": { "type": "string" },
+    "medical_calc_results": { "type": "string" },
+    "risk_factors": { "type": "string" }
+  },
+  "required": [],
+  "additionalProperties": true
+}

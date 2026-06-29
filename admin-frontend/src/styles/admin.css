@@ -1,0 +1,12 @@
+:root {
+  --health-600: #0d9488;
+  --warm-50: #fafaf9;
+  --warm-100: #f5f5f4;
+  --warm-300: #d6d3d1;
+  --warm-400: #a8a29e;
+  --warm-700: #44403c;
+  --warm-800: #292524;
+  --content-max: 1360px;
+  --edge-padding: clamp(24px, 4vw, 64px);
+  --page-bg: var(--warm-50);
+}

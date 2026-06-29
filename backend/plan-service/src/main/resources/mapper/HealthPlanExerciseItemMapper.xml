@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.plan.mapper.HealthPlanExerciseItemMapper">
+
+    <insert id="insert">
+        INSERT INTO HEALTH_PLAN_EXERCISE_ITEMS (
+            ITEM_ID, PLAN_ID, EXERCISE_TYPE, DURATION_MINUTES, FREQUENCY, INTENSITY,
+            CALORIES_BURNED, CAUTION, SORT_ORDER, DEL_FLAG
+        ) VALUES (
+            #{itemId}, #{planId}, #{exerciseType}, #{durationMinutes}, #{frequency}, #{intensity},
+            #{caloriesBurned}, #{caution}, #{sortOrder}, 0
+        )
+    </insert>
+</mapper>

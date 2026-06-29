@@ -1,0 +1,48 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-service
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3307}/DIABETES_USER?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_ROOT_PASSWORD:mysql123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      max-lifetime: 600000
+      keepalive-time: 300000
+      connection-test-query: SELECT 1
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.diabetes.user.entity
+  configuration:
+    map-underscore-to-camel-case: false
+    default-statement-timeout: 30
+
+jwt:
+  secret: ${JWT_SECRET:diabetes_jwt_secret_key_at_least_32_chars}
+  access-expire-seconds: 7200
+  refresh-expire-seconds: 604800
+
+# Dify 工作流调用内部接口时携带的密钥（Header: X-Dify-Key）
+dify:
+  internal-key: ${DIFY_INTERNAL_KEY:LoginAuth2026}
+
+minio:
+  endpoint: http://${MINIO_HOST:localhost}:${MINIO_PORT:9000}
+  access-key: ${MINIO_USER:minio}
+  secret-key: ${MINIO_PASSWORD:minio123456}
+  profile-bucket: profile
+  public-base-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.home.mapper.ResourceMapper">
+
+    <select id="findActiveBanners" resultType="com.diabetes.home.entity.Banner">
+        SELECT BANNER_ID AS bannerId, TITLE
+        FROM BANNERS
+        WHERE IS_DELETED = 0
+        ORDER BY CREATED_AT ASC, BANNER_ID ASC
+    </select>
+
+    <select id="findActiveVideos" resultType="com.diabetes.home.entity.Video">
+        SELECT VIDEO_ID AS videoId, TITLE, DURATION
+        FROM VIDEOS
+        WHERE IS_DELETED = 0
+        ORDER BY CREATED_AT ASC, VIDEO_ID ASC
+    </select>
+
+</mapper>

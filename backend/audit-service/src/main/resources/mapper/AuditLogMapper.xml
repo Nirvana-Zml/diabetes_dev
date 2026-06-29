@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.audit.mapper.AuditLogMapper">
+
+    <insert id="insert">
+        INSERT INTO AUDIT_LOGS (
+            LOG_ID, USER_ID, ACTION, RESOURCE, DETAIL, IP_ADDRESS, USER_AGENT, RESULT, CREATED_AT
+        ) VALUES (
+            #{logId}, #{userId}, #{action}, #{resource}, #{detail}, #{ipAddress}, #{userAgent}, #{result}, NOW()
+        )
+    </insert>
+
+    <select id="findByUserId" resultType="com.diabetes.audit.entity.AuditLog">
+        SELECT LOG_ID AS logId, USER_ID AS userId, ACTION AS action, RESOURCE AS resource,
+               DETAIL AS detail, IP_ADDRESS AS ipAddress, USER_AGENT AS userAgent,
+               RESULT AS result, CREATED_AT AS createdAt
+        FROM AUDIT_LOGS
+        WHERE USER_ID = #{userId}
+        ORDER BY CREATED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+</mapper>

@@ -1,0 +1,98 @@
+{
+  "type": "object",
+  "properties": {
+    "summary": { "type": "string" },
+    "diet_principles": { "type": "array", "items": { "type": "string" } },
+    "foods_to_avoid": { "type": "array", "items": { "type": "string" } },
+    "foods_to_recommend": { "type": "array", "items": { "type": "string" } },
+    "breakfast_time": { "type": "string" },
+    "breakfast_foods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "amount": { "type": "string" },
+          "calories": { "type": "integer" },
+          "gi_level": { "type": "string" }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    },
+    "breakfast_total_calories": { "type": "integer" },
+    "lunch_time": { "type": "string" },
+    "lunch_foods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "amount": { "type": "string" },
+          "calories": { "type": "integer" },
+          "gi_level": { "type": "string" }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    },
+    "lunch_total_calories": { "type": "integer" },
+    "dinner_time": { "type": "string" },
+    "dinner_foods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "amount": { "type": "string" },
+          "calories": { "type": "integer" },
+          "gi_level": { "type": "string" }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    },
+    "dinner_total_calories": { "type": "integer" },
+    "snack_time": { "type": "string" },
+    "snack_foods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "amount": { "type": "string" },
+          "calories": { "type": "integer" },
+          "gi_level": { "type": "string" }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    },
+    "snack_total_calories": { "type": "integer" },
+    "exercise_weekly_goal": { "type": "string" },
+    "exercise_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "duration": { "type": "string" },
+          "frequency": { "type": "string" },
+          "intensity": { "type": "string" },
+          "calories_burned": { "type": "integer" },
+          "caution": { "type": "string" }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    },
+    "rest_wake_up": { "type": "string" },
+    "rest_sleep": { "type": "string" },
+    "rest_nap": { "type": "string" },
+    "rest_glucose_monitor_times": { "type": "array", "items": { "type": "string" } },
+    "rest_routine_tips": { "type": "array", "items": { "type": "string" } },
+    "medication_note": { "type": "string" }
+  },
+  "required": [],
+  "additionalProperties": true
+}

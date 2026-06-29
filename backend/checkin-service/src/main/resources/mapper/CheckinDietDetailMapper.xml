@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.checkin.mapper.CheckinDietDetailMapper">
+
+    <insert id="insert">
+        INSERT INTO CHECKIN_DIET_DETAILS (
+            CHECKIN_ID, MEAL_PERIOD, SOURCE_TYPE, FOOD_ID, FOOD_NAME, CATEGORY_NAME,
+            CALORIES_PER_GRAM, INPUT_UNIT, INPUT_AMOUNT, GRAMS, TOTAL_CALORIES, IMAGE_OBJECT_KEY
+        ) VALUES (
+            #{checkinId}, #{mealPeriod}, #{sourceType}, #{foodId}, #{foodName}, #{categoryName},
+            #{caloriesPerGram}, #{inputUnit}, #{inputAmount}, #{grams}, #{totalCalories}, #{imageObjectKey}
+        )
+    </insert>
+
+    <select id="findByUserAndDate" resultType="com.diabetes.checkin.entity.CheckinDietDetail">
+        SELECT d.CHECKIN_ID AS checkinId, d.MEAL_PERIOD AS mealPeriod, d.SOURCE_TYPE AS sourceType,
+               d.FOOD_ID AS foodId, d.FOOD_NAME AS foodName, d.CATEGORY_NAME AS categoryName,
+               d.CALORIES_PER_GRAM AS caloriesPerGram, d.INPUT_UNIT AS inputUnit,
+               d.INPUT_AMOUNT AS inputAmount, d.GRAMS AS grams, d.TOTAL_CALORIES AS totalCalories,
+               d.IMAGE_OBJECT_KEY AS imageObjectKey, r.RECORD_TIME AS recordTime
+        FROM CHECKIN_RECORDS r
+        INNER JOIN CHECKIN_DIET_DETAILS d ON r.CHECKIN_ID = d.CHECKIN_ID
+        WHERE r.USER_ID = #{userId} AND r.CHECKIN_TYPE = 1 AND r.CHECKIN_DATE = #{checkinDate}
+          AND r.DEL_FLAG = 0
+        ORDER BY r.RECORD_TIME DESC
+    </select>
+</mapper>

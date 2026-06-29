@@ -1,0 +1,28 @@
+package com.diabetes.home.controller;
+
+import com.diabetes.common.api.ApiResponse;
+import com.diabetes.home.service.HomeContentService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+
+/**
+ * 供其他微服务内部调用的科普首页接口。
+ */
+@RestController
+@RequestMapping("/api/v1/internal/home")
+public class InternalHomeController {
+
+    private final HomeContentService homeContentService;
+
+    public InternalHomeController(HomeContentService homeContentService) {
+        this.homeContentService = homeContentService;
+    }
+
+    @GetMapping("/content")
+    public ApiResponse<Map<String, Object>> content() {
+        return ApiResponse.ok(homeContentService.getHomeContent());
+    }
+}

@@ -1,0 +1,86 @@
+server:
+  port: 8099
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      routes:
+        - id: user-auth
+          uri: http://${USER_SERVICE_HOST:user-service}:${USER_SERVICE_PORT:8081}
+          predicates:
+            - Path=/api/v1/auth/**,/api/v1/user/**,/api/v1/internal/user/**
+        - id: home-service
+          uri: http://${HOME_SERVICE_HOST:home-service}:${HOME_SERVICE_PORT:8082}
+          predicates:
+            - Path=/api/v1/home/**,/api/v1/chat/**,/api/v1/internal/home/**
+        - id: health-service
+          uri: http://${HEALTH_SERVICE_HOST:health-service}:${HEALTH_SERVICE_PORT:8083}
+          predicates:
+            - Path=/api/v1/risk/**,/api/v1/health-records/**,/api/v1/internal/health/**
+        - id: checkin-service
+          uri: http://${CHECKIN_SERVICE_HOST:checkin-service}:${CHECKIN_SERVICE_PORT:8084}
+          predicates:
+            - Path=/api/v1/checkin/**,/api/v1/checkin-management/**
+        - id: consultation-service
+          uri: http://${CONSULTATION_SERVICE_HOST:consultation-service}:${CONSULTATION_SERVICE_PORT:8085}
+          predicates:
+            - Path=/api/v1/ai-doctors/**,/api/v1/consultations,/api/v1/consultations/**,/api/v1/internal/consultation/**
+        - id: plan-service
+          uri: http://${PLAN_SERVICE_HOST:plan-service}:${PLAN_SERVICE_PORT:8086}
+          predicates:
+            - Path=/api/v1/plan/**
+        - id: article-service
+          uri: http://${ARTICLE_SERVICE_HOST:article-service}:${ARTICLE_SERVICE_PORT:8087}
+          predicates:
+            - Path=/api/v1/articles,/api/v1/articles/**,/api/v1/admin/articles/**
+        - id: audit-service
+          uri: http://${AUDIT_SERVICE_HOST:audit-service}:${AUDIT_SERVICE_PORT:8088}
+          predicates:
+            - Path=/api/v1/admin/audit/**
+        - id: user-auth-v2
+          uri: http://${USER_SERVICE_HOST:user-service}:${USER_SERVICE_PORT:8081}
+          predicates:
+            - Path=/api/v2/auth/**,/api/v2/user/**,/api/v2/internal/user/**
+        - id: home-service-v2
+          uri: http://${HOME_SERVICE_HOST:home-service}:${HOME_SERVICE_PORT:8082}
+          predicates:
+            - Path=/api/v2/home/**,/api/v2/chat/**,/api/v2/internal/home/**
+        - id: health-service-v2
+          uri: http://${HEALTH_SERVICE_HOST:health-service}:${HEALTH_SERVICE_PORT:8083}
+          predicates:
+            - Path=/api/v2/risk/**,/api/v2/health-records/**,/api/v2/internal/health/**
+        - id: checkin-service-v2
+          uri: http://${CHECKIN_SERVICE_HOST:checkin-service}:${CHECKIN_SERVICE_PORT:8084}
+          predicates:
+            - Path=/api/v2/checkin/**,/api/v2/checkin-management/**
+        - id: consultation-service-v2
+          uri: http://${CONSULTATION_SERVICE_HOST:consultation-service}:${CONSULTATION_SERVICE_PORT:8085}
+          predicates:
+            - Path=/api/v2/ai-doctors/**,/api/v2/consultations,/api/v2/consultations/**,/api/v2/internal/consultation/**
+        - id: plan-service-v2
+          uri: http://${PLAN_SERVICE_HOST:plan-service}:${PLAN_SERVICE_PORT:8086}
+          predicates:
+            - Path=/api/v2/plan/**
+        - id: article-service-v2
+          uri: http://${ARTICLE_SERVICE_HOST:article-service}:${ARTICLE_SERVICE_PORT:8087}
+          predicates:
+            - Path=/api/v2/articles,/api/v2/articles/**,/api/v2/admin/articles/**
+        - id: audit-service-v2
+          uri: http://${AUDIT_SERVICE_HOST:audit-service}:${AUDIT_SERVICE_PORT:8088}
+          predicates:
+            - Path=/api/v2/admin/audit/**
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

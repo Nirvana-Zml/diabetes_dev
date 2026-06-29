@@ -1,0 +1,89 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: article-service
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3307}/DIABETES_ARTICLE?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_ROOT_PASSWORD:mysql123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3s
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-jwt-secret-change-me-in-production-32chars}
+
+minio:
+  endpoint: http://${MINIO_HOST:localhost}:${MINIO_PORT:9000}
+  access-key: ${MINIO_USER:minio}
+  secret-key: ${MINIO_PASSWORD:minio123456}
+  article-bucket: article
+  public-base-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
+
+dify:
+  base-url: ${DIFY_BASE_URL:http://host.docker.internal:58080}
+  timeout-seconds: ${DIFY_TIMEOUT_SECONDS:120}
+  workflows:
+    article-draft:
+      api-key: ${DIFY_ARTICLE_DRAFT_API_KEY:app-zBXmLq9LXjrF8UtuL9d8PhiS}
+      workflow-url: ${DIFY_ARTICLE_DRAFT_URL:}
+    article-recommend:
+      api-key: ${DIFY_ARTICLE_RECOMMEND_API_KEY:app-zBXmLq9LXjrF8UtuL9d8PhiS}
+      input-var-name: ${DIFY_ARTICLE_RECOMMEND_INPUT_VAR:inputs}
+      input-format: ${DIFY_ARTICLE_RECOMMEND_INPUT_FORMAT:object}
+      response-mode: ${DIFY_ARTICLE_RECOMMEND_RESPONSE_MODE:blocking}
+
+dify-internal:
+  key: ${DIFY_INTERNAL_KEY:}
+
+services:
+  health:
+    base-url: http://${HEALTH_SERVICE_HOST:localhost}:${HEALTH_SERVICE_PORT:8083}
+
+recommend:
+  phase1-enabled: true
+  phase2-enabled: true
+  phase2-min-co-readers: 1
+  phase3-enabled: true
+  milvus-enabled: ${MILVUS_ENABLED:false}
+  phase4-dify-enabled: true
+  cache-ttl-minutes: 20
+  dify-top-n: 20
+  candidate-limit: 200
+
+milvus:
+  enabled: ${MILVUS_ENABLED:false}
+  host: ${MILVUS_HOST:localhost}
+  port: ${MILVUS_PORT:19530}
+  collection: article_knowledge
+  dimension: ${MILVUS_DIMENSION:384}
+  metric-type: COSINE
+  index-type: IVF_FLAT
+  index-nlist: 128
+  sync-on-startup: true
+  embedding:
+    provider: ${EMBEDDING_PROVIDER:local}
+    openai-base-url: ${EMBEDDING_BASE_URL:}
+    openai-api-key: ${EMBEDDING_API_KEY:}
+    openai-model: ${EMBEDDING_MODEL:text-embedding-3-small}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

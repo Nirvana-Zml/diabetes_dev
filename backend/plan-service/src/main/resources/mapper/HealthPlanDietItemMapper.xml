@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.plan.mapper.HealthPlanDietItemMapper">
+
+    <insert id="insert">
+        INSERT INTO HEALTH_PLAN_DIET_ITEMS (
+            ITEM_ID, PLAN_ID, MEAL_PERIOD, FOOD_NAME, PORTION, CALORIES, GI_VALUE, NOTE, SORT_ORDER, DEL_FLAG
+        ) VALUES (
+            #{itemId}, #{planId}, #{mealPeriod}, #{foodName}, #{portion}, #{calories}, #{giValue}, #{note}, #{sortOrder}, 0
+        )
+    </insert>
+</mapper>

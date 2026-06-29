@@ -1,0 +1,60 @@
+{
+  "type": "object",
+  "properties": {
+    "query": { "type": "string" },
+    "user_id": { "type": "string" },
+    "daily_calories": { "type": "integer" },
+    "user_profile": {
+      "type": "object",
+      "properties": {
+        "age": { "type": "integer" },
+        "gender": { "type": "string" },
+        "nickname": { "type": "string" }
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "health_profile": {
+      "type": "object",
+      "properties": {
+        "height": { "type": "number" },
+        "weight": { "type": "number" },
+        "bmi": { "type": "number" },
+        "fastingGlucose": { "type": "number" },
+        "exerciseFreq": { "type": "integer" },
+        "dietType": { "type": "string" }
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "risk_data": {
+      "type": "object",
+      "properties": {
+        "riskLevel": { "type": "string" },
+        "riskScore": { "type": "integer" }
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "checkin_data": {
+      "type": "object",
+      "properties": {
+        "recent_days": { "type": "integer" },
+        "total_recent": { "type": "integer" },
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": true
+    }
+  },
+  "required": [],
+  "additionalProperties": true
+}

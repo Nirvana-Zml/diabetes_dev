@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.consultation.mapper.ConsultationSessionMapper">
+
+    <insert id="insert">
+        INSERT INTO CONSULTATION_SESSIONS (
+            SESSION_ID, USER_ID, DOCTOR_ID, STATUS, TITLE, MESSAGE_COUNT,
+            STARTED_AT, DEL_FLAG, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{sessionId}, #{userId}, #{doctorId}, #{status}, #{title}, 0,
+            NOW(), 0, NOW(), NOW()
+        )
+    </insert>
+
+    <select id="findById" resultType="com.diabetes.consultation.entity.ConsultationSession">
+        SELECT SESSION_ID AS sessionId, USER_ID AS userId, DOCTOR_ID AS doctorId,
+               DIFY_CONVERSATION_ID AS difyConversationId, DIFY_WORKFLOW_ID AS difyWorkflowId,
+               STATUS AS status, TITLE AS title, INITIAL_MESSAGE AS initialMessage,
+               LAST_MESSAGE AS lastMessage, LAST_MESSAGE_AT AS lastMessageAt,
+               MESSAGE_COUNT AS messageCount, RATING AS rating, FEEDBACK AS feedback,
+               CLOSE_REASON AS closeReason, STARTED_AT AS startedAt, ENDED_AT AS endedAt
+        FROM CONSULTATION_SESSIONS
+        WHERE SESSION_ID = #{sessionId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findActiveByUserId" resultType="com.diabetes.consultation.entity.ConsultationSession">
+        SELECT SESSION_ID AS sessionId, USER_ID AS userId, DOCTOR_ID AS doctorId,
+               STATUS AS status, STARTED_AT AS startedAt
+        FROM CONSULTATION_SESSIONS
+        WHERE USER_ID = #{userId} AND STATUS = 1 AND DEL_FLAG = 0
+        ORDER BY STARTED_AT DESC
+        LIMIT 1
+    </select>
+
+    <select id="findByUserId" resultType="com.diabetes.consultation.entity.ConsultationSession">
+        SELECT SESSION_ID AS sessionId, USER_ID AS userId, DOCTOR_ID AS doctorId,
+               STATUS AS status, LAST_MESSAGE AS lastMessage, LAST_MESSAGE_AT AS lastMessageAt,
+               MESSAGE_COUNT AS messageCount, RATING AS rating, STARTED_AT AS startedAt, ENDED_AT AS endedAt
+        FROM CONSULTATION_SESSIONS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+        <if test="status != null">
+            AND STATUS = #{status}
+        </if>
+        ORDER BY COALESCE(LAST_MESSAGE_AT, STARTED_AT) DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(1) FROM CONSULTATION_SESSIONS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+        <if test="status != null">
+            AND STATUS = #{status}
+        </if>
+    </select>
+
+    <update id="updateAfterMessage">
+        UPDATE CONSULTATION_SESSIONS
+        SET LAST_MESSAGE = #{lastMessage},
+            LAST_MESSAGE_AT = NOW(),
+            MESSAGE_COUNT = #{messageCount},
+            UPDATED_AT = NOW()
+        WHERE SESSION_ID = #{sessionId}
+    </update>
+
+    <update id="closeSession">
+        UPDATE CONSULTATION_SESSIONS
+        SET STATUS = 2,
+            ENDED_AT = NOW(),
+            RATING = #{rating},
+            FEEDBACK = #{feedback},
+            UPDATED_AT = NOW()
+        WHERE SESSION_ID = #{sessionId} AND STATUS = 1
+    </update>
+</mapper>

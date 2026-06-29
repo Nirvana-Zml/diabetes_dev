@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.checkin.mapper.PresetMapper">
+
+    <select id="findAllFoodCategories" resultType="com.diabetes.checkin.entity.FoodCategory">
+        SELECT CATEGORY_ID AS categoryId, CATEGORY_NAME AS categoryName
+        FROM FOOD_CATEGORIES
+        WHERE DEL_FLAG = 0
+        ORDER BY CATEGORY_NAME ASC
+    </select>
+
+    <select id="findFoodPresets" resultType="com.diabetes.checkin.entity.FoodPreset">
+        SELECT FOOD_ID AS foodId, CATEGORY_ID AS categoryId, FOOD_NAME AS foodName,
+               CALORIES_PER_GRAM AS caloriesPerGram, IS_LIQUID AS isLiquid, ML_TO_G_RATIO AS mlToGRatio
+        FROM FOOD_PRESETS
+        WHERE DEL_FLAG = 0
+        <if test="categoryId != null and categoryId != ''">
+            AND CATEGORY_ID = #{categoryId}
+        </if>
+        ORDER BY FOOD_NAME ASC
+    </select>
+
+    <select id="findFoodPresetById" resultType="com.diabetes.checkin.entity.FoodPreset">
+        SELECT FOOD_ID AS foodId, CATEGORY_ID AS categoryId, FOOD_NAME AS foodName,
+               CALORIES_PER_GRAM AS caloriesPerGram, IS_LIQUID AS isLiquid, ML_TO_G_RATIO AS mlToGRatio
+        FROM FOOD_PRESETS
+        WHERE FOOD_ID = #{foodId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findCategoryNameById" resultType="string">
+        SELECT CATEGORY_NAME FROM FOOD_CATEGORIES
+        WHERE CATEGORY_ID = #{categoryId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findAllMedicationPresets" resultType="com.diabetes.checkin.entity.MedicationPreset">
+        SELECT DRUG_ID AS drugId, DRUG_NAME AS drugName
+        FROM MEDICATION_PRESETS
+        WHERE DEL_FLAG = 0
+        ORDER BY DRUG_NAME ASC
+    </select>
+
+    <select id="findMedicationPresetById" resultType="com.diabetes.checkin.entity.MedicationPreset">
+        SELECT DRUG_ID AS drugId, DRUG_NAME AS drugName
+        FROM MEDICATION_PRESETS
+        WHERE DRUG_ID = #{drugId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findAllExercisePresets" resultType="com.diabetes.checkin.entity.ExercisePreset">
+        SELECT EXERCISE_ID AS exerciseId, EXERCISE_NAME AS exerciseName,
+               CALORIES_PER_MINUTE AS caloriesPerMinute
+        FROM EXERCISE_PRESETS
+        WHERE DEL_FLAG = 0
+        ORDER BY EXERCISE_NAME ASC
+    </select>
+
+    <select id="findExercisePresetById" resultType="com.diabetes.checkin.entity.ExercisePreset">
+        SELECT EXERCISE_ID AS exerciseId, EXERCISE_NAME AS exerciseName,
+               CALORIES_PER_MINUTE AS caloriesPerMinute
+        FROM EXERCISE_PRESETS
+        WHERE EXERCISE_ID = #{exerciseId} AND DEL_FLAG = 0
+    </select>
+</mapper>

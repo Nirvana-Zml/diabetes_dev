@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.consultation.mapper.DoctorMapper">
+
+    <select id="findAll" resultType="com.diabetes.consultation.entity.Doctor">
+        SELECT DOCTOR_ID AS doctorId, NAME AS name, TITLE AS title,
+               DEPARTMENT AS department, HOSPITAL AS hospital,
+               AVATAR_ID AS avatarId, INTRODUCTION AS introduction,
+               SPECIALTIES AS specialties, RATING AS rating,
+               CONSULTATION_COUNT AS consultationCount, STATUS AS status
+        FROM DIABETES_DOCTOR.DOCTORS
+        WHERE IS_DELETED = 0
+        <if test="department != null and department != ''">
+            AND DEPARTMENT = #{department}
+        </if>
+        <if test="status != null">
+            AND STATUS = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (NAME LIKE CONCAT('%', #{keyword}, '%')
+              OR DEPARTMENT LIKE CONCAT('%', #{keyword}, '%')
+              OR HOSPITAL LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY STATUS ASC, CONSULTATION_COUNT DESC
+    </select>
+
+    <select id="findById" resultType="com.diabetes.consultation.entity.Doctor">
+        SELECT DOCTOR_ID AS doctorId, NAME AS name, TITLE AS title,
+               DEPARTMENT AS department, HOSPITAL AS hospital,
+               AVATAR_ID AS avatarId, INTRODUCTION AS introduction,
+               SPECIALTIES AS specialties, RATING AS rating,
+               CONSULTATION_COUNT AS consultationCount, STATUS AS status
+        FROM DIABETES_DOCTOR.DOCTORS
+        WHERE DOCTOR_ID = #{doctorId} AND IS_DELETED = 0
+    </select>
+
+    <update id="incrementConsultationCount">
+        UPDATE DIABETES_DOCTOR.DOCTORS
+        SET CONSULTATION_COUNT = CONSULTATION_COUNT + 1
+        WHERE DOCTOR_ID = #{doctorId}
+    </update>
+</mapper>

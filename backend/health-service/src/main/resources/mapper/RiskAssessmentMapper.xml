@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.health.mapper.RiskAssessmentMapper">
+
+    <insert id="insert">
+        INSERT INTO RISK_ASSESSMENTS (
+            ASSESSMENT_ID, USER_ID, HEALTH_RECORD_ID, DIFY_WORKFLOW_ID, RISK_LEVEL, RISK_SCORE,
+            BMI_SNAPSHOT, GLUCOSE_LEVEL, CONFIDENCE, GENERATION_STATUS, REPORT_SUMMARY,
+            AI_RAW_RESPONSE, DEL_FLAG, ASSESSED_AT, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{assessmentId}, #{userId}, #{healthRecordId}, #{difyWorkflowId}, #{riskLevel}, #{riskScore},
+            #{bmiSnapshot}, #{glucoseLevel}, #{confidence}, #{generationStatus}, #{reportSummary},
+            #{aiRawResponse}, 0, NOW(), NOW(), NOW()
+        )
+    </insert>
+
+    <select id="findById" resultType="com.diabetes.health.entity.RiskAssessment">
+        SELECT ASSESSMENT_ID AS assessmentId, USER_ID AS userId, HEALTH_RECORD_ID AS healthRecordId,
+               DIFY_WORKFLOW_ID AS difyWorkflowId, RISK_LEVEL AS riskLevel, RISK_SCORE AS riskScore,
+               BMI_SNAPSHOT AS bmiSnapshot, GLUCOSE_LEVEL AS glucoseLevel, CONFIDENCE AS confidence,
+               GENERATION_STATUS AS generationStatus, REPORT_SUMMARY AS reportSummary,
+               AI_RAW_RESPONSE AS aiRawResponse, ASSESSED_AT AS assessedAt, CREATED_AT AS createdAt
+        FROM RISK_ASSESSMENTS
+        WHERE ASSESSMENT_ID = #{assessmentId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findByUserId" resultType="com.diabetes.health.entity.RiskAssessment">
+        SELECT ASSESSMENT_ID AS assessmentId, USER_ID AS userId, RISK_LEVEL AS riskLevel,
+               RISK_SCORE AS riskScore, ASSESSED_AT AS assessedAt
+        FROM RISK_ASSESSMENTS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+        ORDER BY ASSESSED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(1) FROM RISK_ASSESSMENTS WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findLatestByUserId" resultType="com.diabetes.health.entity.RiskAssessment">
+        SELECT ASSESSMENT_ID AS assessmentId, USER_ID AS userId, HEALTH_RECORD_ID AS healthRecordId,
+               RISK_LEVEL AS riskLevel, RISK_SCORE AS riskScore, BMI_SNAPSHOT AS bmiSnapshot,
+               GLUCOSE_LEVEL AS glucoseLevel, CONFIDENCE AS confidence, REPORT_SUMMARY AS reportSummary,
+               ASSESSED_AT AS assessedAt
+        FROM RISK_ASSESSMENTS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+        ORDER BY ASSESSED_AT DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insertFactor">
+        INSERT INTO RISK_ASSESSMENT_FACTORS (
+            FACTOR_ID, ASSESSMENT_ID, FACTOR_CODE, FACTOR_NAME, WEIGHT, FACTOR_LEVEL, DESCRIPTION, SORT_ORDER, DEL_FLAG
+        ) VALUES (#{factorId}, #{assessmentId}, #{factorCode}, #{factorName}, #{weight}, #{factorLevel}, #{description}, #{sortOrder}, 0)
+    </insert>
+
+    <insert id="insertSuggestion">
+        INSERT INTO RISK_ASSESSMENT_SUGGESTIONS (
+            SUGGESTION_ID, ASSESSMENT_ID, CATEGORY, PRIORITY, CONTENT, SORT_ORDER, DEL_FLAG
+        ) VALUES (#{suggestionId}, #{assessmentId}, #{category}, #{priority}, #{content}, #{sortOrder}, 0)
+    </insert>
+
+    <select id="findFactors" resultType="com.diabetes.health.entity.RiskAssessmentFactor">
+        SELECT FACTOR_ID AS factorId, ASSESSMENT_ID AS assessmentId, FACTOR_NAME AS factorName,
+               WEIGHT AS weight, DESCRIPTION AS description, SORT_ORDER AS sortOrder
+        FROM RISK_ASSESSMENT_FACTORS
+        WHERE ASSESSMENT_ID = #{assessmentId} AND DEL_FLAG = 0
+        ORDER BY SORT_ORDER
+    </select>
+
+    <select id="findSuggestions" resultType="com.diabetes.health.entity.RiskAssessmentSuggestion">
+        SELECT SUGGESTION_ID AS suggestionId, ASSESSMENT_ID AS assessmentId, CATEGORY AS category,
+               PRIORITY AS priority, CONTENT AS content, SORT_ORDER AS sortOrder
+        FROM RISK_ASSESSMENT_SUGGESTIONS
+        WHERE ASSESSMENT_ID = #{assessmentId} AND DEL_FLAG = 0
+        ORDER BY PRIORITY, SORT_ORDER
+    </select>
+</mapper>

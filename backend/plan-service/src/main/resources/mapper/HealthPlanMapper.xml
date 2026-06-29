@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.plan.mapper.HealthPlanMapper">
+
+    <insert id="insert">
+        INSERT INTO HEALTH_PLANS (
+            PLAN_ID, USER_ID, HEALTH_RECORD_ID, RISK_ASSESSMENT_ID, TITLE, SUMMARY,
+            DAILY_CALORIES, MEDICATION_NOTE, SOURCE, VERSION, IS_ACTIVE, IS_FAVORITE,
+            AI_RAW_RESPONSE, DEL_FLAG, GENERATED_AT, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{planId}, #{userId}, #{healthRecordId}, #{riskAssessmentId}, #{title}, #{summary},
+            #{dailyCalories}, #{medicationNote}, #{source}, #{version}, #{isActive}, #{isFavorite},
+            #{aiRawResponse}, 0, NOW(), NOW(), NOW()
+        )
+    </insert>
+
+    <update id="deactivateActivePlans">
+        UPDATE HEALTH_PLANS SET IS_ACTIVE = 0, UPDATED_AT = NOW()
+        WHERE USER_ID = #{userId} AND IS_ACTIVE = 1 AND DEL_FLAG = 0
+    </update>
+
+    <select id="findById" resultType="com.diabetes.plan.entity.HealthPlan">
+        SELECT PLAN_ID AS planId, USER_ID AS userId, TITLE AS title, SUMMARY AS summary,
+               DAILY_CALORIES AS dailyCalories, MEDICATION_NOTE AS medicationNote,
+               VERSION AS version, IS_FAVORITE AS isFavorite, GENERATED_AT AS generatedAt,
+               AI_RAW_RESPONSE AS aiRawResponse
+        FROM HEALTH_PLANS
+        WHERE PLAN_ID = #{planId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findLatestByUserId" resultType="com.diabetes.plan.entity.HealthPlan">
+        SELECT PLAN_ID AS planId, USER_ID AS userId, TITLE AS title, SUMMARY AS summary,
+               DAILY_CALORIES AS dailyCalories, MEDICATION_NOTE AS medicationNote,
+               VERSION AS version, IS_FAVORITE AS isFavorite, GENERATED_AT AS generatedAt,
+               AI_RAW_RESPONSE AS aiRawResponse
+        FROM HEALTH_PLANS
+        WHERE USER_ID = #{userId} AND IS_ACTIVE = 1 AND DEL_FLAG = 0
+        ORDER BY GENERATED_AT DESC
+        LIMIT 1
+    </select>
+
+    <select id="findHistory" resultType="com.diabetes.plan.entity.HealthPlan">
+        SELECT PLAN_ID AS planId, VERSION AS version, DAILY_CALORIES AS dailyCalories,
+               GENERATED_AT AS generatedAt, IS_FAVORITE AS isFavorite
+        FROM HEALTH_PLANS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+        ORDER BY GENERATED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(1) FROM HEALTH_PLANS WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+    </select>
+
+    <update id="updateFavorite">
+        UPDATE HEALTH_PLANS SET IS_FAVORITE = #{isFavorite}, UPDATED_AT = NOW()
+        WHERE PLAN_ID = #{planId} AND DEL_FLAG = 0
+    </update>
+</mapper>

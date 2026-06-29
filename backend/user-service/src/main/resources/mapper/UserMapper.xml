@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.user.mapper.UserMapper">
+
+    <resultMap id="UserMap" type="com.diabetes.user.entity.User">
+        <id column="USER_ID" property="userId"/>
+        <result column="USERNAME" property="username"/>
+        <result column="PASSWORD_HASH" property="passwordHash"/>
+        <result column="PHONE" property="phone"/>
+        <result column="EMAIL" property="email"/>
+        <result column="AVATAR_ID" property="avatarId"/>
+        <result column="NICKNAME" property="nickname"/>
+        <result column="GENDER" property="gender"/>
+        <result column="BIRTH_DATE" property="birthDate" jdbcType="DATE"/>
+        <result column="POINTS" property="points"/>
+        <result column="PRIVACY_SETTINGS" property="privacySettings"/>
+        <result column="IS_DELETED" property="deleted"/>
+        <result column="DELETED_AT" property="deletedAt" jdbcType="TIMESTAMP"/>
+        <result column="CREATED_AT" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="UPDATED_AT" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        USER_ID, USERNAME, PASSWORD_HASH, PHONE, EMAIL, AVATAR_ID, NICKNAME,
+        GENDER, BIRTH_DATE, POINTS, PRIVACY_SETTINGS, IS_DELETED, DELETED_AT,
+        CREATED_AT, UPDATED_AT
+    </sql>
+
+    <select id="findById" resultMap="UserMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM USERS
+        WHERE USER_ID = #{userId} AND IS_DELETED = 0
+    </select>
+
+    <select id="findByUsername" resultMap="UserMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM USERS
+        WHERE USERNAME = #{username} AND IS_DELETED = 0
+    </select>
+
+    <select id="findByPhone" resultMap="UserMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM USERS
+        WHERE PHONE = #{phone} AND IS_DELETED = 0
+    </select>
+
+    <select id="countByUsername" resultType="int">
+        SELECT COUNT(1) FROM USERS WHERE USERNAME = #{username} AND IS_DELETED = 0
+    </select>
+
+    <select id="countByPhone" resultType="int">
+        SELECT COUNT(1) FROM USERS WHERE PHONE = #{phone} AND IS_DELETED = 0
+    </select>
+
+    <insert id="insert">
+        INSERT INTO USERS (
+            USER_ID, USERNAME, PASSWORD_HASH, PHONE, EMAIL, NICKNAME, GENDER,
+            BIRTH_DATE, POINTS, PRIVACY_SETTINGS, IS_DELETED, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{userId}, #{username}, #{passwordHash}, #{phone}, #{email}, #{nickname}, #{gender},
+            #{birthDate}, #{points}, #{privacySettings}, 0, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateProfile">
+        UPDATE USERS SET
+            NICKNAME = #{nickname},
+            PHONE = #{phone},
+            EMAIL = #{email},
+            GENDER = #{gender},
+            BIRTH_DATE = #{birthDate},
+            UPDATED_AT = NOW()
+        WHERE USER_ID = #{userId} AND IS_DELETED = 0
+    </update>
+
+    <update id="updateAvatarId">
+        UPDATE USERS SET AVATAR_ID = #{avatarId}, UPDATED_AT = NOW()
+        WHERE USER_ID = #{userId} AND IS_DELETED = 0
+    </update>
+
+    <update id="updatePassword">
+        UPDATE USERS SET PASSWORD_HASH = #{passwordHash}, UPDATED_AT = NOW()
+        WHERE USER_ID = #{userId} AND IS_DELETED = 0
+    </update>
+
+    <update id="updatePrivacy">
+        UPDATE USERS SET PRIVACY_SETTINGS = #{privacySettings}, UPDATED_AT = NOW()
+        WHERE USER_ID = #{userId} AND IS_DELETED = 0
+    </update>
+</mapper>

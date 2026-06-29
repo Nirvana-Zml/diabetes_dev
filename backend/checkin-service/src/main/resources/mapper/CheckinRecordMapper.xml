@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.checkin.mapper.CheckinRecordMapper">
+
+    <insert id="insert">
+        INSERT INTO CHECKIN_RECORDS (
+            CHECKIN_ID, USER_ID, CHECKIN_TYPE, CHECKIN_DATE, RECORD_TIME,
+            POINTS_EARNED, STREAK_DAYS, DEL_FLAG, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{checkinId}, #{userId}, #{checkinType}, #{checkinDate}, #{recordTime},
+            #{pointsEarned}, #{streakDays}, 0, NOW(), NOW()
+        )
+    </insert>
+
+    <select id="countByUserTypeDate" resultType="int">
+        SELECT COUNT(1) FROM CHECKIN_RECORDS
+        WHERE USER_ID = #{userId} AND CHECKIN_TYPE = #{checkinType}
+          AND CHECKIN_DATE = #{checkinDate} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findByUserAndDateRange" resultType="com.diabetes.checkin.entity.CheckinRecord">
+        SELECT CHECKIN_ID AS checkinId, USER_ID AS userId, CHECKIN_TYPE AS checkinType,
+               CHECKIN_DATE AS checkinDate, RECORD_TIME AS recordTime,
+               POINTS_EARNED AS pointsEarned, STREAK_DAYS AS streakDays
+        FROM CHECKIN_RECORDS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+          AND CHECKIN_DATE BETWEEN #{startDate} AND #{endDate}
+        ORDER BY CHECKIN_DATE, RECORD_TIME
+    </select>
+
+    <select id="findByUserAndDate" resultType="com.diabetes.checkin.entity.CheckinRecord">
+        SELECT CHECKIN_ID AS checkinId, CHECKIN_TYPE AS checkinType, POINTS_EARNED AS pointsEarned
+        FROM CHECKIN_RECORDS
+        WHERE USER_ID = #{userId} AND CHECKIN_DATE = #{checkinDate} AND DEL_FLAG = 0
+    </select>
+
+    <select id="sumPointsByUser" resultType="int">
+        SELECT COALESCE(SUM(POINTS_EARNED), 0) FROM CHECKIN_RECORDS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+    </select>
+
+    <select id="findDistinctDates" resultType="java.time.LocalDate">
+        SELECT DISTINCT CHECKIN_DATE FROM CHECKIN_RECORDS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+          AND CHECKIN_DATE BETWEEN #{startDate} AND #{endDate}
+        ORDER BY CHECKIN_DATE DESC
+    </select>
+
+    <select id="findRecentByUser" resultType="com.diabetes.checkin.entity.CheckinRecord">
+        SELECT CHECKIN_ID AS checkinId, CHECKIN_TYPE AS checkinType, CHECKIN_DATE AS checkinDate,
+               POINTS_EARNED AS pointsEarned, STREAK_DAYS AS streakDays
+        FROM CHECKIN_RECORDS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+          AND CHECKIN_DATE >= #{startDate}
+        ORDER BY CHECKIN_DATE DESC, RECORD_TIME DESC
+        LIMIT 50
+    </select>
+</mapper>

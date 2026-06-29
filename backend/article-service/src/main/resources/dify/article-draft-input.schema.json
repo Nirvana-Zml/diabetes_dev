@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string"
+    },
+    "keywords": {
+      "type": "string"
+    }
+  },
+  "required": ["topic"],
+  "additionalProperties": true
+}

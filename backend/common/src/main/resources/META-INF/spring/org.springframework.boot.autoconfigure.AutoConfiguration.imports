@@ -1,0 +1,2 @@
+com.diabetes.common.config.CommonAutoConfiguration
+com.diabetes.common.config.MinioAutoConfiguration

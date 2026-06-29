@@ -1,0 +1,59 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: checkin-service
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3307}/DIABETES_CHECKIN?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_ROOT_PASSWORD:mysql123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3s
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: ${JWT_SECRET:diabetes_jwt_secret_key_at_least_32_chars}
+
+dify:
+  base-url: ${DIFY_BASE_URL:http://host.docker.internal:58080}
+  timeout-seconds: ${DIFY_TIMEOUT_SECONDS:120}
+  workflows:
+    checkin-analysis:
+      api-key: ${DIFY_CHECKIN_API_KEY:app-kFnPhD8YUmCfG2DeHubp1Scc}
+      # 开始节点 7 个独立变量平铺传入 API inputs：query/user_id/start_date/end_date/checkin_stats/trend_data/user_profile
+      response-mode: ${DIFY_CHECKIN_RESPONSE_MODE:blocking}
+
+services:
+  health:
+    base-url: http://${HEALTH_SERVICE_HOST:localhost}:${HEALTH_SERVICE_PORT:8083}
+
+dify-internal:
+  key: ${DIFY_INTERNAL_KEY:}
+
+minio:
+  endpoint: http://${MINIO_HOST:localhost}:${MINIO_PORT:9000}
+  access-key: ${MINIO_USER:minio}
+  secret-key: ${MINIO_PASSWORD:minio123456}
+  profile-bucket: profile
+  checkin-bucket: checkin
+  public-base-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
