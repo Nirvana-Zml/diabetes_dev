@@ -24,6 +24,7 @@ import java.util.*;
 
 /**
  * Dify 风险评估工作流期望的响应体（Webhook / Workflow 输出节点）：
+ * 
  * <pre>
  * {
  *   "risk_assessment": {
@@ -42,6 +43,7 @@ import java.util.*;
  *   }
  * }
  * </pre>
+ * 
  * 也支持嵌套在 data.outputs.risk_assessment 下（标准 Workflow Run 响应）。
  */
 @Service
@@ -66,20 +68,20 @@ public class RiskAssessmentService {
     private final String difyInternalKey;
 
     public RiskAssessmentService(HealthRecordService healthRecordService,
-                                 RiskAssessmentMapper riskAssessmentMapper,
-                                 MedicalCalculator medicalCalculator,
-                                 DifyClient difyClient,
-                                 UserServiceClient userServiceClient,
-                                 ObjectMapper objectMapper,
-                                 @Value("${dify.base-url:http://localhost}") String difyBaseUrl,
-                                 @Value("${dify.workflows.risk-assessment.api-key:}") String difyApiKey,
-                                 @Value("${dify.workflows.risk-assessment.webhook-path:}") String difyWebhookPath,
-                                 @Value("${dify.workflows.risk-assessment.response-mode:blocking}") String difyResponseMode,
-                                 @Value("${dify.workflows.risk-assessment.trigger-mode:api}") String difyTriggerMode,
-                                 @Value("${dify.workflows.risk-assessment.webhook-payload-mode:auto}") String difyWebhookPayloadMode,
-                                 @Value("${dify.workflows.risk-assessment.input-var-name:inputs}") String difyInputVarName,
-                                 @Value("${dify.workflows.risk-assessment.input-format:object}") String difyInputFormat,
-                                 @Value("${dify-internal.key:}") String difyInternalKey) {
+            RiskAssessmentMapper riskAssessmentMapper,
+            MedicalCalculator medicalCalculator,
+            DifyClient difyClient,
+            UserServiceClient userServiceClient,
+            ObjectMapper objectMapper,
+            @Value("${dify.base-url:http://localhost}") String difyBaseUrl,
+            @Value("${dify.workflows.risk-assessment.api-key:}") String difyApiKey,
+            @Value("${dify.workflows.risk-assessment.webhook-path:}") String difyWebhookPath,
+            @Value("${dify.workflows.risk-assessment.response-mode:blocking}") String difyResponseMode,
+            @Value("${dify.workflows.risk-assessment.trigger-mode:api}") String difyTriggerMode,
+            @Value("${dify.workflows.risk-assessment.webhook-payload-mode:auto}") String difyWebhookPayloadMode,
+            @Value("${dify.workflows.risk-assessment.input-var-name:inputs}") String difyInputVarName,
+            @Value("${dify.workflows.risk-assessment.input-format:object}") String difyInputFormat,
+            @Value("${dify-internal.key:}") String difyInternalKey) {
         this.healthRecordService = healthRecordService;
         this.riskAssessmentMapper = riskAssessmentMapper;
         this.medicalCalculator = medicalCalculator;
@@ -91,9 +93,11 @@ public class RiskAssessmentService {
         this.difyWebhookPath = difyWebhookPath;
         this.difyResponseMode = difyResponseMode;
         this.difyTriggerMode = difyTriggerMode == null ? "api" : difyTriggerMode.trim().toLowerCase();
-        this.difyWebhookPayloadMode = difyWebhookPayloadMode == null ? "auto" : difyWebhookPayloadMode.trim().toLowerCase();
+        this.difyWebhookPayloadMode = difyWebhookPayloadMode == null ? "auto"
+                : difyWebhookPayloadMode.trim().toLowerCase();
         this.difyInputVarName = (difyInputVarName == null || difyInputVarName.isBlank())
-                ? DifyRiskAssessmentWorkflowContract.INPUT_VARIABLE_NAME : difyInputVarName.trim();
+                ? DifyRiskAssessmentWorkflowContract.INPUT_VARIABLE_NAME
+                : difyInputVarName.trim();
         this.difyInputFormat = difyInputFormat == null ? "object" : difyInputFormat.trim().toLowerCase();
         this.difyInternalKey = difyInternalKey;
     }
@@ -104,9 +108,11 @@ public class RiskAssessmentService {
         int age = resolveAge(userProfile);
         String gender = resolveGender(userProfile);
 
-        MedicalCalculator.BmiResult bmiResult = medicalCalculator.calculateBmi(request.getHeight(), request.getWeight());
+        MedicalCalculator.BmiResult bmiResult = medicalCalculator.calculateBmi(request.getHeight(),
+                request.getWeight());
         MedicalCalculator.GlucoseResult glucoseResult = medicalCalculator.evaluateGlucose(request.getFastingGlucose());
-        MedicalCalculator.BaseRiskResult baseRisk = medicalCalculator.calculateBaseRisk(request, bmiResult, glucoseResult, age);
+        MedicalCalculator.BaseRiskResult baseRisk = medicalCalculator.calculateBaseRisk(request, bmiResult,
+                glucoseResult, age);
 
         String recordId = healthRecordService.saveFromQuestionnaire(userId, request, bmiResult.bmi());
 
@@ -137,7 +143,8 @@ public class RiskAssessmentService {
         riskLevel = mapDifyRiskLevel(assessmentNode.path("risk_level").asText("medium"));
         confidence = assessmentNode.path("confidence").asText(confidence);
         analysis = assessmentNode.path("analysis").asText(analysis);
-        glucoseLevel = mapGlucoseLevelName(assessmentNode.path("glucose_level").asText(glucoseResult.glucoseLevelName()));
+        glucoseLevel = mapGlucoseLevelName(
+                assessmentNode.path("glucose_level").asText(glucoseResult.glucoseLevelName()));
         if (assessmentNode.has("risk_factors")) {
             factors = objectMapper.convertValue(assessmentNode.get("risk_factors"), List.class);
         }
@@ -206,11 +213,12 @@ public class RiskAssessmentService {
     }
 
     private JsonNode callDify(String userId, RiskAssessRequest request, Map<String, Object> userProfile,
-                              int age, String gender,
-                              MedicalCalculator.BmiResult bmiResult,
-                              MedicalCalculator.GlucoseResult glucoseResult,
-                              MedicalCalculator.BaseRiskResult baseRisk) {
-        Map<String, Object> payload = buildDifyPayload(userId, request, userProfile, age, gender, bmiResult, glucoseResult, baseRisk);
+            int age, String gender,
+            MedicalCalculator.BmiResult bmiResult,
+            MedicalCalculator.GlucoseResult glucoseResult,
+            MedicalCalculator.BaseRiskResult baseRisk) {
+        Map<String, Object> payload = buildDifyPayload(userId, request, userProfile, age, gender, bmiResult,
+                glucoseResult, baseRisk);
         if (payload.isEmpty()) {
             throw new BusinessException(500, "Dify 请求体构建失败，无法发起工作流调用");
         }
@@ -253,7 +261,8 @@ public class RiskAssessmentService {
      * 请求体：{@code { "inputs": { user_id, user_profile, questionnaire, medical_calc_results, risk_factors } }}
      */
     private Map<String, Object> buildWorkflowInputs(Map<String, Object> payload) {
-        Map<String, Object> normalized = DifyRiskAssessmentWorkflowContract.ensureStringEncodedInputs(payload, objectMapper);
+        Map<String, Object> normalized = DifyRiskAssessmentWorkflowContract.ensureStringEncodedInputs(payload,
+                objectMapper);
         if (difyInputVarName == null || difyInputVarName.isBlank() || "flat".equalsIgnoreCase(difyInputVarName)) {
             return DifyJsonSchema.flatWorkflowInputs(normalized);
         }
@@ -261,10 +270,10 @@ public class RiskAssessmentService {
     }
 
     private Map<String, Object> buildDifyPayload(String userId, RiskAssessRequest request,
-                                                  Map<String, Object> userProfile, int age, String gender,
-                                                  MedicalCalculator.BmiResult bmiResult,
-                                                  MedicalCalculator.GlucoseResult glucoseResult,
-                                                  MedicalCalculator.BaseRiskResult baseRisk) {
+            Map<String, Object> userProfile, int age, String gender,
+            MedicalCalculator.BmiResult bmiResult,
+            MedicalCalculator.GlucoseResult glucoseResult,
+            MedicalCalculator.BaseRiskResult baseRisk) {
         try {
             Map<String, Object> questionnaire = objectMapper.convertValue(request, Map.class);
             Map<String, Object> profile = new LinkedHashMap<>(userProfile);
@@ -275,8 +284,7 @@ public class RiskAssessmentService {
                     "bmi", bmiResult.bmi(),
                     "bmiLevel", bmiResult.bmiLevel(),
                     "glucoseLevel", glucoseResult.glucoseLevelName(),
-                    "baseRiskScore", baseRisk.baseRiskScore()
-            );
+                    "baseRiskScore", baseRisk.baseRiskScore());
             return DifyRiskAssessmentWorkflowContract.buildInputObject(
                     userId, profile, questionnaire, medicalCalc, baseRisk.riskFactors(), objectMapper);
         } catch (Exception e) {
@@ -284,13 +292,16 @@ public class RiskAssessmentService {
         }
     }
 
-    private JsonNode extractRiskAssessment(JsonNode difyResponse) {
+    JsonNode extractRiskAssessment(JsonNode difyResponse) {
         JsonNode assessment = difyResponse.path("risk_assessment");
-        if (!assessment.isMissingNode()) return assessment;
+        if (!assessment.isMissingNode())
+            return assessment;
         assessment = difyResponse.path("data").path("outputs").path("risk_assessment");
-        if (!assessment.isMissingNode()) return assessment;
+        if (!assessment.isMissingNode())
+            return assessment;
         assessment = difyResponse.path("outputs").path("risk_assessment");
-        if (!assessment.isMissingNode()) return assessment;
+        if (!assessment.isMissingNode())
+            return assessment;
 
         // 部分工作流将 JSON 放在 text 输出中
         JsonNode text = difyResponse.path("data").path("outputs").path("text");
@@ -301,8 +312,10 @@ public class RiskAssessmentService {
             try {
                 JsonNode parsed = objectMapper.readTree(text.asText());
                 JsonNode fromText = parsed.path("risk_assessment");
-                if (!fromText.isMissingNode()) return fromText;
-                if (parsed.has("risk_score")) return parsed;
+                if (!fromText.isMissingNode())
+                    return fromText;
+                if (parsed.has("risk_score"))
+                    return parsed;
             } catch (Exception e) {
                 log.debug("无法从 Dify text 输出解析 risk_assessment: {}", e.getMessage());
             }
@@ -310,9 +323,10 @@ public class RiskAssessmentService {
         return objectMapper.missingNode();
     }
 
-    private int resolveAge(Map<String, Object> profile) {
+    int resolveAge(Map<String, Object> profile) {
         Object birthDate = profile.get("birth_date");
-        if (birthDate == null) return 0;
+        if (birthDate == null)
+            return 0;
         try {
             return Period.between(LocalDate.parse(birthDate.toString()), LocalDate.now()).getYears();
         } catch (Exception e) {
@@ -320,9 +334,10 @@ public class RiskAssessmentService {
         }
     }
 
-    private String resolveGender(Map<String, Object> profile) {
+    String resolveGender(Map<String, Object> profile) {
         Object gender = profile.get("gender");
-        if (gender == null) return "unknown";
+        if (gender == null)
+            return "unknown";
         return switch (Integer.parseInt(gender.toString())) {
             case 1 -> "male";
             case 2 -> "female";
@@ -389,15 +404,13 @@ public class RiskAssessmentService {
                         "thresholds", List.of(
                                 Map.of("level", "low", "max", 30, "color", "#43A047"),
                                 Map.of("level", "medium", "max", 60, "color", "#F57C00"),
-                                Map.of("level", "high", "max", 100, "color", "#E53935")
-                        )
-                )
-        );
+                                Map.of("level", "high", "max", 100, "color", "#E53935"))));
     }
 
     private List<SuggestionItem> parseSuggestions(JsonNode node) {
         List<SuggestionItem> list = new ArrayList<>();
-        if (!node.isArray()) return list;
+        if (!node.isArray())
+            return list;
         for (JsonNode item : node) {
             if (item.isTextual()) {
                 list.add(new SuggestionItem(3, 2, item.asText()));
@@ -405,8 +418,7 @@ public class RiskAssessmentService {
                 list.add(new SuggestionItem(
                         item.path("category").asInt(3),
                         item.path("priority").asInt(2),
-                        item.path("content").asText("")
-                ));
+                        item.path("content").asText("")));
             }
         }
         return list.isEmpty() ? defaultSuggestionItems() : list;
@@ -416,11 +428,11 @@ public class RiskAssessmentService {
         return List.of(
                 new SuggestionItem(1, 1, "控制饮食，减少高糖高脂食物摄入"),
                 new SuggestionItem(2, 2, "每周至少运动5次，每次30分钟以上"),
-                new SuggestionItem(4, 1, "定期监测空腹及餐后血糖")
-        );
+                new SuggestionItem(4, 1, "定期监测空腹及餐后血糖"));
     }
 
-    private record SuggestionItem(int category, int priority, String content) {}
+    private record SuggestionItem(int category, int priority, String content) {
+    }
 
     private int mapDifyRiskLevel(String level) {
         return switch (level) {
@@ -439,7 +451,8 @@ public class RiskAssessmentService {
     }
 
     private String confidenceName(Integer confidence) {
-        if (confidence == null) return "medium";
+        if (confidence == null)
+            return "medium";
         return switch (confidence) {
             case 1 -> "low";
             case 3 -> "high";
@@ -456,7 +469,8 @@ public class RiskAssessmentService {
     }
 
     private String glucoseLevelName(Integer level) {
-        if (level == null) return "normal";
+        if (level == null)
+            return "normal";
         return switch (level) {
             case 2 -> "prediabetes";
             case 3 -> "diabetes";
