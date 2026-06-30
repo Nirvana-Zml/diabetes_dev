@@ -69,7 +69,7 @@ public class CheckinMgmtService {
                 JsonNode response = callDifyWorkflow(userId, payload);
                 assertWorkflowSucceeded(response);
                 Map<String, Object> parsed = parseBehaviorAnalysis(response);
-                if (parsed != null && parsed.containsKey("summary")) {
+                if (parsed != null) {
                     parsed.put("source", "dify");
                     return parsed;
                 }
