@@ -4,6 +4,17 @@ server:
 spring:
   application:
     name: user-service
+  mail:
+    host: smtp.qq.com
+    port: 465
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    protocol: smtps
+    default-encoding: UTF-8
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.ssl.enable: true
+      mail.smtp.ssl.trust: smtp.qq.com
   servlet:
     multipart:
       max-file-size: 2MB
@@ -34,11 +45,25 @@ jwt:
 dify:
   internal-key: ${DIFY_INTERNAL_KEY:LoginAuth2026}
 
+dify-internal:
+  key: ${DIFY_INTERNAL_KEY:LoginAuth2026}
+
+services:
+  health:
+    base-url: http://${HEALTH_SERVICE_HOST:localhost}:${HEALTH_SERVICE_PORT:8083}
+  checkin:
+    base-url: http://${CHECKIN_SERVICE_HOST:localhost}:${CHECKIN_SERVICE_PORT:8084}
+  plan:
+    base-url: http://${PLAN_SERVICE_HOST:localhost}:${PLAN_SERVICE_PORT:8086}
+  consultation:
+    base-url: http://${CONSULTATION_SERVICE_HOST:localhost}:${CONSULTATION_SERVICE_PORT:8085}
+
 minio:
   endpoint: http://${MINIO_HOST:localhost}:${MINIO_PORT:9000}
   access-key: ${MINIO_USER:minio}
   secret-key: ${MINIO_PASSWORD:minio123456}
   profile-bucket: profile
+  export-bucket: export
   public-base-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
 
 management:

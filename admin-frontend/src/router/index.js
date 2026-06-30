@@ -23,6 +23,12 @@ const router = createRouter({
       component: () => import('@/views/Articles/index.vue'),
       meta: { title: '资讯管理' },
     },
+    {
+      path: '/videos',
+      name: 'AdminVideos',
+      component: () => import('@/views/Videos/index.vue'),
+      meta: { title: '科普视频管理' },
+    },
   ],
 })
 

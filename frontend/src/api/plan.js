@@ -5,6 +5,26 @@ import { fetchBackendSSE } from '@/utils/sse'
 import { normalizePlan, toSnakeCase } from '@/utils/normalize'
 import { mockHealthPlan } from '@/mock/data'
 
+function parseFavoriteToggle(res) {
+  if (res == null || typeof res === 'string') return null
+  if (typeof res !== 'object') return null
+
+  if (res.data != null && typeof res.data === 'object' && !Array.isArray(res.data)) {
+    const inner = parseFavoriteToggle(res.data)
+    if (inner !== null) return inner
+  }
+
+  if ('favorited' in res) {
+    return res.favorited === true || res.favorited === 1 || res.favorited === '1'
+  }
+
+  const normalized = toSnakeCase(res)
+  const flag = normalized.is_favorite
+  if (flag === false || flag === 0 || flag === '0') return false
+  if (flag === true || flag === 1 || flag === '1') return true
+  return null
+}
+
 const STAGE_MAP = {
   stage_calorie: 'calorie',
   stage_diet: 'diet',
@@ -75,7 +95,25 @@ export async function getPlanHistory(params = {}) {
   return { list: plans, total: data.total ?? plans.length }
 }
 
-/** POST /api/plan/{id}/favorite */
-export function togglePlanFavorite(id) {
-  return post(`/plan/${id}/favorite`, {}, { mockFn: async () => ({ favorited: true }) })
+/** POST /api/plan/{id}/favorite — 切换收藏状态 */
+const mockFavoritePlanIds = new Set()
+
+export function togglePlanFavorite(id, currentlyFavorited = false) {
+  return post(`/plan/${id}/favorite`, {}, {
+    mockFn: async () => {
+      if (mockFavoritePlanIds.has(id)) {
+        mockFavoritePlanIds.delete(id)
+        return { favorited: false }
+      }
+      mockFavoritePlanIds.add(id)
+      return { favorited: true }
+    },
+  }).then((res) => {
+    let favorited = parseFavoriteToggle(res)
+    if (favorited === null) {
+      // 旧版接口仅返回「收藏成功」等文案，按当前 UI 状态取反
+      favorited = !currentlyFavorited
+    }
+    return { favorited }
+  })
 }

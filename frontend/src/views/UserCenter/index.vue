@@ -1,53 +1,71 @@
 <template>
   <SiteLayout title="个人中心">
 
-    <div class="page-container" v-loading="pageLoading">
+    <div class="page-container uc-page" v-loading="pageLoading">
       <!-- AI 异常指标预警 -->
-      <el-alert
+      <div
         v-if="healthAlert?.has_alert"
-        :title="healthAlert.message"
-        :type="healthAlert.level === 'error' ? 'error' : 'warning'"
-        show-icon
-        :closable="false"
         class="alert-banner"
-      />
-
-      <!-- 个人信息卡片 -->
-      <div class="profile-hero">
-        <div class="profile-main">
-          <el-avatar :size="76" :src="profile?.avatar_url" class="avatar" />
-          <div class="profile-text">
-            <h2>{{ profile?.nickname || '用户' }}</h2>
-            <p class="username">@{{ profile?.username }}</p>
-            <div class="badges">
-              <span class="badge points"><el-icon><Coin /></el-icon> {{ profile?.points ?? 0 }} 积分</span>
-              <span class="badge streak"><el-icon><Calendar /></el-icon> 连续 {{ profile?.streak_days ?? 0 }} 天</span>
-            </div>
-          </div>
-          <el-button circle :icon="Edit" @click="showProfileEdit = true" />
-        </div>
-        <div class="profile-extra">
-          <span>{{ GENDER_LABELS[profile?.gender] || '—' }}</span>
-          <span v-if="profile?.birth_date">· {{ profile.birth_date }}</span>
-          <span v-if="profile?.phone">· {{ profile.phone }}</span>
-        </div>
+        :class="healthAlert.level === 'error' ? 'alert-banner--error' : 'alert-banner--warning'"
+      >
+        <svg class="alert-banner__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <p class="alert-banner__text">{{ healthAlert.message }}</p>
       </div>
 
-      <!-- 快捷数据概览 -->
-      <el-row :gutter="10" class="stat-row">
-        <el-col :span="8" v-for="stat in quickStats" :key="stat.label">
-          <div class="stat-card" @click="stat.action?.()">
-            <div class="stat-value">{{ stat.value }}</div>
-            <div class="stat-label">{{ stat.label }}</div>
+      <div class="uc-layout">
+        <!-- 左侧：个人信息与统计 -->
+        <aside class="uc-sidebar">
+          <div class="profile-hero">
+            <button type="button" class="profile-edit-btn" aria-label="编辑资料" @click="showProfileEdit = true">
+              <el-icon><Edit /></el-icon>
+            </button>
+            <div class="profile-hero__avatar-wrap">
+              <el-avatar :size="80" :src="profile?.avatar_url" class="avatar" />
+            </div>
+            <div class="profile-text">
+              <h2>{{ profile?.nickname || '用户' }}</h2>
+              <p class="username">@{{ profile?.username }}</p>
+              <div class="badges">
+                <span class="badge"><el-icon><Coin /></el-icon> {{ profile?.points ?? 0 }} 积分</span>
+                <span class="badge"><el-icon><Calendar /></el-icon> 连续 {{ profile?.streak_days ?? 0 }} 天</span>
+              </div>
+              <p class="profile-extra">
+                <span>{{ GENDER_LABELS[profile?.gender] || '—' }}</span>
+                <span v-if="profile?.birth_date"> · {{ profile.birth_date }}</span>
+                <span v-if="profile?.phone"> · {{ profile.phone }}</span>
+              </p>
+            </div>
           </div>
-        </el-col>
-      </el-row>
 
+          <div class="stat-stack">
+            <div
+              v-for="stat in quickStats"
+              :key="stat.label"
+              class="stat-card"
+              @click="stat.action?.()"
+            >
+              <p class="stat-value">{{ stat.value }}</p>
+              <p class="stat-label">{{ stat.label }}</p>
+            </div>
+          </div>
+
+          <button type="button" class="logout-btn" @click="handleLogout">退出登录</button>
+        </aside>
+
+        <!-- 右侧：健康档案与服务 -->
+        <div class="uc-main">
       <!-- AI 健康趋势总结 -->
       <div class="section-card trend-card">
         <div class="section-header">
-          <h3 class="section-title"><el-icon><TrendCharts /></el-icon> 月度健康趋势</h3>
-          <el-tag size="small" type="info">AI 总结</el-tag>
+          <div class="section-title-wrap">
+            <svg class="section-title-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <h3 class="section-title">月度健康趋势</h3>
+          </div>
+          <span class="ai-tag">AI 总结</span>
         </div>
         <p class="trend-text">{{ trendSummary || '暂无足够数据生成趋势分析' }}</p>
       </div>
@@ -56,103 +74,165 @@
       <div class="section-card">
         <div class="section-header">
           <h3 class="section-title">健康档案</h3>
-          <el-button link type="primary" @click="showHealthEdit = true">编辑</el-button>
+          <button type="button" class="text-link" @click="showHealthEdit = true">编辑</button>
         </div>
-        <el-descriptions :column="2" border size="small">
-          <el-descriptions-item label="身高">{{ health.height }} cm</el-descriptions-item>
-          <el-descriptions-item label="体重">{{ health.weight }} kg</el-descriptions-item>
-          <el-descriptions-item label="BMI">
-            <span :class="bmiClass">{{ health.bmi }}</span>
-          </el-descriptions-item>
-          <el-descriptions-item label="空腹血糖">
-            <span :class="glucoseClass">{{ health.fasting_glucose }} mmol/L</span>
-          </el-descriptions-item>
-          <el-descriptions-item label="餐后2h血糖">{{ health.postprandial_glucose ?? '—' }} mmol/L</el-descriptions-item>
-          <el-descriptions-item label="糖化血红蛋白">{{ health.hba1c ?? '—' }} %</el-descriptions-item>
-          <el-descriptions-item label="血压">{{ health.systolic_bp }}/{{ health.diastolic_bp }} mmHg</el-descriptions-item>
-          <el-descriptions-item label="糖尿病类型">{{ DIABETES_TYPE_LABELS[health.diabetes_type] || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="运动频率">{{ EXERCISE_LABELS[health.exercise_freq] || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="饮食偏好">{{ DIET_LABELS[health.diet_type] || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="吸烟">{{ SMOKING_LABELS[health.smoking] || '—' }}</el-descriptions-item>
-          <el-descriptions-item label="家族史">{{ health.family_history ? '有' : '无' }}</el-descriptions-item>
-          <el-descriptions-item label="既往病史" :span="2">{{ formatMedicalHistory(health) }}</el-descriptions-item>
-          <el-descriptions-item label="当前用药" :span="2">{{ formatMedication(health) }}</el-descriptions-item>
-        </el-descriptions>
+        <div class="health-grid">
+          <div class="health-row">
+            <span class="health-label">身高</span>
+            <span class="health-value">{{ health.height }} cm</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">体重</span>
+            <span class="health-value">{{ health.weight }} kg</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">BMI</span>
+            <span class="health-value" :class="bmiClass">{{ health.bmi }}</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">空腹血糖</span>
+            <span class="health-value" :class="glucoseClass">{{ health.fasting_glucose }} mmol/L</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">餐后2h血糖</span>
+            <span class="health-value">{{ health.postprandial_glucose ?? '—' }} mmol/L</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">糖化血红蛋白</span>
+            <span class="health-value">{{ health.hba1c ?? '—' }} %</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">血压</span>
+            <span class="health-value">{{ health.systolic_bp }}/{{ health.diastolic_bp }} mmHg</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">糖尿病类型</span>
+            <span class="health-value" :class="{ 'health-value--muted': !health.diabetes_type }">
+              {{ DIABETES_TYPE_LABELS[health.diabetes_type] || '—' }}
+            </span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">运动频率</span>
+            <span class="health-value" :class="{ 'health-value--muted': !health.exercise_freq }">
+              {{ EXERCISE_LABELS[health.exercise_freq] || '—' }}
+            </span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">饮食偏好</span>
+            <span class="health-value">{{ DIET_LABELS[health.diet_type] || '—' }}</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">吸烟</span>
+            <span class="health-value" :class="{ 'health-value--muted': !health.smoking }">
+              {{ SMOKING_LABELS[health.smoking] || '—' }}
+            </span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">家族史</span>
+            <span class="health-value">{{ health.family_history ? '有' : '无' }}</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">既往病史</span>
+            <span class="health-value">{{ formatMedicalHistory(health) }}</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">当前用药</span>
+            <span class="health-value">{{ formatMedication(health) }}</span>
+          </div>
+        </div>
         <p v-if="health.recorded_at" class="record-time">最近更新：{{ formatTime(health.recorded_at) }}</p>
       </div>
 
-      <!-- 功能入口：我的服务 -->
-      <div class="section-card">
-        <h3 class="section-title menu-group-title">我的服务</h3>
-        <div
-          v-for="item in serviceMenus"
-          :key="item.key"
-          class="menu-item"
-          @click="handleMenu(item)"
-        >
-          <el-icon :size="20" color="#0d9488"><component :is="item.icon" /></el-icon>
-          <span class="menu-label">{{ item.label }}</span>
-          <span v-if="item.desc" class="menu-desc">{{ item.desc }}</span>
-          <el-icon class="arrow"><ArrowRight /></el-icon>
+      <div class="menu-row">
+        <!-- 功能入口：我的服务 -->
+        <div class="section-card menu-row__item">
+          <h3 class="section-title menu-group-title">我的服务</h3>
+          <div class="menu-list">
+            <div
+              v-for="item in serviceMenus"
+              :key="item.key"
+              class="menu-item"
+              @click="handleMenu(item)"
+            >
+              <div class="menu-item__left">
+                <div class="menu-icon menu-icon--primary">
+                  <el-icon :size="20"><component :is="item.icon" /></el-icon>
+                </div>
+                <span class="menu-label">{{ item.label }}</span>
+              </div>
+              <div class="menu-item__right">
+                <span v-if="item.desc" class="menu-desc">{{ item.desc }}</span>
+                <el-icon class="arrow"><ArrowRight /></el-icon>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <!-- 数据与设置 -->
-      <div class="section-card">
-        <h3 class="section-title menu-group-title">数据与设置</h3>
-        <div
-          v-for="item in settingMenus"
-          :key="item.key"
-          class="menu-item"
-          @click="handleMenu(item)"
-        >
-          <el-icon :size="20" color="#606266"><component :is="item.icon" /></el-icon>
-          <span class="menu-label">{{ item.label }}</span>
-          <el-icon class="arrow"><ArrowRight /></el-icon>
+        <!-- 数据与设置 -->
+        <div class="section-card menu-row__item">
+          <h3 class="section-title menu-group-title">数据与设置</h3>
+          <div class="menu-list">
+            <div
+              v-for="item in settingMenus"
+              :key="item.key"
+              class="menu-item"
+              @click="handleMenu(item)"
+            >
+              <div class="menu-item__left">
+                <div class="menu-icon menu-icon--gray">
+                  <el-icon :size="20"><component :is="item.icon" /></el-icon>
+                </div>
+                <span class="menu-label">{{ item.label }}</span>
+              </div>
+              <el-icon class="arrow"><ArrowRight /></el-icon>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- 隐私与通知 -->
       <div class="section-card">
-        <h3 class="section-title">隐私与通知</h3>
-        <div class="switch-row">
-          <div>
-            <div class="switch-label">健康数据可见性</div>
-            <div class="switch-desc">医生问诊时可查看您的健康档案</div>
+        <h3 class="section-title privacy-title">隐私与通知</h3>
+        <div class="switch-list">
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">健康数据可见性</div>
+              <div class="switch-desc">医生问诊时可查看您的健康档案</div>
+            </div>
+            <el-switch v-model="privacy.data_visible" @change="savePrivacy" />
           </div>
-          <el-switch v-model="privacy.data_visible" @change="savePrivacy" />
-        </div>
-        <div class="switch-row">
-          <div>
-            <div class="switch-label">打卡提醒</div>
-            <div class="switch-desc">未打卡时段推送提醒</div>
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">打卡提醒</div>
+              <div class="switch-desc">未打卡时段推送提醒</div>
+            </div>
+            <el-switch v-model="privacy.checkin_notify" @change="savePrivacy" />
           </div>
-          <el-switch v-model="privacy.checkin_notify" @change="savePrivacy" />
-        </div>
-        <div class="switch-row">
-          <div>
-            <div class="switch-label">问诊消息通知</div>
-            <div class="switch-desc">医生回复时通知您</div>
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">问诊消息通知</div>
+              <div class="switch-desc">医生回复时通知您</div>
+            </div>
+            <el-switch v-model="privacy.consult_notify" @change="savePrivacy" />
           </div>
-          <el-switch v-model="privacy.consult_notify" @change="savePrivacy" />
-        </div>
-        <div class="switch-row">
-          <div>
-            <div class="switch-label">健康资讯推送</div>
-            <div class="switch-desc">接收个性化健康资讯</div>
+          <div class="switch-row">
+            <div>
+              <div class="switch-label">健康资讯推送</div>
+              <div class="switch-desc">接收个性化健康资讯</div>
+            </div>
+            <el-switch v-model="privacy.marketing_notify" @change="savePrivacy" />
           </div>
-          <el-switch v-model="privacy.marketing_notify" @change="savePrivacy" />
         </div>
       </div>
-
-      <el-button type="danger" plain class="logout-btn" @click="handleLogout">退出登录</el-button>
+        </div>
+      </div>
     </div>
 
     <ProfileEditDialog v-model="showProfileEdit" :profile="profile" @saved="onProfileSaved" />
     <HealthRecordDialog v-model="showHealthEdit" :record="health" @saved="onHealthSaved" />
     <ExportDialog v-model="showExport" />
     <ConsultationDrawer v-model="showConsultations" />
-    <SecurityDialog v-model="showSecurity" :profile="profile" />
+    <SecurityDialog v-model="showSecurity" :profile="profile" @saved="onProfileSaved" />
   </SiteLayout>
 </template>
 
@@ -165,10 +245,8 @@ import {
   Edit,
   Coin,
   Calendar,
-  TrendCharts,
   Document,
   ChatLineRound,
-  DataAnalysis,
   Download,
   Lock,
 } from '@element-plus/icons-vue'
@@ -230,7 +308,7 @@ const quickStats = computed(() => [
     action: () => router.push('/checkin-analysis'),
   },
   {
-    label: '就诊次数',
+    label: '咨询次数',
     value: consultCount.value,
     action: () => { showConsultations.value = true },
   },
@@ -242,8 +320,8 @@ const quickStats = computed(() => [
 ])
 
 const serviceMenus = [
-  { key: 'plan', label: '健康方案', icon: Document, path: '/living-plans', desc: '饮食/运动/作息方案' },
-  { key: 'consult', label: '就诊记录', icon: ChatLineRound, action: 'consultations' }
+  { key: 'plan', label: '健康方案', icon: Document, path: '/living-plans'},
+  { key: 'consult', label: '咨询记录', icon: ChatLineRound, action: 'consultations' }
 ]
 
 const settingMenus = [
@@ -351,48 +429,168 @@ async function handleLogout() {
 </script>
 
 <style scoped>
-.alert-banner { margin-bottom: 12px; border-radius: 10px; }
-
-.profile-hero {
-  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
-  border-radius: 16px;
-  padding: 20px;
-  color: #fff;
-  margin-bottom: 12px;
-  box-shadow: 0 8px 24px rgba(13, 148, 136, 0.25);
+.uc-page {
+  padding-bottom: 64px;
 }
 
-.profile-main {
+/* 左右布局 */
+.uc-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.uc-sidebar {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: calc(var(--header-height) + 24px);
 }
 
-.avatar {
-  border: 3px solid rgba(255, 255, 255, 0.6);
-  flex-shrink: 0;
-}
-
-.profile-text {
-  flex: 1;
+.uc-main {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
 }
 
+.menu-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.menu-row__item {
+  margin-bottom: 0;
+}
+
+.uc-main > .section-card:last-child {
+  margin-bottom: 0;
+}
+
+/* 预警条 */
+.alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border-radius: 12px;
+}
+
+.alert-banner--warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+.alert-banner--warning .alert-banner__icon {
+  color: #f59e0b;
+}
+
+.alert-banner--warning .alert-banner__text {
+  color: #92400e;
+}
+
+.alert-banner--error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.alert-banner--error .alert-banner__icon {
+  color: #ef4444;
+}
+
+.alert-banner--error .alert-banner__text {
+  color: #991b1b;
+}
+
+.alert-banner__icon {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.alert-banner__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* 个人信息卡片 */
+.profile-hero {
+  position: relative;
+  background: linear-gradient(to bottom, #0d9488, #14b8a6);
+  border-radius: 16px;
+  padding: 28px 24px;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(13, 148, 136, 0.2);
+  text-align: center;
+}
+
+.profile-hero__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.profile-hero__user {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+.profile-hero__avatar-wrap {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 80px;
+  height: 80px;
+}
+
+.profile-text {
+  min-width: 0;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
 .profile-text h2 {
-  margin: 0 0 2px;
+  margin: 0 0 4px;
   font-size: 20px;
+  font-weight: 700;
 }
 
 .username {
-  margin: 0 0 8px;
-  font-size: 13px;
-  opacity: 0.85;
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .badges {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
+  margin-bottom: 12px;
 }
 
 .badge {
@@ -400,134 +598,375 @@ async function handleLogout() {
   align-items: center;
   gap: 4px;
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
+  border-radius: 999px;
   padding: 4px 10px;
   font-size: 12px;
+  color: #fff;
 }
 
 .profile-extra {
-  margin-top: 12px;
-  font-size: 13px;
-  opacity: 0.9;
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
-.stat-row { margin-bottom: 12px; }
+.profile-edit-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.profile-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 统计概览 */
+.stat-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
 .stat-card {
   background: #fff;
   border-radius: 12px;
-  padding: 14px 8px;
+  padding: 16px 20px;
   text-align: center;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-  transition: transform 0.15s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.stat-card:active { transform: scale(0.98); }
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.stat-card:active {
+  transform: scale(0.98);
+}
 
 .stat-value {
-  font-size: 20px;
+  margin: 0 0 4px;
+  font-size: 24px;
   font-weight: 700;
-  color: #0d9488;
+  color: var(--health-600);
+  line-height: 1.2;
 }
 
 .stat-label {
-  font-size: 11px;
-  color: #909399;
-  margin-top: 4px;
-}
-
-.trend-card .section-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-}
-
-.trend-text {
   margin: 0;
   font-size: 14px;
-  color: #606266;
-  line-height: 1.7;
+  color: #6b7280;
+}
+
+/* 卡片区块 */
+.uc-page :deep(.section-card) {
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 24px;
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
-.section-header .section-title { margin: 0; }
+.section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--health-500);
+  flex-shrink: 0;
+}
+
+.uc-page .section-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
 
 .menu-group-title {
-  margin: 0 0 4px;
-  font-size: 15px;
-  color: #909399;
+  margin: 0 0 20px;
+}
+
+.privacy-title {
+  margin-bottom: 24px;
+}
+
+.ai-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 500;
+  color: var(--health-600);
+  background: #f0fdfa;
+}
+
+.trend-text {
+  margin: 0;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.7;
+}
+
+.text-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--health-600);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.text-link:hover {
+  color: var(--health-700);
+}
+
+/* 健康档案 */
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 48px;
+}
+
+.health-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.health-label {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.health-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  text-align: right;
+}
+
+.health-value--muted {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.record-time {
+  margin: 24px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: right;
+}
+
+.value-warn { color: #d97706; }
+.value-normal { color: #059669; }
+
+/* 菜单列表 */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 14px 0;
-  border-bottom: 1px solid #f0f2f5;
+  padding: 16px;
+  border-radius: 12px;
   cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
-.menu-item:last-child { border-bottom: none; }
+.menu-item:hover {
+  background: #f9fafb;
+}
+
+.menu-item__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.menu-item__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.menu-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.menu-icon--primary {
+  background: #f0fdfa;
+  color: var(--health-500);
+}
+
+.menu-icon--gray {
+  background: #f9fafb;
+  color: #6b7280;
+}
 
 .menu-label {
-  font-size: 15px;
-  color: #303133;
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
 }
 
 .menu-desc {
   font-size: 12px;
-  color: #c0c4cc;
-  margin-left: auto;
-  margin-right: 4px;
+  color: #9ca3af;
 }
 
 .menu-item .arrow {
-  color: #c0c4cc;
+  color: #9ca3af;
   flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.menu-item:hover .arrow {
+  color: #4b5563;
+}
+
+/* 隐私开关 */
+.switch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .switch-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid #f5f7fa;
+  gap: 16px;
 }
 
-.switch-row:last-child { border-bottom: none; }
-
 .switch-label {
-  font-size: 15px;
-  color: #303133;
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 4px;
 }
 
 .switch-desc {
   font-size: 12px;
-  color: #909399;
-  margin-top: 2px;
+  color: #9ca3af;
 }
 
-.record-time {
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: #c0c4cc;
-  text-align: right;
+.uc-page :deep(.el-switch.is-checked .el-switch__core) {
+  background-color: var(--health-500);
+  border-color: var(--health-500);
 }
 
-.value-warn { color: #e6a23c; font-weight: 600; }
-.value-normal { color: #67c23a; }
-
+/* 退出登录 */
 .logout-btn {
   width: 100%;
-  margin: 8px 0 24px;
+  padding: 14px;
+  border: 2px solid #f87171;
+  border-radius: 8px;
+  background: transparent;
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.logout-btn:hover {
+  background: #fef2f2;
+}
+
+@media (max-width: 1024px) {
+  .uc-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .uc-sidebar {
+    position: static;
+  }
+
+  .menu-row {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-row__item {
+    margin-bottom: 24px;
+  }
+
+  .menu-row__item:last-child {
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-hero {
+    padding: 24px 20px;
+  }
+
+  .stat-card {
+    padding: 14px 16px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+
+  .stat-label {
+    font-size: 12px;
+  }
+
+  .health-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .uc-page :deep(.section-card) {
+    padding: 24px;
+  }
+
+  .menu-item__right .menu-desc {
+    display: none;
+  }
 }
 </style>

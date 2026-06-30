@@ -1,6 +1,12 @@
 <template>
-  <el-dialog :model-value="modelValue" title="数据导出" width="92%" @update:model-value="$emit('update:modelValue', $event)">
-    <p class="export-tip">选择需要导出的数据范围，系统将异步生成文件并通知您下载。</p>
+  <el-dialog
+    :model-value="modelValue"
+    class="export-dialog"
+    title="数据导出"
+    width="440px"
+    @update:model-value="$emit('update:modelValue', $event)"
+  >
+    <p class="export-tip">选择需要导出的数据范围，提交后将生成文件并自动开始下载（文件保留 24 小时）。</p>
     <el-form label-position="top">
       <el-form-item label="导出范围">
         <el-checkbox-group v-model="types">
@@ -36,7 +42,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { exportUserData } from '@/api/user'
 
@@ -47,12 +53,6 @@ const types = ref(['health'])
 const format = ref('pdf')
 const dateRange = ref([])
 const loading = ref(false)
-
-watch(
-  () => types,
-  () => {},
-  { deep: true },
-)
 
 async function submit() {
   if (!types.value.length) {
@@ -68,8 +68,15 @@ async function submit() {
       end_date: dateRange.value?.[1],
     })
     emit('exported', res)
+    if (res.download_url) {
+      window.open(res.download_url, '_blank')
+      ElMessage.success('导出成功，文件已开始下载')
+    } else {
+      ElMessage.success(res.message || '导出任务已提交')
+    }
     emit('update:modelValue', false)
-    ElMessage.success(res.message || '导出任务已提交')
+  } catch (err) {
+    ElMessage.error(err.message || '导出失败，请稍后重试')
   } finally {
     loading.value = false
   }
@@ -82,5 +89,14 @@ async function submit() {
   color: #909399;
   margin: 0 0 16px;
   line-height: 1.6;
+}
+</style>
+
+<style>
+@media (max-width: 480px) {
+  .export-dialog.el-dialog {
+    width: 92% !important;
+    max-width: 92%;
+  }
 }
 </style>

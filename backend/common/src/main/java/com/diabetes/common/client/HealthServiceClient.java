@@ -33,6 +33,11 @@ public class HealthServiceClient {
         return fetchInternal("/api/v1/internal/health/user/" + userId + "/latest-assessment", difyKey);
     }
 
+    public Map<String, Object> getRiskHistory(String userId, String difyKey, int page, int size) {
+        return fetchInternal("/api/v1/internal/health/user/" + userId + "/risk-history?page="
+                + page + "&size=" + size, difyKey);
+    }
+
     private Map<String, Object> fetchInternal(String path, String difyKey) {
         try {
             String body = restClient.get()

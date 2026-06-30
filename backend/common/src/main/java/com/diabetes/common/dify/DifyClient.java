@@ -7,7 +7,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -107,19 +109,24 @@ public class DifyClient {
         }
     }
 
-    public Flux<String> runWorkflowStreaming(String apiKey, String userId, Map<String, Object> inputs) {
+    /**
+     * Dify Workflow 流式 SSE（POST /v1/workflows/run，response_mode=streaming）。
+     * 使用 {@link ServerSentEvent} 解析，避免 bodyToFlux(String) 在 UTF-8 多字节边界拆包导致 JSON 解析失败。
+     */
+    public Flux<ServerSentEvent<String>> runWorkflowStreaming(String apiKey, String userId, Map<String, Object> inputs) {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("response_mode", "streaming");
-        body.put("user", userId);
-        body.set("inputs", objectMapper.valueToTree(inputs));
+        body.put("user", userId == null || userId.isBlank() ? "anonymous" : userId);
+        body.set("inputs", toWorkflowInputsNode(inputs != null ? inputs : Map.of()));
 
         return webClient.post()
                 .uri("/v1/workflows/run")
                 .header("Authorization", "Bearer " + apiKey)
+                .accept(MediaType.TEXT_EVENT_STREAM)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(body)
                 .retrieve()
-                .bodyToFlux(String.class);
+                .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {});
     }
 
     public JsonNode runChatStreamingAsBlocking(String apiKey, String userId, String query,

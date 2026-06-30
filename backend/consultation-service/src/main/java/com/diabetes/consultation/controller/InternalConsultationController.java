@@ -5,6 +5,7 @@ import com.diabetes.consultation.service.ConsultationService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -22,5 +23,12 @@ public class InternalConsultationController {
     @GetMapping("/user/{userId}/active-session")
     public ApiResponse<Map<String, Object>> activeSession(@PathVariable String userId) {
         return ApiResponse.ok(consultationService.getActiveSession(userId));
+    }
+
+    @GetMapping("/user/{userId}/sessions")
+    public ApiResponse<Map<String, Object>> sessions(@PathVariable String userId,
+                                                     @RequestParam(defaultValue = "1") int page,
+                                                     @RequestParam(defaultValue = "50") int size) {
+        return ApiResponse.ok(consultationService.listSessions(userId, null, page, size));
     }
 }

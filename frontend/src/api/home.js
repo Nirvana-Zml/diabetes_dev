@@ -3,7 +3,7 @@
  */
 import { getV2 } from '@/utils/request'
 import { toSnakeCase } from '@/utils/normalize'
-import { bannerImageUrl, videoCoverUrl, doctorAvatarUrl } from '@/utils/media'
+import { bannerImageUrl, videoCoverUrl, videoFileUrl, doctorAvatarUrl } from '@/utils/media'
 import { mockBanners, mockCategories, mockVideos, mockDoctors } from '@/mock/data'
 import { getRecommendArticles } from '@/api/article'
 import { USE_MOCK } from '@/config'
@@ -79,14 +79,26 @@ function normalizeBanner(item) {
   }
 }
 
-function normalizeVideo(item) {
+export function normalizeVideo(item) {
   const id = item.video_id ?? item.videoId ?? item.id ?? ''
   return {
     id,
     title: item.title ?? '',
     cover: item.cover ?? item.cover_url ?? item.coverUrl ?? videoCoverUrl(id),
+    url: item.url ?? item.video_url ?? item.videoUrl ?? videoFileUrl(id),
     duration: formatDuration(item.duration),
   }
+}
+
+/** GET /api/v2/home/content — 科普视频列表（含搜索） */
+export async function getVideos(params = {}) {
+  const { videos } = await getHomeContent()
+  let list = videos
+  const keyword = params.keyword?.trim()
+  if (keyword) {
+    list = list.filter((v) => v.title.includes(keyword))
+  }
+  return { list, total: list.length }
 }
 
 /** GET /api/v2/home/content — 轮播图与科普视频列表 */

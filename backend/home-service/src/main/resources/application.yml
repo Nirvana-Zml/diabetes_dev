@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: home-service
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 520MB
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3307}/DIABETES_RESOURCES?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USER:root}
@@ -24,6 +28,7 @@ minio:
   secret-key: ${MINIO_PASSWORD:minio123456}
   banner-bucket: banner
   video-cover-bucket: video-cover
+  video-bucket: video
   public-base-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
 
 dify:

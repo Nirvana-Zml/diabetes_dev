@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
@@ -20,11 +21,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 @Service
 public class AIChatService {
 
     private static final Logger log = LoggerFactory.getLogger(AIChatService.class);
+    private static final Pattern THINK_BLOCK = Pattern.compile(
+            "<think[^>]*>[\\s\\S]*?</think[^>]*>|<think>[\\s\\S]*?</think>",
+            Pattern.CASE_INSENSITIVE);
 
     private final DifyClient difyClient;
     private final KnowledgeRetrieval knowledgeRetrieval;
@@ -60,18 +65,29 @@ public class AIChatService {
         List<DocumentChunk> chunks = knowledgeRetrieval.semanticSearch(query, 5);
         String knowledgeContext = knowledgeRetrieval.buildKnowledgeContext(chunks);
         List<String> sources = knowledgeRetrieval.extractSources(chunks);
-        Map<String, Object> inputs = DifyQaChatContract.buildInputs(knowledgeContext);
+        Map<String, Object> inputs = DifyQaChatContract.buildWorkflowInputs(query, knowledgeContext);
 
         log.info("科普问答: user={}, convId={}, queryLen={}, hits={}",
                 uid, conversationId, query.length(), chunks.size());
 
         AtomicReference<String> convRef = new AtomicReference<>(conversationId);
         AtomicReference<Boolean> endSent = new AtomicReference<>(false);
-        StringBuilder lineBuffer = new StringBuilder();
+        AtomicReference<Boolean> textChunkSent = new AtomicReference<>(false);
 
-        Flux<String> stream = difyClient.runChatStreaming(apiKey, uid, query, conversationId, inputs);
+        Flux<ServerSentEvent<String>> stream = difyClient.runWorkflowStreaming(apiKey, uid, inputs);
         stream.subscribe(
-                chunk -> handleStreamChunk(emitter, chunk, lineBuffer, convRef, sources, endSent),
+                sse -> {
+                    String data = sse.data();
+                    if (data == null || data.isBlank()) {
+                        return;
+                    }
+                    try {
+                        JsonNode node = objectMapper.readTree(data);
+                        dispatchDifyEvent(emitter, node, convRef, sources, endSent, textChunkSent);
+                    } catch (Exception e) {
+                        log.debug("忽略无法解析的 Dify SSE 数据: {}", data);
+                    }
+                },
                 err -> {
                     log.error("Dify 科普问答流式失败: {}", err.getMessage());
                     sendError(emitter, "问答服务暂时不可用，请稍后重试");
@@ -90,48 +106,42 @@ public class AIChatService {
         return emitter;
     }
 
-    private void handleStreamChunk(SseEmitter emitter, String chunk, StringBuilder lineBuffer,
-                                   AtomicReference<String> convRef, List<String> sources,
-                                   AtomicReference<Boolean> endSent) {
-        lineBuffer.append(chunk);
-        int newline;
-        while ((newline = lineBuffer.indexOf("\n")) >= 0) {
-            String line = lineBuffer.substring(0, newline).trim();
-            lineBuffer.delete(0, newline + 1);
-            if (line.isEmpty()) {
-                continue;
-            }
-            if (line.startsWith("data:")) {
-                line = line.substring(5).trim();
-            }
-            if (line.isEmpty() || "[DONE]".equals(line)) {
-                continue;
-            }
-            try {
-                JsonNode node = objectMapper.readTree(line);
-                dispatchDifyEvent(emitter, node, convRef, sources, endSent);
-            } catch (Exception e) {
-                log.debug("忽略无法解析的 SSE 行: {}", line);
-            }
-        }
-    }
-
     private void dispatchDifyEvent(SseEmitter emitter, JsonNode node,
                                    AtomicReference<String> convRef, List<String> sources,
-                                   AtomicReference<Boolean> endSent) throws IOException {
+                                   AtomicReference<Boolean> endSent,
+                                   AtomicReference<Boolean> textChunkSent) throws IOException {
         String event = node.path("event").asText("");
         if (node.has("conversation_id") && !node.path("conversation_id").asText("").isBlank()) {
             convRef.set(node.path("conversation_id").asText());
         }
 
+        if ("text_chunk".equals(event)) {
+            if (!shouldForwardTextChunk(node)) {
+                return;
+            }
+            String text = node.path("data").path(DifyQaChatContract.OUTPUT_TEXT).asText("");
+            if (!text.isEmpty()) {
+                textChunkSent.set(true);
+                sendTextChunk(emitter, convRef.get(), text);
+            }
+            return;
+        }
+
+        if ("node_finished".equals(event)) {
+            handleNodeFinished(emitter, node, convRef, textChunkSent);
+            return;
+        }
+
+        if ("workflow_finished".equals(event)) {
+            handleWorkflowFinished(emitter, node, convRef, endSent, textChunkSent);
+            return;
+        }
+
         if ("message".equals(event) || ("agent_message".equals(event) && node.has("answer"))) {
             String answer = node.path("answer").asText("");
             if (!answer.isEmpty()) {
-                ObjectNode payload = objectMapper.createObjectNode();
-                payload.put("type", "text");
-                payload.put("content", answer);
-                payload.put("conversationId", convRef.get() == null ? "" : convRef.get());
-                emitter.send(SseEmitter.event().name("message").data(payload.toString()));
+                textChunkSent.set(true);
+                sendTextChunk(emitter, convRef.get(), answer);
             }
             return;
         }
@@ -146,6 +156,81 @@ public class AIChatService {
         if ("error".equals(event)) {
             sendError(emitter, node.path("message").asText("问答失败"));
         }
+    }
+
+    private boolean shouldForwardTextChunk(JsonNode node) {
+        JsonNode selector = node.path("data").path("from_variable_selector");
+        if (!selector.isArray() || selector.isEmpty()) {
+            return true;
+        }
+        String var = selector.get(selector.size() - 1).asText("");
+        return !"valid".equals(var) && !"message".equals(var)
+                && !"error_message".equals(var) && !"error_type".equals(var);
+    }
+
+    private void handleNodeFinished(SseEmitter emitter, JsonNode node,
+                                    AtomicReference<String> convRef,
+                                    AtomicReference<Boolean> textChunkSent) throws IOException {
+        String nodeType = node.path("data").path("node_type").asText("");
+        if (!"llm".equals(nodeType)) {
+            return;
+        }
+        String text = node.path("data").path("outputs").path(DifyQaChatContract.OUTPUT_TEXT).asText("");
+        if (!text.isEmpty()) {
+            textChunkSent.set(true);
+            sendTextChunk(emitter, convRef.get(), text);
+        }
+    }
+
+    private void handleWorkflowFinished(SseEmitter emitter, JsonNode node,
+                                        AtomicReference<String> convRef,
+                                        AtomicReference<Boolean> endSent,
+                                        AtomicReference<Boolean> textChunkSent) throws IOException {
+        JsonNode outputs = node.path("data").path("outputs");
+        if (outputs.isMissingNode() || outputs.isNull()) {
+            return;
+        }
+
+        boolean valid = outputs.path(DifyQaChatContract.OUTPUT_VALID).asBoolean(true);
+        if (!valid) {
+            String errorMessage = outputs.path(DifyQaChatContract.OUTPUT_ERROR_MESSAGE).asText("");
+            if (errorMessage.isBlank() || "null".equalsIgnoreCase(errorMessage)) {
+                errorMessage = outputs.path(DifyQaChatContract.OUTPUT_MESSAGE).asText("输入校验失败");
+            }
+            log.warn("科普问答校验失败: type={}, msg={}",
+                    outputs.path(DifyQaChatContract.OUTPUT_ERROR_TYPE).asText(""),
+                    errorMessage);
+            sendError(emitter, errorMessage);
+            endSent.set(true);
+            return;
+        }
+
+        if (!Boolean.TRUE.equals(textChunkSent.get())) {
+            String text = outputs.path(DifyQaChatContract.OUTPUT_TEXT).asText("");
+            if (!text.isEmpty() && !"null".equalsIgnoreCase(text)) {
+                textChunkSent.set(true);
+                sendTextChunk(emitter, convRef.get(), text);
+            }
+        }
+    }
+
+    private void sendTextChunk(SseEmitter emitter, String conversationId, String content) throws IOException {
+        String sanitized = sanitizeModelText(content);
+        if (sanitized.isEmpty()) {
+            return;
+        }
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("type", "text");
+        payload.put("content", sanitized);
+        payload.put("conversationId", conversationId == null ? "" : conversationId);
+        emitter.send(SseEmitter.event().name("message").data(payload.toString()));
+    }
+
+    private static String sanitizeModelText(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
+        }
+        return THINK_BLOCK.matcher(content).replaceAll("").trim();
     }
 
     private void sendMessageEnd(SseEmitter emitter, String conversationId, List<String> sources,

@@ -13,9 +13,13 @@ public interface UserMapper {
 
     User findByPhone(@Param("phone") String phone);
 
+    User findByEmail(@Param("email") String email);
+
     int countByUsername(@Param("username") String username);
 
     int countByPhone(@Param("phone") String phone);
+
+    int countByEmail(@Param("email") String email);
 
     int insert(User user);
 

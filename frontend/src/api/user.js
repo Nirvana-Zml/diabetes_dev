@@ -2,11 +2,11 @@ import { get, put, post } from '@/utils/request'
 import { toSnakeCase } from '@/utils/normalize'
 import {
   mockUserProfile,
-  mockConsultationRecords,
   mockHealthAlert,
   mockHealthTrendSummary,
 } from '@/mock/data'
 import { getHealthRecord, updateHealthRecord } from '@/api/healthRecord'
+import { listConsultations } from '@/api/consultation'
 
 /** GET /api/user/profile — user-service */
 export function getUserProfile() {
@@ -39,16 +39,9 @@ const GENDER_TO_INT = { male: 1, female: 2, unknown: 0 }
 
 export { getHealthRecord, updateHealthRecord }
 
-/** GET /api/user/consultations — 咨询模块未实现，仅占位 */
-export async function getUserConsultations(params = {}) {
-  const { delay } = await import('@/utils/delay')
-  await delay()
-  return {
-    list: mockConsultationRecords,
-    total: mockConsultationRecords.length,
-    page: params.page || 1,
-    page_size: params.page_size || 10,
-  }
+/** GET /api/v2/consultations — 当前用户问诊记录 */
+export function getUserConsultations(params = {}) {
+  return listConsultations(params)
 }
 
 /** 异常指标预警 — 占位 */
@@ -65,24 +58,57 @@ export async function getHealthTrendSummary() {
   return { summary: mockHealthTrendSummary }
 }
 
-/** POST /api/user/export — 占位 */
-export async function exportUserData(data) {
-  const { delay } = await import('@/utils/delay')
-  await delay()
-  return {
-    task_id: 'export_' + Date.now(),
-    message: '导出任务已提交，完成后将通知下载',
-  }
+/** POST /api/user/export — 提交数据导出 */
+export function exportUserData(data) {
+  return post('/user/export', data, {
+    mockFn: async () => ({
+      task_id: 'export_mock',
+      status: 'completed',
+      message: '导出成功（Mock）',
+      download_url: '',
+    }),
+  }).then((d) => toSnakeCase(d))
+}
+
+/** GET /api/user/export/{taskId} — 查询导出任务 */
+export function getExportTask(taskId) {
+  return get(`/user/export/${taskId}`, {
+    mockFn: async () => ({
+      task_id: taskId,
+      status: 'completed',
+      download_url: '',
+    }),
+  }).then((d) => toSnakeCase(d))
 }
 
 /** PUT /api/user/privacy */
 export function updatePrivacySettings(data) {
-  return put('/user/privacy', data, { mockFn: async () => data })
+  return put('/user/privacy', { settings: data }, { mockFn: async () => data })
 }
 
 /** PUT /api/user/password */
 export function changePassword(data) {
   return put('/user/password', data, { mockFn: async () => ({ success: true }) })
+}
+
+/** PUT /api/user/account/email — 绑定邮箱（需验证码） */
+export function bindEmail(data) {
+  return put('/user/account/email', data, {
+    mockFn: async () => {
+      const { mockUserProfile } = await import('@/mock/data')
+      return { ...mockUserProfile, email: data.email }
+    },
+  }).then((d) => toSnakeCase(d))
+}
+
+/** PUT /api/user/account/phone — 绑定手机号（需验证码） */
+export function bindPhone(data) {
+  return put('/user/account/phone', data, {
+    mockFn: async () => {
+      const { mockUserProfile } = await import('@/mock/data')
+      return { ...mockUserProfile, phone: data.phone }
+    },
+  }).then((d) => toSnakeCase(d))
 }
 
 /** GET /api/user/overview — 积分等概览 */

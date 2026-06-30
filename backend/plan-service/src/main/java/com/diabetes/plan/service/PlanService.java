@@ -331,8 +331,17 @@ public class PlanService {
         return toDetail(plan);
     }
 
-    public void favorite(String planId) {
-        healthPlanMapper.updateFavorite(planId, 1);
+    public Map<String, Object> toggleFavorite(String userId, String planId) {
+        HealthPlan plan = healthPlanMapper.findById(planId);
+        if (plan == null) {
+            throw new BusinessException(404, "方案不存在");
+        }
+        if (plan.getUserId() != null && !plan.getUserId().equals(userId)) {
+            throw new BusinessException(403, "无权操作此方案");
+        }
+        int next = plan.getIsFavorite() != null && plan.getIsFavorite() == 1 ? 0 : 1;
+        healthPlanMapper.updateFavorite(planId, next);
+        return Map.of("favorited", next == 1);
     }
 
     private Map<String, Object> toDetail(HealthPlan plan) {

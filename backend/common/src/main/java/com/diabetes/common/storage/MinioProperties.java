@@ -27,8 +27,14 @@ public class MinioProperties {
     /** 科普视频封面 bucket */
     private String videoCoverBucket = "video-cover";
 
+    /** 科普视频本体 bucket */
+    private String videoBucket = "video";
+
     /** AI 医生头像 bucket */
     private String avatarBucket = "avatar";
+
+    /** 用户数据导出 bucket */
+    private String exportBucket = "export";
 
     /** 浏览器可访问的基础 URL，如 http://localhost:9000 */
     private String publicBaseUrl = "http://localhost:9000";
@@ -49,8 +55,12 @@ public class MinioProperties {
     public void setBannerBucket(String bannerBucket) { this.bannerBucket = bannerBucket; }
     public String getVideoCoverBucket() { return videoCoverBucket; }
     public void setVideoCoverBucket(String videoCoverBucket) { this.videoCoverBucket = videoCoverBucket; }
+    public String getVideoBucket() { return videoBucket; }
+    public void setVideoBucket(String videoBucket) { this.videoBucket = videoBucket; }
     public String getAvatarBucket() { return avatarBucket; }
     public void setAvatarBucket(String avatarBucket) { this.avatarBucket = avatarBucket; }
+    public String getExportBucket() { return exportBucket; }
+    public void setExportBucket(String exportBucket) { this.exportBucket = exportBucket; }
     public String getPublicBaseUrl() { return publicBaseUrl; }
     public void setPublicBaseUrl(String publicBaseUrl) { this.publicBaseUrl = publicBaseUrl; }
 }

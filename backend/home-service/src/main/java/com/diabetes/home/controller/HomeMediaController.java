@@ -19,7 +19,7 @@ import java.util.Set;
 @RequestMapping("/api/v2/home/media")
 public class HomeMediaController {
 
-    private static final Set<String> ALLOWED_BUCKETS = Set.of("banner", "video-cover", "avatar");
+    private static final Set<String> ALLOWED_BUCKETS = Set.of("banner", "video-cover", "video", "avatar");
 
     private final MinioStorageService minioStorageService;
     private final MinioProperties minioProperties;
@@ -47,6 +47,7 @@ public class HomeMediaController {
         return switch (bucket) {
             case "banner" -> minioProperties.getBannerBucket();
             case "video-cover" -> minioProperties.getVideoCoverBucket();
+            case "video" -> minioProperties.getVideoBucket();
             case "avatar" -> minioProperties.getAvatarBucket();
             default -> bucket;
         };
@@ -54,6 +55,9 @@ public class HomeMediaController {
 
     private MediaType resolveMediaType(String filename) {
         String lower = filename.toLowerCase();
+        if (lower.endsWith(".mp4")) {
+            return MediaType.parseMediaType("video/mp4");
+        }
         if (lower.endsWith(".png")) {
             return MediaType.IMAGE_PNG;
         }

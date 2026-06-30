@@ -3,6 +3,7 @@ package com.diabetes.user.controller;
 import com.diabetes.common.api.ApiResponse;
 import com.diabetes.user.config.JwtAuthInterceptor;
 import com.diabetes.user.dto.*;
+import com.diabetes.user.service.DataExportService;
 import com.diabetes.user.service.UserProfileService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -19,9 +20,12 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProfileController {
 
     private final UserProfileService userProfileService;
+    private final DataExportService dataExportService;
 
-    public ProfileController(UserProfileService userProfileService) {
+    public ProfileController(UserProfileService userProfileService,
+                             DataExportService dataExportService) {
         this.userProfileService = userProfileService;
+        this.dataExportService = dataExportService;
     }
 
     /** 个人中心概览：头像、昵称、积分等 */
@@ -59,11 +63,40 @@ public class ProfileController {
         return ApiResponse.ok("密码修改成功", null);
     }
 
+    /** 账户安全：绑定邮箱（需验证码） */
+    @PutMapping("/account/email")
+    public ApiResponse<UserProfileResponse> bindEmail(HttpServletRequest request,
+                                                      @Valid @RequestBody BindEmailRequest body) {
+        return ApiResponse.ok("邮箱绑定成功", userProfileService.bindEmail(currentUserId(request), body));
+    }
+
+    /** 账户安全：绑定手机号（需验证码） */
+    @PutMapping("/account/phone")
+    public ApiResponse<UserProfileResponse> bindPhone(HttpServletRequest request,
+                                                      @Valid @RequestBody BindPhoneRequest body) {
+        return ApiResponse.ok("手机号绑定成功", userProfileService.bindPhone(currentUserId(request), body));
+    }
+
     /** 隐私与通知设置 */
     @PutMapping("/privacy")
     public ApiResponse<UserProfileResponse> updatePrivacy(HttpServletRequest request,
                                                           @Valid @RequestBody PrivacySettingsRequest body) {
         return ApiResponse.ok(userProfileService.updatePrivacy(currentUserId(request), body));
+    }
+
+    /** 提交数据导出任务 */
+    @PostMapping("/export")
+    public ApiResponse<ExportTaskResponse> exportData(HttpServletRequest request,
+                                                      @Valid @RequestBody ExportDataRequest body) {
+        ExportTaskResponse task = dataExportService.submitExport(currentUserId(request), body);
+        return ApiResponse.ok("导出成功", task);
+    }
+
+    /** 查询导出任务状态 */
+    @GetMapping("/export/{taskId}")
+    public ApiResponse<ExportTaskResponse> exportTask(HttpServletRequest request,
+                                                        @PathVariable String taskId) {
+        return ApiResponse.ok(dataExportService.getTask(currentUserId(request), taskId));
     }
 
     private String currentUserId(HttpServletRequest request) {

@@ -43,8 +43,8 @@ dify:
       api-key: ${DIFY_ARTICLE_DRAFT_API_KEY:app-zBXmLq9LXjrF8UtuL9d8PhiS}
       workflow-url: ${DIFY_ARTICLE_DRAFT_URL:}
     article-recommend:
-      api-key: ${DIFY_ARTICLE_RECOMMEND_API_KEY:app-zBXmLq9LXjrF8UtuL9d8PhiS}
-      input-var-name: ${DIFY_ARTICLE_RECOMMEND_INPUT_VAR:inputs}
+      api-key: ${DIFY_ARTICLE_RECOMMEND_API_KEY:app-Af1Iv6Y51WrahbDXQMBDUy7f}
+      input-var-name: ${DIFY_ARTICLE_RECOMMEND_INPUT_VAR:flat}
       input-format: ${DIFY_ARTICLE_RECOMMEND_INPUT_FORMAT:object}
       response-mode: ${DIFY_ARTICLE_RECOMMEND_RESPONSE_MODE:blocking}
 

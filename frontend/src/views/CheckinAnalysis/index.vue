@@ -44,10 +44,27 @@
       </div>
 
       <!-- AI 行为分析 -->
-      <div class="section-card">
-        <h3 class="section-title">AI 行为分析</h3>
-        <el-skeleton :loading="aiLoading" animated :rows="4">
-          <el-alert v-if="aiSource === 'local'" type="warning" :closable="false" show-icon class="ai-fallback-tip">
+      <div class="section-card ai-panel">
+        <div class="ai-panel-head">
+          <h3 class="section-title">AI 行为分析</h3>
+          <span v-if="aiRefreshing" class="ai-refresh-badge">
+            <span class="ai-refresh-dot" />
+            分析生成中
+          </span>
+        </div>
+
+        <el-alert
+          v-if="aiRefreshing"
+          type="info"
+          :closable="false"
+          show-icon
+          class="ai-refresh-tip"
+        >
+          {{ aiRefreshTip }}
+        </el-alert>
+
+        <el-skeleton :loading="aiInitialLoading && !hasAiContent" animated :rows="4">
+          <el-alert v-if="aiSource === 'local' && !aiRefreshing" type="warning" :closable="false" show-icon class="ai-fallback-tip">
             AI 分析暂不可用，已展示本地简要总结
           </el-alert>
           <el-alert type="info" :closable="false" class="ai-summary">
@@ -102,12 +119,15 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
 import MarkdownContent from '@/components/MarkdownContent.vue'
 import { getManagementStats, getManagementTrends, getAiSummary, exportReport } from '@/api/checkinManagement'
+import { buildDateRange } from '@/utils/normalize'
+
+const AI_CACHE_KEY = 'checkin_ai_summary_cache'
 
 const period = ref('weekly')
 const dateRange = ref([])
@@ -118,10 +138,28 @@ const aiSource = ref('dify')
 const behaviorPatterns = ref([])
 const anomalies = ref([])
 const improvements = ref([])
-const aiLoading = ref(false)
+const aiRefreshing = ref(false)
+const aiInitialLoading = ref(true)
+const aiCacheStale = ref(false)
 const chartType = ref('diet')
 const chartRef = ref()
 let chart = null
+
+const hasAiContent = computed(() =>
+  !!aiSummary.value
+  || behaviorPatterns.value.length > 0
+  || anomalies.value.length > 0
+  || improvements.value.length > 0,
+)
+
+const aiRefreshTip = computed(() => {
+  if (hasAiContent.value) {
+    return aiCacheStale.value
+      ? '新的分析正在生成，请稍候… 当前展示的是上次查看的分析结果'
+      : '新的分析正在生成，请稍候… 当前展示的是最近一次分析结果'
+  }
+  return '正在生成 AI 行为分析，请稍候…'
+})
 
 const statCards = ref([
   { label: '总打卡', value: '-' },
@@ -151,25 +189,69 @@ function patternTagType(pattern) {
   return 'info'
 }
 
+function paramsKey(params) {
+  const { startDate, endDate } = buildDateRange(params)
+  return `${params.period || 'weekly'}_${startDate}_${endDate}`
+}
+
+function applyAiData(ai) {
+  aiSummary.value = ai.ai_summary
+  aiSource.value = ai.source || 'dify'
+  behaviorPatterns.value = ai.behavior_patterns || []
+  anomalies.value = ai.anomalies || []
+  improvements.value = ai.improvements || []
+}
+
+function readAiCache() {
+  try {
+    const raw = sessionStorage.getItem(AI_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function writeAiCache(cacheKey, data) {
+  try {
+    sessionStorage.setItem(AI_CACHE_KEY, JSON.stringify({
+      cacheKey,
+      data,
+      cachedAt: Date.now(),
+    }))
+  } catch {
+    /* ignore quota errors */
+  }
+}
+
+function restoreAiCache(currentKey) {
+  const cached = readAiCache()
+  if (!cached?.data) return false
+  applyAiData(cached.data)
+  aiCacheStale.value = cached.cacheKey !== currentKey
+  return true
+}
+
 onMounted(loadData)
 watch(chartType, () => renderChart())
 
 async function loadData() {
   const params = { period: period.value, date_range: dateRange.value }
-  aiLoading.value = true
+  const key = paramsKey(params)
+
+  restoreAiCache(key)
+  aiRefreshing.value = true
+  if (!hasAiContent.value) {
+    aiInitialLoading.value = true
+  }
+
   try {
-    const [st, tr, ai] = await Promise.all([
+    const [st, tr] = await Promise.all([
       getManagementStats(params),
       getManagementTrends(params),
-      getAiSummary(params),
     ])
     stats.value = st
     trends.value = tr
-    aiSummary.value = ai.ai_summary
-    aiSource.value = ai.source || 'dify'
-    behaviorPatterns.value = ai.behavior_patterns
-    anomalies.value = ai.anomalies
-    improvements.value = ai.improvements
     statCards.value = [
       { label: '总打卡', value: st.total_checkins },
       { label: '完成率', value: Math.round(st.completion_rate * 100) + '%' },
@@ -178,8 +260,26 @@ async function loadData() {
     ]
     await nextTick()
     renderChart()
+  } catch (e) {
+    ElMessage.error(e.message || '统计数据加载失败')
+  }
+
+  loadAiSummary(params, key)
+}
+
+async function loadAiSummary(params, key) {
+  try {
+    const ai = await getAiSummary(params)
+    applyAiData(ai)
+    writeAiCache(key, ai)
+    aiCacheStale.value = false
+  } catch (e) {
+    if (!hasAiContent.value) {
+      ElMessage.warning(e.message || 'AI 分析加载失败')
+    }
   } finally {
-    aiLoading.value = false
+    aiRefreshing.value = false
+    aiInitialLoading.value = false
   }
 }
 
@@ -213,6 +313,36 @@ async function handleExport() {
 .stat-card { text-align: center; padding: 12px !important; }
 .stat-num { font-size: 20px; font-weight: 700; color: #0d9488; }
 .stat-lbl { font-size: 11px; color: #909399; margin-top: 4px; }
+.ai-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.ai-panel-head .section-title { margin: 0; }
+.ai-refresh-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #0d9488;
+  background: #f0fdfa;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.ai-refresh-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0d9488;
+  animation: aiPulse 1.2s ease-in-out infinite;
+}
+@keyframes aiPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+.ai-refresh-tip { margin-bottom: 12px; }
 .ai-summary { margin-bottom: 16px; }
 .ai-fallback-tip { margin-bottom: 12px; }
 .ai-section { margin-top: 16px; }

@@ -1,5 +1,11 @@
 <template>
-  <el-dialog :model-value="modelValue" title="编辑个人信息" width="92%" @update:model-value="$emit('update:modelValue', $event)">
+  <el-dialog
+    :model-value="modelValue"
+    class="profile-edit-dialog"
+    title="编辑个人信息"
+    width="440px"
+    @update:model-value="$emit('update:modelValue', $event)"
+  >
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
       <div class="avatar-row">
         <el-avatar :size="72" :src="form.avatar_url" />
@@ -110,5 +116,14 @@ async function submit() {
   align-items: center;
   gap: 16px;
   margin-bottom: 16px;
+}
+</style>
+
+<style>
+@media (max-width: 480px) {
+  .profile-edit-dialog.el-dialog {
+    width: 92% !important;
+    max-width: 92%;
+  }
 }
 </style>

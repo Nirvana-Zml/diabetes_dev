@@ -1,26 +1,56 @@
 package com.diabetes.common.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 
-/**
- * 医生咨询模块占位客户端：供其他微服务调用，返回空数据结构。
- */
 @Component
 public class ConsultationServiceClient {
 
-    public List<AiDoctorPlaceholder> listAiDoctors(String department, String keyword) {
-        return Collections.emptyList();
+    private static final Logger log = LoggerFactory.getLogger(ConsultationServiceClient.class);
+
+    private final RestClient restClient;
+    private final ObjectMapper objectMapper;
+
+    public ConsultationServiceClient(@Value("${services.consultation.base-url:http://localhost:8085}") String baseUrl,
+                                     ObjectMapper objectMapper) {
+        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        this.objectMapper = objectMapper;
     }
 
-    public Optional<SessionPlaceholder> getActiveSession(String userId) {
-        return Optional.empty();
+    public Map<String, Object> listSessions(String userId, String difyKey, int page, int size) {
+        return fetchInternal("/api/v1/internal/consultation/user/" + userId
+                + "/sessions?page=" + page + "&size=" + size, difyKey);
     }
 
-    public record AiDoctorPlaceholder(String doctorId, String name, String department) {}
-
-    public record SessionPlaceholder(String sessionId, String doctorId, String status) {}
+    private Map<String, Object> fetchInternal(String path, String difyKey) {
+        try {
+            String body = restClient.get()
+                    .uri(path)
+                    .header("X-Dify-Key", difyKey == null ? "" : difyKey)
+                    .retrieve()
+                    .body(String.class);
+            JsonNode root = objectMapper.readTree(body);
+            int code = root.path("code").asInt(200);
+            if (code != 200) {
+                log.warn("consultation-service 内部接口失败 path={} code={}", path, code);
+                return new HashMap<>();
+            }
+            JsonNode data = root.path("data");
+            if (data.isMissingNode() || data.isNull() || !data.isObject()) {
+                return new HashMap<>();
+            }
+            return objectMapper.convertValue(data, Map.class);
+        } catch (Exception e) {
+            log.warn("consultation-service 内部接口调用异常 path={} error={}", path, e.getMessage());
+            return new HashMap<>();
+        }
+    }
 }

@@ -5,7 +5,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Import;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {
+        "com.diabetes.user",
+        "com.diabetes.common.client"
+})
 @MapperScan("com.diabetes.user.mapper")
 @Import({
         com.diabetes.common.config.CommonAutoConfiguration.class,

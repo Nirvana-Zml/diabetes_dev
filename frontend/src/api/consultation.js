@@ -21,11 +21,49 @@ export async function getDepartments() {
   return Array.isArray(data) ? data : []
 }
 
+export async function listConsultations(params = {}) {
+  const page = params.page || 1
+  const pageSize = params.page_size || params.size || 20
+  const data = await getV2('/consultations', {
+    params: {
+      page,
+      size: pageSize,
+      status: params.status,
+    },
+  })
+  const raw = data?.sessions || data?.list || []
+  const list = raw.map((item) => {
+    const s = toSnakeCase(item)
+    return {
+      session_id: s.session_id,
+      doctor_id: s.doctor_id,
+      doctor_name: s.doctor_name || s.name || 'AI 医生',
+      doctor_title: s.doctor_title || s.title || '',
+      department: s.department || '',
+      status: s.status,
+      started_at: s.started_at,
+      ended_at: s.ended_at,
+      last_message: s.last_message,
+      message_count: s.message_count,
+      rating: s.rating,
+      feedback: s.feedback || '',
+    }
+  })
+  return {
+    list,
+    total: data?.total ?? list.length,
+    page,
+    page_size: pageSize,
+  }
+}
+
 export async function createConsultation(data) {
   const res = await postV2('/consultations', {
     doctor_id: data.doctor_id,
   })
-  return toSnakeCase(res)
+  const session = toSnakeCase(res)
+  session.session_id = session.session_id ?? res?.session_id ?? res?.sessionId ?? ''
+  return session
 }
 
 export async function getConsultMessages(sessionId) {

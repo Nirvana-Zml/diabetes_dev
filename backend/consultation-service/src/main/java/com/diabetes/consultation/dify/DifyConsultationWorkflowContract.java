@@ -39,13 +39,19 @@ public final class DifyConsultationWorkflowContract {
 
     public static Map<String, Object> inputJsonSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("query", DifyJsonSchema.stringType());
-        properties.put("conversation_id", DifyJsonSchema.stringType());
-        properties.put("doctor_role", DifyJsonSchema.stringType());
-        properties.put("patient_profile", DifyJsonSchema.stringType());
+        properties.put("query", requiredString());
+        properties.put("conversation_id", requiredString());
+        properties.put("doctor_role", requiredString());
+        properties.put("patient_profile", requiredString());
         properties.put("conversation_history", DifyJsonSchema.stringType());
         properties.put("knowledge_context", DifyJsonSchema.stringType());
-        return DifyJsonSchema.rootObject(properties);
+        Map<String, Object> schema = DifyJsonSchema.rootObject(properties);
+        schema.put("required", List.of("query", "conversation_id", "doctor_role", "patient_profile"));
+        return schema;
+    }
+
+    private static Map<String, Object> requiredString() {
+        return DifyJsonSchema.stringType();
     }
 
     public static Map<String, Object> outputJsonSchema() {

@@ -68,9 +68,9 @@ public class PlanController {
     }
 
     @PostMapping("/{planId}/favorite")
-    public ApiResponse<String> favorite(@PathVariable String planId) {
-        planService.favorite(planId);
-        return ApiResponse.ok("收藏成功", "收藏成功");
+    public ApiResponse<Map<String, Object>> favorite(@CurrentUserId String userId,
+                                                     @PathVariable String planId) {
+        return ApiResponse.ok(planService.toggleFavorite(userId, planId));
     }
 
     @GetMapping("/{planId}")

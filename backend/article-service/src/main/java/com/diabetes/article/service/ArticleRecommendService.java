@@ -91,7 +91,7 @@ public class ArticleRecommendService {
 
     public Map<String, Object> getDifyWorkflowSpec() {
         return DifyArticleRecommendWorkflowContract.workflowSpec(
-                difyBaseUrl, difyRecommendApiKey, difyInputFormat, difyResponseMode);
+                difyBaseUrl, difyRecommendApiKey, difyInputFormat, difyResponseMode, objectMapper);
     }
 
     public Map<String, Object> recommend(String userId, int page, int size) {
@@ -409,7 +409,7 @@ public class ArticleRecommendService {
                 m.put("article_id", c.getArticleId());
                 m.put("title", c.getTitle());
                 m.put("summary", c.getSummary());
-                m.put("category", c.getCategory());
+                m.put("category", DifyArticleRecommendWorkflowContract.categorySlug(c.getCategory()));
                 m.put("tags", c.getTags());
                 m.put("score", sa.getScore());
                 return m;
@@ -421,9 +421,9 @@ public class ArticleRecommendService {
                     ctx.categoryWeights,
                     ctx.healthProfile,
                     ctx.riskProfile,
-                    candidates);
-            Map<String, Object> inputs = DifyJsonSchema.wrapWorkflowInputs(
-                    difyInputVarName, payload, difyInputFormat, objectMapper);
+                    candidates,
+                    objectMapper);
+            Map<String, Object> inputs = buildDifyWorkflowInputs(payload);
 
             JsonNode response = difyClient.runWorkflowBlocking(difyRecommendApiKey, userId, inputs, difyResponseMode);
             Map<String, String> reasons = parseDifyRecommendations(response);
@@ -433,22 +433,42 @@ public class ArticleRecommendService {
 
             Map<String, ScoredArticle> byId = scored.stream()
                     .collect(Collectors.toMap(s -> s.getCandidate().getArticleId(), s -> s, (a, b) -> a));
+            List<ScoredArticle> difyOrdered = new ArrayList<>();
+            Set<String> difyIds = new LinkedHashSet<>();
             double rank = reasons.size();
             for (Map.Entry<String, String> e : reasons.entrySet()) {
                 ScoredArticle sa = byId.get(e.getKey());
                 if (sa != null) {
-                    sa.addScore(rank * 2);
+                    sa.addScore(rank * 100);
                     sa.setReason(e.getValue());
                     sa.setPhase(4);
+                    difyOrdered.add(sa);
+                    difyIds.add(e.getKey());
                     rank--;
                 }
             }
-            scored.sort(Comparator.comparingDouble(ScoredArticle::getScore).reversed());
+            List<ScoredArticle> rest = scored.stream()
+                    .filter(sa -> !difyIds.contains(sa.getCandidate().getArticleId()))
+                    .sorted(Comparator.comparingDouble(ScoredArticle::getScore).reversed())
+                    .toList();
+            scored.clear();
+            scored.addAll(difyOrdered);
+            scored.addAll(rest);
             return 4;
         } catch (Exception e) {
             log.warn("Dify 推荐重排失败，降级为本地排序: {}", e.getMessage());
             return 3;
         }
+    }
+
+    private Map<String, Object> buildDifyWorkflowInputs(Map<String, Object> payload) {
+        Map<String, Object> normalized = DifyArticleRecommendWorkflowContract.ensureStringEncodedInputs(
+                payload, objectMapper);
+        if (difyInputVarName == null || difyInputVarName.isBlank()
+                || "flat".equalsIgnoreCase(difyInputVarName)) {
+            return DifyJsonSchema.flatWorkflowInputs(normalized);
+        }
+        return DifyJsonSchema.wrapWorkflowInputs(difyInputVarName, normalized, difyInputFormat, objectMapper);
     }
 
     private Map<String, String> parseDifyRecommendations(JsonNode response) {
@@ -457,23 +477,25 @@ public class ArticleRecommendService {
         if (outputs.isMissingNode()) {
             outputs = response.path("outputs");
         }
-        JsonNode list = outputs.path("recommendations");
+
+        JsonNode list = extractRecommendationsList(outputs);
         if (!list.isArray()) {
-            list = outputs.path("articles");
+            list = extractRecommendationsList(response);
         }
         if (!list.isArray()) {
             String text = outputs.path("text").asText("");
+            if (text.isBlank()) {
+                text = response.path("text").asText("");
+            }
             if (!text.isBlank()) {
                 try {
                     JsonNode parsed = objectMapper.readTree(text);
-                    list = parsed.path("recommendations");
-                    if (!list.isArray()) {
-                        list = parsed;
-                    }
+                    list = extractRecommendationsList(parsed);
                 } catch (Exception ignored) {
                 }
             }
         }
+
         if (list.isArray()) {
             for (JsonNode item : list) {
                 String id = firstText(item, "article_id", "articleId", "id");
@@ -484,6 +506,29 @@ public class ArticleRecommendService {
             }
         }
         return map;
+    }
+
+    private JsonNode extractRecommendationsList(JsonNode node) {
+        if (node == null || node.isMissingNode()) {
+            return objectMapper.missingNode();
+        }
+        JsonNode articleInfo = node.path("article_info");
+        if (articleInfo.isTextual()) {
+            try {
+                articleInfo = objectMapper.readTree(articleInfo.asText());
+            } catch (Exception ignored) {
+                return objectMapper.missingNode();
+            }
+        }
+        JsonNode list = articleInfo.path("recommendations");
+        if (list.isArray()) {
+            return list;
+        }
+        list = node.path("recommendations");
+        if (list.isArray()) {
+            return list;
+        }
+        return node.path("articles");
     }
 
     private String firstText(JsonNode node, String... keys) {
@@ -534,7 +579,7 @@ public class ArticleRecommendService {
             sa.setScore(rs instanceof Number n ? n.doubleValue() : 0);
             sa.setReason(stringVal(row, "recReason"));
             Object rp = row.get("recPhase");
-            sa.setPhase(rp instanceof Number n ? n.intValue() : 4);
+            sa.setPhase(rp instanceof Number n ? n.intValue() : 1);
             list.add(sa);
         }
         return list;
@@ -568,7 +613,9 @@ public class ArticleRecommendService {
         map.put("viewCount", c.getViewCount() != null ? c.getViewCount() : 0);
         map.put("publishedAt", c.getPublishedAt());
         map.put("recScore", Math.round(sa.getScore() * 100.0) / 100.0);
-        map.put("recReason", sa.getReason());
+        if (sa.getPhase() >= 4 && sa.getReason() != null && !sa.getReason().isBlank()) {
+            map.put("recReason", sa.getReason());
+        }
         return map;
     }
 

@@ -1,5 +1,5 @@
 <template>
-  <SiteLayout title="健康方案">
+  <SiteLayout title="">
 
     <div class="page-container plan-page">
       <!-- 顶部操作区 -->
@@ -15,13 +15,19 @@
             {{ plan ? '重新生成方案' : '生成健康方案' }}
           </el-button>
           <template v-if="plan">
-            <el-button size="large" @click="handleFavorite">
-              <el-icon><Star /></el-icon>
-              收藏
+            <el-button
+              size="large"
+              :type="isPlanFavorited ? 'warning' : 'default'"
+              :plain="isPlanFavorited"
+              :loading="favoriteLoading"
+              @click="handleFavorite"
+            >
+              <el-icon><component :is="isPlanFavorited ? StarFilled : Star" /></el-icon>
+              {{ isPlanFavorited ? '取消收藏' : '收藏' }}
             </el-button>
             <el-button size="large" @click="handlePrint">
               <el-icon><Printer /></el-icon>
-              打印
+              导出
             </el-button>
           </template>
         </div>
@@ -210,7 +216,7 @@
             <div class="history-item" @click="loadHistoryPlan(p.plan_id)">
               <span>版本 v{{ p.version }}</span>
               <el-tag size="small">{{ p.daily_calories }} 千卡/日</el-tag>
-              <el-tag v-if="p.is_favorite" size="small" type="warning">已收藏</el-tag>
+              <el-tag v-if="isFavoriteFlag(p.is_favorite)" size="small" type="warning">已收藏</el-tag>
             </div>
           </el-timeline-item>
         </el-timeline>
@@ -221,9 +227,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { MagicStick, Star, Printer } from '@element-plus/icons-vue'
+import { MagicStick, Star, StarFilled, Printer } from '@element-plus/icons-vue'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
 import DisclaimerBar from '@/components/DisclaimerBar.vue'
 import { getLatestPlan, generatePlan, getPlanHistory, togglePlanFavorite, getPlanDetail } from '@/api/plan'
@@ -234,6 +240,9 @@ const previewPlan = ref(null)
 const history = ref([])
 const historyTotal = ref(0)
 const generating = ref(false)
+const favoriteLoading = ref(false)
+/** 收藏按钮即时状态，避免 plan 对象深层字段未触发视图更新 */
+const planFavoriteOverride = ref(null)
 const genStep = ref(0)
 const genProgress = ref(0)
 const streamingCalories = ref(null)
@@ -246,6 +255,27 @@ const MEAL_META = {
 }
 
 const displayPlan = computed(() => previewPlan.value || plan.value)
+
+watch(
+  () => plan.value?.plan_id,
+  () => { planFavoriteOverride.value = null },
+)
+
+const isPlanFavorited = computed(() => {
+  if (planFavoriteOverride.value !== null) return planFavoriteOverride.value
+  return isFavoriteFlag(plan.value?.is_favorite ?? plan.value?.isFavorite)
+})
+
+function isFavoriteFlag(value) {
+  return value === true || value === 1 || value === '1'
+}
+
+function syncFavoriteInHistory(planId, favorited) {
+  const flag = favorited ? 1 : 0
+  history.value = history.value.map((item) =>
+    item.plan_id === planId ? { ...item, is_favorite: flag } : item,
+  )
+}
 
 const dimensions = computed(() => {
   const p = displayPlan.value
@@ -396,9 +426,23 @@ async function handleGenerate() {
 }
 
 async function handleFavorite() {
-  if (!plan.value?.plan_id) return
-  await togglePlanFavorite(plan.value.plan_id)
-  ElMessage.success('已收藏')
+  if (!plan.value?.plan_id || favoriteLoading.value) return
+  favoriteLoading.value = true
+  try {
+    const { favorited: toggled } = await togglePlanFavorite(plan.value.plan_id, isPlanFavorited.value)
+    planFavoriteOverride.value = toggled
+    plan.value = normalizePlan({
+      ...plan.value,
+      is_favorite: toggled ? 1 : 0,
+      isFavorite: toggled ? 1 : 0,
+    })
+    syncFavoriteInHistory(plan.value.plan_id, toggled)
+    ElMessage.success(toggled ? '已收藏' : '已取消收藏')
+  } catch (e) {
+    ElMessage.error(e.message || '操作失败')
+  } finally {
+    favoriteLoading.value = false
+  }
 }
 
 function handlePrint() {

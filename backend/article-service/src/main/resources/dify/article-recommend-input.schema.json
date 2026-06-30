@@ -2,60 +2,20 @@
   "type": "object",
   "properties": {
     "user_profile": {
-      "type": "object",
-      "properties": {
-        "user_id": { "type": "string" },
-        "interest_tags": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "category_weights": {
-          "type": "object",
-          "properties": {},
-          "required": [],
-          "additionalProperties": true
-        }
-      },
-      "required": [],
-      "additionalProperties": true
+      "type": "string",
+      "description": "JSON 字符串：user_id、interest_tags、category_weights"
     },
     "health_profile": {
-      "type": "object",
-      "properties": {
-        "height": { "type": "number" },
-        "weight": { "type": "number" },
-        "bmi": { "type": "number" }
-      },
-      "required": [],
-      "additionalProperties": true
+      "type": "string",
+      "description": "JSON 字符串：健康档案摘要（diabetes_type、bmi、血糖、血压等）"
     },
     "risk_profile": {
-      "type": "object",
-      "properties": {
-        "riskLevel": { "type": "string" },
-        "riskScore": { "type": "integer" }
-      },
-      "required": [],
-      "additionalProperties": true
+      "type": "string",
+      "description": "JSON 字符串：风险评估摘要（risk_level、risk_score、risk_factors 等）"
     },
     "candidate_articles": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "article_id": { "type": "string" },
-          "title": { "type": "string" },
-          "summary": { "type": "string" },
-          "category": { "type": "string" },
-          "tags": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
-          "score": { "type": "number" }
-        },
-        "required": [],
-        "additionalProperties": true
-      }
+      "type": "string",
+      "description": "JSON 数组字符串：待重排候选文章 Top-N"
     }
   },
   "required": [],

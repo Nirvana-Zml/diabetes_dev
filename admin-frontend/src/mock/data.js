@@ -4,6 +4,23 @@ export const mockArticles = [
   { article_id: 'art_003', title: '适合糖尿病患者的运动方式', summary: '规律运动有助于改善胰岛素敏感性，降低血糖水平...', cover_image: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=400&h=250&fit=crop', category: 'exercise', view_count: 642, published_at: '2026-06-15T09:00:00+08:00', tags: ['运动', '血糖'] },
 ]
 
+export const mockVideos = [
+  {
+    video_id: 'video_001',
+    title: '什么是糖尿病？',
+    duration: '05:32',
+    cover_url: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=300&h=180&fit=crop',
+    video_url: '',
+  },
+  {
+    video_id: 'video_002',
+    title: '如何正确测血糖',
+    duration: '03:18',
+    cover_url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300&h=180&fit=crop',
+    video_url: '',
+  },
+]
+
 export const mockArticleContent = `# 示例资讯正文
 
 支持 Markdown 格式。

@@ -14,7 +14,7 @@ spring:
         - id: home-service
           uri: http://${HOME_SERVICE_HOST:home-service}:${HOME_SERVICE_PORT:8082}
           predicates:
-            - Path=/api/v1/home/**,/api/v1/chat/**,/api/v1/internal/home/**
+            - Path=/api/v1/home/**,/api/v1/chat/**,/api/v1/internal/home/**,/api/v1/admin/videos,/api/v1/admin/videos/**
         - id: health-service
           uri: http://${HEALTH_SERVICE_HOST:health-service}:${HEALTH_SERVICE_PORT:8083}
           predicates:
@@ -46,7 +46,7 @@ spring:
         - id: home-service-v2
           uri: http://${HOME_SERVICE_HOST:home-service}:${HOME_SERVICE_PORT:8082}
           predicates:
-            - Path=/api/v2/home/**,/api/v2/chat/**,/api/v2/internal/home/**
+            - Path=/api/v2/home/**,/api/v2/chat/**,/api/v2/internal/home/**,/api/v2/admin/videos,/api/v2/admin/videos/**
         - id: health-service-v2
           uri: http://${HEALTH_SERVICE_HOST:health-service}:${HEALTH_SERVICE_PORT:8083}
           predicates:

@@ -96,6 +96,28 @@ public class InternalHealthController {
         return ApiResponse.ok(data);
     }
 
+    @GetMapping("/user/{userId}/risk-history")
+    public ApiResponse<Map<String, Object>> riskHistory(@PathVariable String userId,
+                                                         @RequestParam(defaultValue = "1") int page,
+                                                         @RequestParam(defaultValue = "50") int size,
+                                                         @RequestHeader(value = "X-Dify-Key", required = false) String key) {
+        validateDifyKey(key);
+        int offset = Math.max(0, (page - 1) * size);
+        List<RiskAssessment> records = riskAssessmentMapper.findByUserId(userId, offset, size);
+        int total = riskAssessmentMapper.countByUserId(userId);
+        List<Map<String, Object>> list = records.stream().map(r -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("assessmentId", r.getAssessmentId());
+            m.put("riskLevel", medicalCalculator.riskLevelName(r.getRiskLevel()));
+            m.put("riskScore", r.getRiskScore());
+            m.put("bmi", r.getBmiSnapshot());
+            m.put("reportSummary", r.getReportSummary());
+            m.put("assessedAt", r.getAssessedAt());
+            return m;
+        }).toList();
+        return ApiResponse.ok(Map.of("records", list, "total", total));
+    }
+
     /** @deprecated 兼容旧路径，请使用 latest-record */
     @GetMapping("/user/{userId}/latest-risk")
     public ApiResponse<Map<String, Object>> latestRisk(@PathVariable String userId,

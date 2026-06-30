@@ -3,23 +3,24 @@
 
     <!-- 列表页 -->
     <div v-if="!isDetail" class="info-list-page">
-      <div class="search-wrap">
+      <section class="search-wrap">
         <div class="search-box">
-          <svg class="search-box__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="7" />
-            <path stroke-linecap="round" d="M20 20l-3-3" />
-          </svg>
+          <div class="search-box__icon-wrap">
+            <svg class="search-box__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <input
             v-model="keyword"
             type="search"
             class="search-box__input"
-            placeholder="搜索资讯标题或摘要"
+            placeholder="搜索资讯标题或摘要..."
             @keyup.enter="handleSearch"
           />
-          <button v-if="keyword" type="button" class="search-box__clear" @click="handleSearchClear">×</button>
+          <button v-if="keyword" type="button" class="search-box__clear" aria-label="清除" @click="handleSearchClear">×</button>
           <button type="button" class="search-box__btn" @click="handleSearch">搜索</button>
         </div>
-      </div>
+      </section>
 
       <template v-if="!searchMode">
         <nav class="tab-nav" aria-label="资讯分类">
@@ -35,7 +36,7 @@
           </button>
         </nav>
 
-        <div v-if="listTab === 'category'" class="category-pills">
+        <section v-if="listTab === 'category'" class="category-pills">
           <button
             type="button"
             class="category-pill"
@@ -54,7 +55,7 @@
           >
             {{ label }}
           </button>
-        </div>
+        </section>
       </template>
 
       <div v-else class="search-result-bar">
@@ -83,27 +84,31 @@
           已根据您的阅读偏好与健康档案为您推荐
         </p>
 
-        <div v-loading="loading" class="article-grid">
+        <div v-loading="loading" class="article-grid stagger-children">
           <article
             v-for="art in articles"
             :key="art.article_id"
-            class="article-card"
+            class="article-card card-hover animate-fade-in"
             @click="goDetail(art.article_id)"
           >
             <div class="article-card__cover">
               <img :src="art.cover_image || defaultCover" :alt="art.title" loading="lazy" />
+              <span
+                class="article-card__badge"
+                :style="categoryBadgeStyle(art.category)"
+              >
+                {{ categoryMap[art.category] || '健康资讯' }}
+              </span>
             </div>
             <div class="article-card__body">
               <h3 class="article-card__title">{{ art.title }}</h3>
               <p class="article-card__summary">{{ art.summary }}</p>
               <div class="article-card__footer">
-                <span class="article-card__meta">
-                  {{ formatDate(art.published_at) }}
-                  <span class="article-card__dot">·</span>
-                  {{ categoryMap[art.category] || '健康资讯' }}
-                  <span class="article-card__dot">·</span>
-                  {{ formatViewCount(art.view_count) }} 阅读
-                </span>
+                <div class="article-card__meta">
+                  <span>{{ formatDate(art.published_at) }}</span>
+                  <span class="article-card__dot" aria-hidden="true" />
+                  <span>{{ formatViewCount(art.view_count) }} 阅读</span>
+                </div>
                 <div class="article-card__actions">
                   <button
                     type="button"
@@ -112,13 +117,13 @@
                     :title="isFavorited(art.article_id) ? '取消收藏' : '收藏'"
                     @click.stop="toggleFavOnList(art.article_id)"
                   >
-                    <svg viewBox="0 0 24 24" :fill="isFavorited(art.article_id) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                    <svg viewBox="0 0 24 24" :fill="isFavorited(art.article_id) ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                     </svg>
                   </button>
                   <span class="action-arrow" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
                   </span>
                 </div>
@@ -286,6 +291,15 @@ const categoryTagStyle = {
   medication: { background: '#F5F3FF', color: '#7C3AED' },
   complications: { background: '#FEF2F2', color: '#DC2626' },
   topic: { background: '#F5F5F4', color: '#78716C' },
+}
+
+const categoryBadgeStyleMap = {
+  diabetes_basics: { background: '#0ea5e9' },
+  diet: { background: '#14b8a6' },
+  exercise: { background: '#10b981' },
+  medication: { background: '#f59e0b' },
+  complications: { background: '#f43f5e' },
+  topic: { background: '#78716c' },
 }
 
 const mainTabs = [
@@ -497,6 +511,10 @@ function tagStyle(type) {
   return categoryTagStyle[type] || categoryTagStyle.topic
 }
 
+function categoryBadgeStyle(type) {
+  return categoryBadgeStyleMap[type] || categoryBadgeStyleMap.topic
+}
+
 function formatViewCount(count) {
   const n = Number(count) || 0
   if (n >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, '')}万`
@@ -548,8 +566,14 @@ function handleShare() {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap');
+
 .health-info-page :deep(.site-page) {
-  background: #f0f9f7;
+  background: var(--warm-50);
+}
+
+.health-info-page :deep(.site-main) {
+  padding-top: 40px;
 }
 
 /* ── 列表页 ── */
@@ -558,31 +582,38 @@ function handleShare() {
 }
 
 .search-wrap {
-  margin-bottom: 20px;
+  max-width: 720px;
+  margin: 0 auto 40px;
 }
 
 .search-box {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 6px 6px 18px;
+  align-items: stretch;
   background: #fff;
   border-radius: 16px;
-  border: 1px solid rgba(13, 148, 136, 0.08);
-  box-shadow: 0 4px 20px rgba(13, 148, 136, 0.06);
-  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  border: 1px solid var(--warm-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .search-box:focus-within {
-  border-color: rgba(13, 148, 136, 0.25);
-  box-shadow: 0 6px 28px rgba(13, 148, 136, 0.12);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+  border-color: var(--health-500);
+}
+
+.search-box__icon-wrap {
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+  padding-right: 12px;
+  color: var(--warm-400);
+  flex-shrink: 0;
 }
 
 .search-box__icon {
-  width: 18px;
-  height: 18px;
-  color: var(--warm-300);
-  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
 }
 
 .search-box__input {
@@ -593,13 +624,15 @@ function handleShare() {
   color: var(--warm-800);
   background: transparent;
   min-width: 0;
+  padding: 16px 16px 16px 0;
 }
 
 .search-box__input::placeholder {
-  color: var(--warm-300);
+  color: var(--warm-400);
 }
 
 .search-box__clear {
+  align-self: center;
   border: none;
   background: var(--warm-100);
   color: var(--warm-400);
@@ -610,111 +643,90 @@ function handleShare() {
   font-size: 16px;
   line-height: 1;
   flex-shrink: 0;
+  margin-right: 8px;
 }
 
 .search-box__btn {
   border: none;
-  padding: 10px 22px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--health-500), var(--health-600));
+  padding: 16px 28px;
+  background: var(--health-500);
   color: #fff;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .search-box__btn:hover {
-  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.3);
-  transform: translateY(-1px);
+  background: var(--health-600);
 }
 
 .tab-nav {
   display: flex;
   align-items: stretch;
-  background: #fff;
-  border-radius: 16px;
-  padding: 6px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(231, 229, 228, 0.6);
+  justify-content: center;
+  border-bottom: 1px solid var(--warm-200);
+  margin-bottom: 32px;
   overflow-x: auto;
 }
 
 .tab-nav__item {
-  flex: 1;
+  flex: none;
   min-width: 88px;
-  padding: 12px 20px;
+  padding: 14px 32px;
   border: none;
   background: transparent;
   font-size: 15px;
   font-weight: 500;
-  color: var(--warm-400);
+  color: var(--warm-500);
   cursor: pointer;
-  border-radius: 12px;
-  position: relative;
-  transition: color 0.2s ease, background 0.2s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.2s ease, border-color 0.2s ease;
   white-space: nowrap;
 }
 
-.tab-nav__item + .tab-nav__item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 1px;
-  height: 20px;
-  background: var(--warm-100);
+.tab-nav__item:hover {
+  color: var(--warm-600);
+  border-bottom-color: var(--warm-200);
 }
 
 .tab-nav__item--active {
   color: var(--health-600);
-  background: rgba(13, 148, 136, 0.08);
+  border-bottom-color: var(--health-600);
   font-weight: 600;
-}
-
-.tab-nav__item--active::after {
-  content: '';
-  position: absolute;
-  bottom: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 24px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--health-500);
 }
 
 .category-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 40px;
 }
 
 .category-pill {
-  padding: 8px 18px;
-  border: 1px solid rgba(13, 148, 136, 0.12);
+  padding: 8px 20px;
+  border: 1px solid var(--warm-200);
   border-radius: 999px;
   background: #fff;
-  font-size: 13px;
-  color: var(--warm-500);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--warm-600);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .category-pill:hover {
-  border-color: var(--health-400);
-  color: var(--health-600);
+  background: var(--warm-100);
+  border-color: var(--warm-300);
 }
 
 .category-pill--active {
-  background: linear-gradient(135deg, var(--health-500), var(--health-600));
-  border-color: transparent;
+  background: var(--health-600);
+  border-color: var(--health-600);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+  box-shadow: 0 1px 3px rgba(13, 148, 136, 0.2);
 }
 
 .search-result-bar {
@@ -722,13 +734,13 @@ function handleShare() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 32px;
   padding: 14px 20px;
   background: #fff;
   border-radius: 14px;
   font-size: 14px;
   color: var(--warm-500);
-  border: 1px solid rgba(231, 229, 228, 0.6);
+  border: 1px solid var(--warm-200);
 }
 
 .search-result-bar strong {
@@ -748,19 +760,20 @@ function handleShare() {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 20px;
+  margin: 0 0 24px;
   padding: 12px 18px;
-  background: linear-gradient(90deg, rgba(13, 148, 136, 0.08), rgba(45, 212, 191, 0.06));
+  background: rgba(13, 148, 136, 0.06);
   border-radius: 12px;
   font-size: 13px;
   color: var(--health-700);
-  border: 1px solid rgba(13, 148, 136, 0.1);
+  border: 1px solid rgba(13, 148, 136, 0.12);
 }
 
 .rec-banner svg {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+  color: var(--health-500);
 }
 
 .login-panel,
@@ -768,73 +781,104 @@ function handleShare() {
   text-align: center;
   padding: 64px 24px;
   background: #fff;
-  border-radius: 20px;
-  border: 1px solid rgba(231, 229, 228, 0.6);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  border-radius: 16px;
+  border: 1px solid var(--warm-100);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .login-panel__icon svg,
 .empty-panel svg {
   width: 48px;
   height: 48px;
-  color: var(--warm-200);
+  color: var(--warm-300);
   margin-bottom: 16px;
 }
 
 .login-panel p,
 .empty-panel p {
   margin: 0 0 20px;
-  color: var(--warm-400);
+  color: var(--warm-500);
   font-size: 15px;
 }
 
-/* ── 双列卡片网格 ── */
+/* ── 卡片网格 ── */
 .article-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
   min-height: 120px;
 }
 
-.article-grid--related {
-  margin-top: 8px;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.stagger-children > .article-card:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > .article-card:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > .article-card:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > .article-card:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > .article-card:nth-child(5) { animation-delay: 0.25s; }
+.stagger-children > .article-card:nth-child(6) { animation-delay: 0.3s; }
 
 .article-card {
   display: flex;
-  gap: 18px;
-  padding: 18px;
+  flex-direction: column;
   background: #fff;
   border-radius: 16px;
-  border: 1px solid rgba(231, 229, 228, 0.5);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--warm-100);
+  overflow: hidden;
   cursor: pointer;
-  transition: transform 0.28s ease, box-shadow 0.28s ease;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.article-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 36px rgba(13, 148, 136, 0.1);
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
 }
 
 .article-card__cover {
-  flex-shrink: 0;
-  width: 168px;
-  height: 118px;
-  border-radius: 12px;
+  position: relative;
+  width: 100%;
+  height: 200px;
   overflow: hidden;
   background: var(--warm-100);
+  flex-shrink: 0;
 }
 
 .article-card__cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: top;
   transition: transform 0.4s ease;
 }
 
 .article-card:hover .article-card__cover img {
-  transform: scale(1.05);
+  transform: scale(1.03);
+}
+
+.article-card__badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .article-card__body {
@@ -842,14 +886,16 @@ function handleShare() {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  padding: 24px;
 }
 
 .article-card__title {
-  margin: 0 0 8px;
-  font-size: 17px;
+  margin: 0 0 12px;
+  font-family: 'Noto Serif SC', Georgia, serif;
+  font-size: 18px;
   font-weight: 700;
-  color: var(--warm-800);
-  line-height: 1.4;
+  color: var(--warm-900, #1c1917);
+  line-height: 1.375;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -858,10 +904,10 @@ function handleShare() {
 
 .article-card__summary {
   flex: 1;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--warm-400);
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.625;
+  color: var(--warm-500);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -873,21 +919,24 @@ function handleShare() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--warm-50);
+  padding-top: 16px;
+  border-top: 1px solid var(--warm-100);
 }
 
 .article-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 12px;
-  color: var(--warm-300);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--warm-400);
 }
 
 .article-card__dot {
-  margin: 0 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--warm-300);
+  flex-shrink: 0;
 }
 
 .article-card__actions {
@@ -901,14 +950,13 @@ function handleShare() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--warm-100);
+  padding: 8px;
+  border: none;
   border-radius: 8px;
-  background: #fff;
-  color: var(--warm-300);
+  background: transparent;
+  color: var(--warm-400);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 
 .action-btn svg {
@@ -917,20 +965,21 @@ function handleShare() {
 }
 
 .action-btn:hover {
-  border-color: var(--health-400);
   color: var(--health-500);
+  background: rgba(13, 148, 136, 0.08);
 }
 
 .action-btn--active {
-  border-color: rgba(245, 158, 11, 0.3);
-  background: rgba(245, 158, 11, 0.08);
-  color: #f59e0b;
+  color: var(--health-500);
+  background: rgba(13, 148, 136, 0.08);
 }
 
 .action-arrow {
   display: inline-flex;
-  color: var(--warm-300);
-  transition: color 0.2s ease, transform 0.2s ease;
+  padding: 8px;
+  color: var(--warm-400);
+  transition: color 0.2s ease, background-color 0.2s ease;
+  border-radius: 8px;
 }
 
 .action-arrow svg {
@@ -940,21 +989,7 @@ function handleShare() {
 
 .article-card:hover .action-arrow {
   color: var(--health-500);
-  transform: translateX(2px);
-}
-
-.article-card--compact .article-card__cover {
-  width: 120px;
-  height: 88px;
-}
-
-.article-card--compact .article-card__title {
-  font-size: 15px;
-  -webkit-line-clamp: 2;
-}
-
-.article-card--compact .article-card__summary {
-  -webkit-line-clamp: 2;
+  background: rgba(13, 148, 136, 0.08);
 }
 
 /* ── 详情页 ── */
@@ -969,7 +1004,7 @@ function handleShare() {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   font-size: 13px;
   color: var(--warm-400);
 }
@@ -997,18 +1032,19 @@ function handleShare() {
 
 .detail-article {
   background: #fff;
-  border-radius: 20px;
-  padding: clamp(20px, 3vw, 32px);
-  border: 1px solid rgba(231, 229, 228, 0.6);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
-  margin-bottom: 28px;
+  border-radius: 16px;
+  padding: clamp(24px, 3vw, 32px);
+  border: 1px solid var(--warm-100);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 32px;
 }
 
 .detail-hero__cover {
   width: 100%;
   max-height: 420px;
   object-fit: cover;
-  border-radius: 16px;
+  object-position: top;
+  border-radius: 12px;
   display: block;
 }
 
@@ -1031,11 +1067,12 @@ function handleShare() {
 
 .detail-article__title {
   margin: 0 0 16px;
+  font-family: 'Noto Serif SC', Georgia, serif;
   font-size: clamp(24px, 3.2vw, 32px);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--warm-900, #1c1917);
   line-height: 1.35;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .detail-meta {
@@ -1044,6 +1081,8 @@ function handleShare() {
   align-items: center;
   gap: 8px;
   margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--warm-100);
   font-size: 13px;
   color: var(--warm-400);
 }
@@ -1079,6 +1118,7 @@ function handleShare() {
 .detail-article__content :deep(.markdown-body h2),
 .detail-article__content :deep(.markdown-body h3) {
   margin: 28px 0 14px;
+  font-family: 'Noto Serif SC', Georgia, serif;
   font-size: 20px;
   font-weight: 700;
   color: var(--warm-900, #1c1917);
@@ -1099,7 +1139,7 @@ function handleShare() {
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 32px;
-  padding-top: 28px;
+  padding-top: 24px;
   border-top: 1px solid var(--warm-100);
 }
 
@@ -1113,7 +1153,7 @@ function handleShare() {
   background: #fff;
   font-size: 14px;
   font-weight: 600;
-  color: var(--warm-700);
+  color: var(--warm-600);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -1124,19 +1164,20 @@ function handleShare() {
 }
 
 .detail-action-btn:hover {
-  border-color: var(--health-400);
+  border-color: var(--health-500);
   color: var(--health-600);
+  background: rgba(13, 148, 136, 0.06);
 }
 
 .detail-action-btn--favorited {
-  border-color: var(--health-500);
-  background: linear-gradient(135deg, var(--health-500), var(--health-600));
+  border-color: var(--health-600);
+  background: var(--health-600);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.25);
 }
 
 .detail-action-btn--favorited:hover {
-  border-color: var(--health-600);
+  border-color: var(--health-700);
+  background: var(--health-700);
   color: #fff;
 }
 
@@ -1150,10 +1191,10 @@ function handleShare() {
 
 .related-section {
   background: #fff;
-  border-radius: 20px;
+  border-radius: 16px;
   padding: 24px clamp(20px, 3vw, 28px);
-  border: 1px solid rgba(231, 229, 228, 0.6);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--warm-100);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .related-section__title {
@@ -1161,6 +1202,7 @@ function handleShare() {
   align-items: center;
   gap: 10px;
   margin: 0 0 20px;
+  font-family: 'Noto Serif SC', Georgia, serif;
   font-size: 20px;
   font-weight: 700;
   color: var(--warm-900, #1c1917);
@@ -1170,7 +1212,7 @@ function handleShare() {
   width: 4px;
   height: 20px;
   border-radius: 2px;
-  background: var(--health-500);
+  background: var(--health-600);
   flex-shrink: 0;
 }
 
@@ -1185,17 +1227,17 @@ function handleShare() {
   align-items: stretch;
   gap: 20px;
   padding: 18px 20px;
-  background: #fff;
-  border-radius: 16px;
-  border: 1px solid rgba(231, 229, 228, 0.7);
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+  background: var(--warm-50);
+  border-radius: 12px;
+  border: 1px solid var(--warm-100);
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
 .related-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(13, 148, 136, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-color: var(--warm-200);
 }
 
 .related-card__body {
@@ -1217,6 +1259,7 @@ function handleShare() {
 
 .related-card__title {
   margin: 0 0 8px;
+  font-family: 'Noto Serif SC', Georgia, serif;
   font-size: 17px;
   font-weight: 700;
   color: var(--warm-900, #1c1917);
@@ -1232,7 +1275,7 @@ function handleShare() {
   margin: 0 0 12px;
   font-size: 14px;
   line-height: 1.65;
-  color: var(--warm-400);
+  color: var(--warm-500);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1241,7 +1284,7 @@ function handleShare() {
 
 .related-card__meta {
   font-size: 12px;
-  color: var(--warm-300);
+  color: var(--warm-400);
 }
 
 .related-card__dot {
@@ -1252,7 +1295,7 @@ function handleShare() {
   flex-shrink: 0;
   width: 112px;
   height: 112px;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   background: var(--warm-100);
 }
@@ -1263,35 +1306,35 @@ function handleShare() {
   object-fit: cover;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1280px) {
   .article-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 640px) {
-  .article-card {
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .article-card__cover {
-    width: 100%;
-    height: 180px;
-  }
-
-  .article-card--compact .article-card__cover {
-    width: 100%;
-    height: 140px;
+@media (max-width: 768px) {
+  .article-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 
   .tab-nav__item {
-    padding: 10px 14px;
+    padding: 12px 20px;
     font-size: 14px;
   }
 
   .search-box__btn {
-    padding: 10px 16px;
+    padding: 16px 20px;
+  }
+
+  .category-pills {
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .category-pill {
+    padding: 6px 16px;
+    font-size: 13px;
   }
 
   .related-card {

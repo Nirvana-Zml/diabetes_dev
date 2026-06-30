@@ -35,12 +35,32 @@ public class KnowledgeRetrieval {
             return List.of();
         }
         if (!milvusClient.isReady()) {
-            log.debug("Milvus 不可用，返回空检索结果");
+            log.warn("Milvus 不可用，返回空检索结果");
             return List.of();
         }
         float[] vector = embeddingService.embed(query);
         int k = topK > 0 ? topK : properties.getSearchTopK();
-        return milvusClient.search(vector, k, DifyQaChatContract.PHASE1_DOC_TYPE, properties.getScoreThreshold());
+        List<DocumentChunk> chunks = milvusClient.search(
+                vector, k, DifyQaChatContract.PHASE1_DOC_TYPE, properties.getScoreThreshold());
+        if (chunks.isEmpty()) {
+            log.warn("Milvus 按 doc_type={} 无结果，尝试全库检索 query={}",
+                    DifyQaChatContract.PHASE1_DOC_TYPE, truncate(query, 80));
+            chunks = milvusClient.search(vector, k, null, properties.getScoreThreshold());
+        }
+        if (chunks.isEmpty()) {
+            log.warn("Milvus 全库检索仍无结果 query={}", truncate(query, 80));
+        }
+        return chunks;
+    }
+
+    private static String truncate(String text, int maxLen) {
+        if (text == null) {
+            return "";
+        }
+        if (text.length() <= maxLen) {
+            return text;
+        }
+        return text.substring(0, maxLen) + "...";
     }
 
     public String buildKnowledgeContext(List<DocumentChunk> chunks) {

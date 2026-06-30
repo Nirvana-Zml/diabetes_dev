@@ -33,7 +33,10 @@ public class AuthController {
 
     @PostMapping("/auth/send-code")
     public ApiResponse<Void> sendCode(@RequestBody Map<String, String> body) {
-        authService.sendVerifyCode(body.get("account"), body.getOrDefault("type", "phone"));
+        authService.sendVerifyCode(
+                body.get("account"),
+                body.getOrDefault("type", "phone"),
+                body.getOrDefault("purpose", "bind"));
         return ApiResponse.ok("验证码已发送", null);
     }
 

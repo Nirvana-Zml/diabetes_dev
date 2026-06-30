@@ -12,11 +12,19 @@ const categoryMap = {
 
 export { categoryMap }
 
-/** GET /api/articles/recommend — 登录后个性化推荐，未登录为热门推荐 */
+/** GET /api/articles/recommend — 登录后个性化推荐（含 Dify AI 重排 rec_reason），未登录为热门推荐 */
 export async function getRecommendArticles(params = {}) {
   const data = await get('/articles/recommend', {
     params: { page: params.page || 1, size: params.size || 10 },
-    mockFn: async () => ({ articles: mockArticles, total: mockArticles.length, strategy: 'popular' }),
+    mockFn: async () => ({
+      articles: mockArticles.map((a, i) => ({
+        ...a,
+        rec_reason: i === 0 ? '与您的饮食管理兴趣高度相关' : undefined,
+      })),
+      total: mockArticles.length,
+      strategy: 'personalized',
+      phase: 4,
+    }),
   })
   const list = (data.articles || []).map(normalizeRecommendArticle)
   return {

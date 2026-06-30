@@ -6,6 +6,7 @@ import { API_V2_BASE } from '@/config'
 export const MEDIA_BUCKETS = {
   banner: 'banner',
   videoCover: 'video-cover',
+  video: 'video',
   avatar: 'avatar',
 }
 
@@ -22,6 +23,10 @@ export function bannerImageUrl(bannerId) {
 
 export function videoCoverUrl(videoId) {
   return resourceMediaUrl(MEDIA_BUCKETS.videoCover, videoId)
+}
+
+export function videoFileUrl(videoId) {
+  return resourceMediaUrl(MEDIA_BUCKETS.video, videoId, 'mp4')
 }
 
 /** AI 医生头像 — minio avatar bucket，文件名为 {doctorId}.jpg */

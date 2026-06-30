@@ -62,7 +62,7 @@
                 <span class="heading-bar heading-bar--health" />
                 <h2 class="heading-title">热门科普视频</h2>
               </div>
-              <button type="button" class="link-more" @click="$router.push('/health-info')">
+              <button type="button" class="link-more" @click="$router.push('/science-videos')">
                 查看全部
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -70,7 +70,7 @@
               </button>
             </div>
             <div class="video-grid">
-              <div v-for="v in videos" :key="v.id" class="video-card">
+              <div v-for="v in videos" :key="v.id" class="video-card" @click="openVideo(v)">
                 <div class="video-cover">
                   <img :src="v.cover" :alt="v.title" loading="lazy" />
                   <span class="video-cover__shade" />
@@ -194,6 +194,8 @@
 
       <SiteFooter />
     </div>
+
+    <VideoPlayerDialog v-model="playerVisible" :video="playingVideo" />
   </AppLayout>
 </template>
 
@@ -208,6 +210,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import SiteHeader from '@/components/layout/SiteHeader.vue'
 import SiteFooter from '@/components/layout/SiteFooter.vue'
 import DisclaimerBar from '@/components/DisclaimerBar.vue'
+import VideoPlayerDialog from '@/components/VideoPlayerDialog.vue'
 import { getHomeContent, getRecommend, getDoctors } from '@/api/home'
 import { isLoggedIn, redirectToLogin } from '@/utils/auth'
 
@@ -220,6 +223,8 @@ const videos = ref([])
 const doctors = ref([])
 const articles = ref([])
 const bannerHeight = ref('220px')
+const playerVisible = ref(false)
+const playingVideo = ref(null)
 
 const quickEntries = [
   {
@@ -308,6 +313,11 @@ function formatRelative(iso) {
 
 function startConsult(doc) {
   navigateTo({ path: '/consultation/chat', query: { doctor_id: doc.doctor_id } }, true)
+}
+
+function openVideo(video) {
+  playingVideo.value = video
+  playerVisible.value = true
 }
 </script>
 

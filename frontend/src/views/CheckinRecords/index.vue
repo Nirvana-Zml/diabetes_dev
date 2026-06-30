@@ -62,81 +62,128 @@
       </section>
 
       <div class="page-body">
-        <!-- 日期选择 -->
-        <section class="date-section">
-          <button type="button" class="date-nav-btn" aria-label="上一天" @click="changeDate(-1)">
-            <el-icon><ArrowLeft /></el-icon>
-          </button>
-          <div class="date-center">
-            <span v-if="isToday" class="date-badge">今天</span>
-            <span class="date-main">{{ dateDisplay.full }}</span>
-            <span class="date-weekday">{{ dateDisplay.weekday }}</span>
-          </div>
-          <button type="button" class="date-nav-btn" :disabled="isToday" aria-label="下一天" @click="changeDate(1)">
-            <el-icon><ArrowRight /></el-icon>
-          </button>
-        </section>
+        <div class="workspace-layout">
+          <aside class="workspace-aside">
+            <section class="analysis-banner" @click="$router.push('/checkin-analysis')">
+              <div class="banner-left">
+                <div class="banner-icon"><el-icon :size="24"><DataAnalysis /></el-icon></div>
+                <div class="banner-text">
+                  <strong>打卡统计分析</strong>
+                  <span>查看周/月趋势与 AI 行为总结</span>
+                </div>
+              </div>
+              <div class="banner-right">
+                <span>查看详情</span>
+                <div class="banner-arrow"><el-icon><ArrowRight /></el-icon></div>
+              </div>
+            </section>
 
-        <!-- 主内容：左侧分类 + 右侧操作区 -->
-        <div class="main-layout">
-          <aside class="layout-sidebar">
-            <div class="panel-card">
-              <h3 class="panel-label">打卡分类</h3>
-              <nav class="category-nav">
-                <button
-                  v-for="tab in mainTabs"
-                  :key="tab.key"
-                  type="button"
-                  class="category-nav-btn"
-                  :class="{ active: activeTab === tab.key }"
-                  @click="switchTab(tab.key)"
-                >
-                  <el-icon :size="18"><component :is="tab.icon" /></el-icon>
-                  <span>{{ tab.label }}</span>
-                </button>
-              </nav>
-            </div>
-
-            <div v-show="activeTab === 'food'" class="panel-card">
-              <h3 class="panel-label">餐次选择</h3>
-              <div class="meal-chips">
-                <button
-                  v-for="m in mealPeriods"
-                  :key="m.value"
-                  type="button"
-                  class="meal-chip"
-                  :class="{ active: mealPeriod === m.value }"
-                  @click="mealPeriod = m.value"
-                >{{ m.label }}</button>
+            <section class="achievement-section panel-card">
+            <div class="section-head">
+              <h3>成就墙</h3>
+              <div class="ach-count">
+                <span class="ach-count-done">{{ unlockedCount }}</span>
+                <span class="ach-count-sep">/</span>
+                <span class="ach-count-total">{{ achievements.length }}</span>
               </div>
             </div>
-
-            <div v-show="activeTab === 'food'" class="panel-card">
-              <h3 class="panel-label">快捷操作</h3>
-              <div class="quick-actions">
-                <button
-                  type="button"
-                  class="quick-action-btn"
-                  :class="{ active: foodMode === 'custom' }"
-                  @click="foodMode = 'custom'"
-                >
-                  <el-icon><Plus /></el-icon>
-                  <span>自定义食物</span>
-                </button>
-                <button
-                  type="button"
-                  class="quick-action-btn quick-action-btn--muted"
-                  :class="{ active: foodMode === 'preset' }"
-                  @click="foodMode = 'preset'"
-                >
-                  <el-icon><Search /></el-icon>
-                  <span>选择食物</span>
-                </button>
+            <div class="achievement-grid">
+              <div
+                v-for="(a, idx) in achievements"
+                :key="a.id"
+                class="achievement-card"
+                :class="{ unlocked: a.unlocked, [`tone-${idx % 3}`]: a.unlocked }"
+              >
+                <div class="achievement-icon">
+                  <span>{{ a.unlocked ? '🏅' : '🔒' }}</span>
+                </div>
+                <h4 class="ach-name">{{ a.name }}</h4>
+                <p class="ach-desc">{{ a.desc }}</p>
+                <div class="ach-status">
+                  <span>{{ a.unlocked ? '已解锁' : '未解锁' }}</span>
+                </div>
               </div>
             </div>
+          </section>
           </aside>
 
-          <div class="layout-main">
+          <!-- 右侧：日期栏 + 打卡操作区 -->
+          <div class="checkin-workspace panel-card">
+            <section class="date-section date-section--embedded">
+              <button type="button" class="date-nav-btn" aria-label="上一天" @click="changeDate(-1)">
+                <el-icon><ArrowLeft /></el-icon>
+              </button>
+              <div class="date-center">
+                <span v-if="isToday" class="date-badge">今天</span>
+                <span class="date-main">{{ dateDisplay.full }}</span>
+                <span class="date-weekday">{{ dateDisplay.weekday }}</span>
+              </div>
+              <button type="button" class="date-nav-btn" :disabled="isToday" aria-label="下一天" @click="changeDate(1)">
+                <el-icon><ArrowRight /></el-icon>
+              </button>
+            </section>
+
+            <div class="main-layout">
+              <aside class="layout-sidebar">
+                <div class="checkin-inner-panel sidebar-panel">
+                  <div class="sidebar-block">
+                    <h3 class="panel-label">打卡分类</h3>
+                    <nav class="category-nav">
+                      <button
+                        v-for="tab in mainTabs"
+                        :key="tab.key"
+                        type="button"
+                        class="category-nav-btn"
+                        :class="{ active: activeTab === tab.key }"
+                        @click="switchTab(tab.key)"
+                      >
+                        <el-icon :size="20"><component :is="tab.icon" /></el-icon>
+                        <span>{{ tab.label }}</span>
+                      </button>
+                    </nav>
+                  </div>
+
+                  <div v-show="activeTab === 'food'" class="sidebar-block">
+                    <h3 class="panel-label">餐次选择</h3>
+                    <div class="meal-chips">
+                      <button
+                        v-for="m in mealPeriods"
+                        :key="m.value"
+                        type="button"
+                        class="meal-chip"
+                        :class="{ active: mealPeriod === m.value }"
+                        @click="mealPeriod = m.value"
+                      >{{ m.label }}</button>
+                    </div>
+                  </div>
+
+                  <div v-show="activeTab === 'food'" class="sidebar-block">
+                    <h3 class="panel-label">快捷操作</h3>
+                    <div class="quick-actions">
+                      <button
+                        type="button"
+                        class="quick-action-btn"
+                        :class="{ active: foodMode === 'custom' }"
+                        @click="foodMode = 'custom'"
+                      >
+                        <el-icon><Plus /></el-icon>
+                        <span>自定义食物</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="quick-action-btn quick-action-btn--muted"
+                        :class="{ active: foodMode === 'preset' }"
+                        @click="foodMode = 'preset'"
+                      >
+                        <el-icon><Search /></el-icon>
+                        <span>选择食物</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+
+              <div class="layout-main">
         <!-- ===== 食物打卡 ===== -->
         <section v-show="activeTab === 'food'" class="module-panel">
           <template v-if="foodMode === 'preset'">
@@ -429,52 +476,10 @@
             <el-empty v-else description="当日暂无血糖记录" :image-size="64" />
           </div>
         </section>
+              </div>
+            </div>
           </div>
         </div>
-
-        <!-- 成就墙 -->
-        <section class="achievement-section">
-          <div class="section-head">
-            <h3>成就墙</h3>
-            <div class="ach-count">
-              <span class="ach-count-done">{{ unlockedCount }}</span>
-              <span class="ach-count-sep">/</span>
-              <span class="ach-count-total">{{ achievements.length }}</span>
-            </div>
-          </div>
-          <div class="achievement-grid">
-            <div
-              v-for="(a, idx) in achievements"
-              :key="a.id"
-              class="achievement-card"
-              :class="{ unlocked: a.unlocked, [`tone-${idx % 3}`]: a.unlocked }"
-            >
-              <div class="achievement-icon">
-                <span>{{ a.unlocked ? '🏅' : '🔒' }}</span>
-              </div>
-              <h4 class="ach-name">{{ a.name }}</h4>
-              <p class="ach-desc">{{ a.desc }}</p>
-              <div class="ach-status">
-                <span>{{ a.unlocked ? '已解锁' : '未解锁' }}</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 分析入口 -->
-        <section class="analysis-banner" @click="$router.push('/checkin-analysis')">
-          <div class="banner-left">
-            <div class="banner-icon"><el-icon :size="24"><DataAnalysis /></el-icon></div>
-            <div class="banner-text">
-              <strong>打卡统计分析</strong>
-              <span>查看周/月趋势与 AI 行为总结</span>
-            </div>
-          </div>
-          <div class="banner-right">
-            <span>查看详情</span>
-            <div class="banner-arrow"><el-icon><ArrowRight /></el-icon></div>
-          </div>
-        </section>
       </div>
     </div>
 
@@ -1233,6 +1238,47 @@ async function submitGlucose() {
   gap: 24px;
 }
 
+.workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.workspace-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 24px;
+}
+
+.checkin-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  padding: 24px;
+}
+
+.checkin-inner-panel {
+  background: #fafaf9;
+  border-radius: 14px;
+  border: 1px solid var(--ck-border);
+  padding: 24px;
+}
+
+.sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sidebar-block:not(:first-child) {
+  padding-top: 20px;
+  border-top: 1px solid var(--ck-border);
+}
+
 .date-section {
   display: flex;
   align-items: center;
@@ -1243,6 +1289,16 @@ async function submitGlucose() {
   padding: 16px 24px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--ck-border);
+}
+
+.date-section--embedded {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  border-bottom: 1px solid var(--ck-border);
+  border-radius: 0;
+  padding: 4px 0 20px;
+  margin-bottom: 4px;
 }
 
 .date-nav-btn {
@@ -1286,32 +1342,30 @@ async function submitGlucose() {
 
 .main-layout {
   display: grid;
-  grid-template-columns: minmax(240px, 280px) 1fr;
-  gap: 24px;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
 }
 
 .layout-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 24px;
 }
 
 .panel-card {
   background: #fff;
   border-radius: 16px;
-  padding: 24px;
+  padding: 28px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--ck-border);
 }
 
 .panel-label {
-  margin: 0 0 16px;
-  font-size: 12px;
+  margin: 0 0 18px;
+  font-size: 14px;
   font-weight: 600;
-  color: #78716c;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: #57534e;
+  letter-spacing: 0.02em;
 }
 
 .category-nav {
@@ -1324,12 +1378,12 @@ async function submitGlucose() {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 14px 18px;
   border: none;
   border-radius: 12px;
   background: transparent;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: #57534e;
   cursor: pointer;
@@ -1350,11 +1404,11 @@ async function submitGlucose() {
   gap: 8px;
 }
 .meal-chip {
-  padding: 8px 16px;
+  padding: 10px 18px;
   border-radius: 999px;
   border: none;
   background: #f5f5f4;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   color: #78716c;
   cursor: pointer;
@@ -1378,13 +1432,13 @@ async function submitGlucose() {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 14px 18px;
   border-radius: 12px;
   border: 2px dashed #99f6e4;
   background: transparent;
   color: var(--health-700);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -1409,10 +1463,9 @@ async function submitGlucose() {
 }
 
 .module-panel {
-  background: #fff;
-  border-radius: 16px;
+  background: #fafaf9;
+  border-radius: 14px;
   padding: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--ck-border);
 }
 
@@ -1816,6 +1869,21 @@ async function submitGlucose() {
   border: 1px solid var(--ck-border);
 }
 
+.achievement-section .achievement-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.achievement-section .achievement-card {
+  padding: 16px;
+}
+
+.achievement-section .achievement-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 22px;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -1909,9 +1977,10 @@ async function submitGlucose() {
 
 .analysis-banner {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
   background: #fff;
   border-radius: 16px;
   cursor: pointer;
@@ -1925,13 +1994,15 @@ async function submitGlucose() {
 
 .banner-left {
   display: flex;
-  align-items: center;
-  gap: 20px;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
 }
 .banner-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 14px;
   background: linear-gradient(135deg, var(--health-500), var(--health-700));
   color: #fff;
   display: flex;
@@ -1948,24 +2019,27 @@ async function submitGlucose() {
   gap: 4px;
 }
 .banner-text strong {
-  font-size: 18px;
+  font-size: 16px;
   color: #292524;
 }
 .banner-text span {
-  font-size: 14px;
+  font-size: 13px;
   color: #a8a29e;
+  line-height: 1.4;
 }
 
 .banner-right {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  font-size: 14px;
+  width: 100%;
+  font-size: 13px;
   color: #a8a29e;
 }
 .banner-arrow {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 12px;
   background: var(--ck-accent-bg);
   color: var(--health-700);
@@ -1998,7 +2072,15 @@ async function submitGlucose() {
 @media (max-width: 1200px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .food-grid { grid-template-columns: repeat(3, 1fr); }
-  .achievement-grid { grid-template-columns: repeat(2, 1fr); }
+  .workspace-layout {
+    grid-template-columns: 1fr;
+  }
+  .workspace-aside {
+    position: static;
+  }
+  .achievement-section .achievement-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
@@ -2006,8 +2088,6 @@ async function submitGlucose() {
   .stats-grid { grid-template-columns: 1fr; }
   .main-layout { grid-template-columns: 1fr; }
   .food-grid { grid-template-columns: repeat(2, 1fr); }
-  .achievement-grid { grid-template-columns: 1fr; }
-  .analysis-banner { flex-direction: column; align-items: flex-start; gap: 16px; }
-  .banner-right { align-self: flex-end; }
+  .achievement-section .achievement-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>

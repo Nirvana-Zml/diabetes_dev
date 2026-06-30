@@ -33,7 +33,7 @@ export function resetPassword(payload) {
 }
 
 export function sendVerifyCode(payload) {
-  return post('/auth/send-code', payload, { mockFn: async () => ({ success: true, code: '123456' }) })
+  return post('/auth/send-code', payload, { mockFn: async () => ({ success: true }) })
 }
 
 export function saveTokens({ access_token, refresh_token, role, user }) {

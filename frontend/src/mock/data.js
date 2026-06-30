@@ -83,31 +83,6 @@ export const mockHealthAlert = {
 export const mockHealthTrendSummary =
   '本月您的空腹血糖均值较上月略有上升，体重保持稳定。建议增加每周运动频次，并定期监测餐后血糖。'
 
-export const mockConsultationRecords = [
-  {
-    session_id: 'sess_001',
-    doctor_name: '张明德',
-    doctor_title: '主任医师',
-    department: '内分泌科',
-    status: 'closed',
-    started_at: '2026-06-20T10:00:00+08:00',
-    ended_at: '2026-06-20T10:35:00+08:00',
-    rating: 5,
-    feedback: '医生很耐心，解答详细',
-  },
-  {
-    session_id: 'sess_002',
-    doctor_name: '李雅琴',
-    doctor_title: '副主任医师',
-    department: '内分泌科',
-    status: 'closed',
-    started_at: '2026-06-10T14:30:00+08:00',
-    ended_at: '2026-06-10T15:00:00+08:00',
-    rating: 4,
-    feedback: '',
-  },
-]
-
 export const mockHealthRecord = {
   height: 170,
   weight: 72,

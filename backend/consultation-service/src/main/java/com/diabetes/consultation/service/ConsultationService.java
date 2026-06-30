@@ -8,6 +8,7 @@ import com.diabetes.consultation.mapper.ConsultationMessageMapper;
 import com.diabetes.consultation.mapper.ConsultationSessionMapper;
 import com.diabetes.consultation.mapper.DoctorMapper;
 import com.diabetes.common.client.HealthServiceClient;
+import com.diabetes.common.client.HomeServiceClient;
 import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.common.dify.DifyClient;
 import com.diabetes.common.dify.DifyJsonSchema;
@@ -37,6 +38,8 @@ public class ConsultationService {
     private static final DateTimeFormatter HISTORY_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final String AI_UNAVAILABLE =
             "AI 医生暂不可用，请稍后再试。如有紧急情况，请及时前往正规医疗机构就诊。";
+    private static final String EMPTY_KNOWLEDGE_CONTEXT =
+            "【系统提示】当前未检索到与问题直接相关的指南片段。请结合患者档案、对话历史与通用糖尿病诊疗原则作答，并明确标注「基于通用医学知识」。";
 
     private final DoctorMapper doctorMapper;
     private final ConsultationSessionMapper sessionMapper;
@@ -44,6 +47,7 @@ public class ConsultationService {
     private final MinioStorageService minioStorageService;
     private final HealthServiceClient healthServiceClient;
     private final UserServiceClient userServiceClient;
+    private final HomeServiceClient homeServiceClient;
     private final DifyClient difyClient;
     private final ObjectMapper objectMapper;
     private final String difyApiKey;
@@ -57,6 +61,7 @@ public class ConsultationService {
                                MinioStorageService minioStorageService,
                                HealthServiceClient healthServiceClient,
                                UserServiceClient userServiceClient,
+                               HomeServiceClient homeServiceClient,
                                DifyClient difyClient,
                                ObjectMapper objectMapper,
                                @Value("${dify.base-url:http://localhost}") String difyBaseUrl,
@@ -69,6 +74,7 @@ public class ConsultationService {
         this.minioStorageService = minioStorageService;
         this.healthServiceClient = healthServiceClient;
         this.userServiceClient = userServiceClient;
+        this.homeServiceClient = homeServiceClient;
         this.difyClient = difyClient;
         this.objectMapper = objectMapper;
         this.difyBaseUrl = difyBaseUrl;
@@ -148,13 +154,33 @@ public class ConsultationService {
             item.put("doctor_id", session.getDoctorId());
             item.put("status", session.getStatus() != null && session.getStatus() == 1 ? "active" : "closed");
             item.put("lastMessage", session.getLastMessage());
+            item.put("last_message", session.getLastMessage());
             item.put("messageCount", session.getMessageCount());
+            item.put("message_count", session.getMessageCount());
             item.put("startedAt", session.getStartedAt());
+            item.put("started_at", session.getStartedAt());
             item.put("endedAt", session.getEndedAt());
+            item.put("ended_at", session.getEndedAt());
             item.put("rating", session.getRating());
+            item.put("feedback", session.getFeedback());
+
+            Doctor doctor = doctorMapper.findById(session.getDoctorId());
+            if (doctor != null) {
+                item.put("doctorName", doctor.getName());
+                item.put("doctor_name", doctor.getName());
+                item.put("doctorTitle", doctor.getTitle());
+                item.put("doctor_title", doctor.getTitle());
+                item.put("department", doctor.getDepartment());
+            }
             items.add(item);
         }
-        return Map.of("sessions", items, "total", total);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("sessions", items);
+        result.put("list", items);
+        result.put("total", total);
+        result.put("page", page);
+        result.put("page_size", size);
+        return result;
     }
 
     @Transactional
@@ -284,8 +310,9 @@ public class ConsultationService {
                                                    Doctor doctor,
                                                    String query) throws JsonProcessingException {
         String patientProfile = buildPatientProfileJson(userId);
-        String history = buildConversationHistory(session.getSessionId());
+        String history = buildConversationHistory(session.getSessionId(), true);
         String doctorRole = buildDoctorRole(doctor);
+        String knowledgeContext = resolveKnowledgeContext(query);
 
         Map<String, Object> payload = DifyConsultationWorkflowContract.buildInputObject(
                 query,
@@ -293,8 +320,10 @@ public class ConsultationService {
                 doctorRole,
                 patientProfile,
                 history,
-                ""
+                knowledgeContext
         );
+        log.info("调用 Dify 问诊工作流 sessionId={} queryLen={} historyLen={} knowledgeLen={}",
+                session.getSessionId(), query.length(), history.length(), knowledgeContext.length());
         JsonNode response = difyClient.runWorkflowBlocking(
                 difyApiKey, userId, DifyJsonSchema.flatWorkflowInputs(payload), difyResponseMode);
         assertWorkflowSucceeded(response);
@@ -302,8 +331,12 @@ public class ConsultationService {
     }
 
     private String buildPatientProfileJson(String userId) throws JsonProcessingException {
-        Map<String, Object> profile = new LinkedHashMap<>();
         Map<String, Object> userProfile = userServiceClient.getUserProfile(userId, difyInternalKey);
+        if (!isHealthDataVisible(userProfile)) {
+            return buildHiddenPatientProfileJson();
+        }
+
+        Map<String, Object> profile = new LinkedHashMap<>();
         Map<String, Object> healthProfile = healthServiceClient.getLatestHealthProfile(userId, difyInternalKey);
 
         putIfPresent(profile, "age", userProfile.get("age"));
@@ -318,13 +351,42 @@ public class ConsultationService {
         putIfPresent(profile, "diabetesType", firstPresent(healthProfile, "diabetesType", "diabetes_type"));
         putIfPresent(profile, "familyHistory", firstPresent(healthProfile, "familyHistory", "family_history"));
 
+        if (profile.isEmpty()) {
+            profile.put("note", "暂无健康档案，请根据用户描述进行问诊");
+        }
         return objectMapper.writeValueAsString(profile);
     }
 
-    private String buildConversationHistory(String sessionId) {
-        List<ConsultationMessage> recent = messageMapper.findRecentBySessionId(sessionId, 20);
+    private String buildHiddenPatientProfileJson() throws JsonProcessingException {
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("data_visible", "不可见");
+        profile.put("note", "用户已关闭健康档案可见性，请仅根据对话内容问诊，勿引用系统健康档案数据");
+        return objectMapper.writeValueAsString(profile);
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean isHealthDataVisible(Map<String, Object> userProfile) {
+        Object privacySettings = firstPresent(userProfile, "privacy_settings", "privacySettings");
+        if (!(privacySettings instanceof Map<?, ?> privacy)) {
+            return true;
+        }
+        Object visible = firstPresent((Map<String, Object>) privacy, "data_visible", "dataVisible");
+        if (visible == null) {
+            return true;
+        }
+        if (visible instanceof Boolean bool) {
+            return bool;
+        }
+        return Boolean.parseBoolean(String.valueOf(visible));
+    }
+
+    private String buildConversationHistory(String sessionId, boolean excludeLatest) {
+        List<ConsultationMessage> recent = messageMapper.findRecentBySessionId(sessionId, excludeLatest ? 21 : 20);
         if (recent.isEmpty()) {
             return "";
+        }
+        if (excludeLatest && !recent.isEmpty()) {
+            recent = recent.subList(1, recent.size());
         }
         Collections.reverse(recent);
         StringBuilder sb = new StringBuilder();
@@ -357,6 +419,15 @@ public class ConsultationService {
     private String buildGreeting(Doctor doctor) {
         return "您好，我是" + doctor.getName() + "医生（" + doctor.getTitle() + "，" + doctor.getDepartment()
                 + "）。请问有什么可以帮您的？您可以描述症状或上传检查报告，我会尽力为您解答。";
+    }
+
+    private String resolveKnowledgeContext(String query) {
+        String context = homeServiceClient.searchKnowledgeContext(query, 5, difyInternalKey);
+        if (context != null && !context.isBlank()) {
+            return context;
+        }
+        log.warn("知识库检索无结果，使用兜底 knowledge_context query={}", truncate(query, 120));
+        return EMPTY_KNOWLEDGE_CONTEXT;
     }
 
     @SuppressWarnings("unchecked")

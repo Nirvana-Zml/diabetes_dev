@@ -100,7 +100,7 @@
 | 1 | 打卡 AI 行为分析 | checkin-service | `DIFY_CHECKIN_API_KEY` | `behavior_analysis` | `GET /api/v1/checkin-management/dify-workflow-spec` |
 | 2 | 健康方案生成 | plan-service | `DIFY_PLAN_API_KEY` | `plan_llm_output`（浅层，后端组装） | `GET /api/v1/plan/dify-workflow-spec` |
 | 3 | 糖尿病风险评估 | health-service | `DIFY_RISK_API_KEY` | `risk_assessment` | `GET /api/v1/risk/dify-workflow-spec` |
-| 4 | 资讯个性化推荐 | article-service | `DIFY_ARTICLE_RECOMMEND_API_KEY` | `recommendations` | `GET /api/v1/articles/recommend/dify-workflow-spec` |
+| 4 | 资讯个性化推荐 | article-service | `DIFY_ARTICLE_RECOMMEND_API_KEY` | `article_info.recommendations` | `GET /api/v1/articles/recommend/dify-workflow-spec` |
 
 ---
 
@@ -1037,145 +1037,114 @@
 |------|-----|
 | 契约类 | `backend/article-service/.../DifyArticleRecommendWorkflowContract.java` |
 | 入参 Schema 文件 | `backend/article-service/src/main/resources/dify/article-recommend-input.schema.json` |
-| 默认 API Key | `app-zBXmLq9LXjrF8UtuL9d8PhiS` |
+| 默认 API Key | `app-Af1Iv6Y51WrahbDXQMBDUy7f` |
 | 调用场景 | 推荐 Phase 4：对 Top-N 候选文章 AI 重排 |
+| 入参模式 | **flat**（开始节点 4 变量平铺，各字段为 JSON 文本字符串） |
 
-### 6.1 传入数据 JSON Schema（`inputs.inputs`）
+### 6.1 传入数据（开始节点平铺）
 
-> 与 `backend/article-service/src/main/resources/dify/article-recommend-input.schema.json` 一致。
+> 与 `article-recommend-input.schema.json` 一致。除结构化字段外，**各变量值均为 JSON 文本字符串**（Paragraph / Text-input 类型）。
+
+| 变量名 | 类型 | 说明 |
+|--------|------|------|
+| `user_profile` | string (JSON) | 用户兴趣画像 |
+| `health_profile` | string (JSON) | 健康档案摘要 |
+| `risk_profile` | string (JSON) | 风险评估摘要 |
+| `candidate_articles` | string (JSON 数组) | 待重排候选文章 Top-N |
+
+**`user_profile` 解析后结构：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `user_id` | string | 用户 ID |
+| `interest_tags` | string[] | 兴趣标签（来自收藏/阅读文章标签） |
+| `category_weights` | object | 分类 slug → 归一化权重，如 `diet: 0.35` |
+
+**`health_profile` 解析后结构（示例）：**
 
 ```json
 {
-  "type": "object",
-  "properties": {
-    "user_profile": {
-      "type": "object",
-      "properties": {
-        "user_id": {
-          "type": "string"
-        },
-        "interest_tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "category_weights": {
-          "type": "object",
-          "properties": {},
-          "required": [],
-          "additionalProperties": true
-        }
-      },
-      "required": [],
-      "additionalProperties": true
-    },
-    "health_profile": {
-      "type": "object",
-      "properties": {
-        "height": {
-          "type": "number"
-        },
-        "weight": {
-          "type": "number"
-        },
-        "bmi": {
-          "type": "number"
-        }
-      },
-      "required": [],
-      "additionalProperties": true
-    },
-    "risk_profile": {
-      "type": "object",
-      "properties": {
-        "riskLevel": {
-          "type": "string"
-        },
-        "riskScore": {
-          "type": "integer"
-        }
-      },
-      "required": [],
-      "additionalProperties": true
-    },
-    "candidate_articles": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "article_id": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "summary": {
-            "type": "string"
-          },
-          "category": {
-            "type": "string"
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "score": {
-            "type": "number"
-          }
-        },
-        "required": [],
-        "additionalProperties": true
+  "user_id": "user_001",
+  "diabetes_type": "2型",
+  "age": 52,
+  "gender": "male",
+  "height": 172,
+  "weight": 78,
+  "bmi": 26.4,
+  "fasting_glucose": 7.2,
+  "postprandial_glucose": 11.5,
+  "hba1c": 7.8,
+  "systolic_bp": 135,
+  "diastolic_bp": 85,
+  "activity_level": "moderate",
+  "diet_habit": "high_carb"
+}
+```
+
+**`risk_profile` 解析后结构（示例）：**
+
+```json
+{
+  "user_id": "user_001",
+  "risk_level": "high",
+  "risk_score": 72,
+  "risk_factors": ["空腹血糖偏高(7.2mmol/L)", "糖化血红蛋白超标(7.8%)"],
+  "primary_risk": "血糖控制不佳",
+  "secondary_risk": "心血管风险"
+}
+```
+
+**`candidate_articles` 数组元素：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `article_id` | string | 文章 ID |
+| `title` | string | 标题 |
+| `summary` | string | 摘要 |
+| `category` | string | 分类 slug：`diet` / `exercise` / `medication` / `diabetes_basics` / `complications` |
+| `tags` | string[] | 标签 |
+| `score` | number | 本地 Phase 1~3 规则打分 |
+
+**完整入参示例（Dify Workflow API `inputs`）：**
+
+```json
+{
+  "user_profile": "{\"user_id\":\"user_001\",\"interest_tags\":[\"饮食管理\",\"血糖监测\"],\"category_weights\":{\"diet\":0.35,\"exercise\":0.25}}",
+  "health_profile": "{\"user_id\":\"user_001\",\"diabetes_type\":\"2型\",\"bmi\":26.4,\"fasting_glucose\":7.2}",
+  "risk_profile": "{\"user_id\":\"user_001\",\"risk_level\":\"high\",\"risk_score\":72}",
+  "candidate_articles": "[{\"article_id\":\"art_001\",\"title\":\"...\",\"category\":\"diet\",\"score\":92}]"
+}
+```
+
+> 后端 `DifyArticleRecommendWorkflowContract.buildInputObject` 自动将健康档案、风险评估从 camelCase 转为 snake_case，并将分类 ID 映射为 slug。
+
+### 6.2 工作流需返回（`outputs.article_info`）
+
+```json
+{
+  "article_info": {
+    "recommendations": [
+      {
+        "article_id": "art_001",
+        "rec_reason": "结合您的 BMI 与血糖情况，本文饮食方案可针对性降低餐后血糖峰值。"
       }
-    }
+    ]
   },
-  "required": [],
-  "additionalProperties": true
+  "has_error": false,
+  "error_message": "",
+  "source": "糖尿病知识库文档"
 }
 ```
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `user_profile` | object | 用户兴趣画像 |
-| `user_profile.user_id` | string | 用户 ID |
-| `user_profile.interest_tags` | string[] | 兴趣标签 |
-| `user_profile.category_weights` | object | 分类 ID → 权重 |
-| `health_profile` | object | 健康档案摘要 |
-| `risk_profile` | object | 风险评估摘要 |
-| `candidate_articles` | array | 待重排候选文章（Top-N） |
-| `candidate_articles[].article_id` | string | 文章 ID |
-| `candidate_articles[].title` | string | 标题 |
-| `candidate_articles[].summary` | string | 摘要 |
-| `candidate_articles[].category` | string | 分类 |
-| `candidate_articles[].tags` | string[] | 标签 |
-| `candidate_articles[].score` | number | 本地规则打分 |
-
-### 6.2 工作流需返回（`outputs.recommendations`）
-
-```json
-{
-  "recommendations": [
-    {
-      "article_id": "art_001",
-      "rec_reason": "与您的饮食管理兴趣高度相关，适合当前控糖阶段阅读"
-    },
-    {
-      "article_id": "art_003",
-      "rec_reason": "结合您的运动偏好，提供适合糖尿病患者的运动指导"
-    }
-  ]
-}
-```
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `recommendations[]` | array | 重排后的推荐列表 |
+| `article_info.recommendations[]` | array | 重排后的推荐列表（顺序即优先级） |
 | `recommendations[].article_id` | string | 文章 ID |
 | `recommendations[].rec_reason` | string | 个性化推荐理由 |
+| `has_error` | boolean | 可选，是否出错 |
+| `error_message` | string | 可选，错误信息 |
 
-> 后端也兼容 `outputs.articles` 或 `outputs.text` 内嵌 JSON。
+> 后端也兼容 `outputs.recommendations`、`outputs.articles`、`outputs.text` 内嵌 JSON 等旧格式。
 
 ---
 
@@ -1202,8 +1171,8 @@ DIFY_RISK_TRIGGER_MODE=api
 DIFY_RISK_RESPONSE_MODE=blocking
 
 # 资讯推荐
-DIFY_ARTICLE_RECOMMEND_API_KEY=app-zBXmLq9LXjrF8UtuL9d8PhiS
-DIFY_ARTICLE_RECOMMEND_INPUT_VAR=inputs
+DIFY_ARTICLE_RECOMMEND_API_KEY=app-Af1Iv6Y51WrahbDXQMBDUy7f
+DIFY_ARTICLE_RECOMMEND_INPUT_VAR=flat
 DIFY_ARTICLE_RECOMMEND_INPUT_FORMAT=object
 DIFY_ARTICLE_RECOMMEND_RESPONSE_MODE=blocking
 ```

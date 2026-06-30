@@ -45,12 +45,22 @@
         WHERE PHONE = #{phone} AND IS_DELETED = 0
     </select>
 
+    <select id="findByEmail" resultMap="UserMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM USERS
+        WHERE EMAIL = #{email} AND IS_DELETED = 0
+    </select>
+
     <select id="countByUsername" resultType="int">
         SELECT COUNT(1) FROM USERS WHERE USERNAME = #{username} AND IS_DELETED = 0
     </select>
 
     <select id="countByPhone" resultType="int">
         SELECT COUNT(1) FROM USERS WHERE PHONE = #{phone} AND IS_DELETED = 0
+    </select>
+
+    <select id="countByEmail" resultType="int">
+        SELECT COUNT(1) FROM USERS WHERE EMAIL = #{email} AND IS_DELETED = 0
     </select>
 
     <insert id="insert">

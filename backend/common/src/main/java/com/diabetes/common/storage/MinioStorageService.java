@@ -58,9 +58,19 @@ public class MinioStorageService {
             log.warn("MinIO video-cover bucket 启动时初始化失败（首次上传时将重试）: {}", e.getMessage());
         }
         try {
+            ensureBucket(properties.getVideoBucket(), false);
+        } catch (Exception e) {
+            log.warn("MinIO video bucket 启动时初始化失败（首次上传时将重试）: {}", e.getMessage());
+        }
+        try {
             ensureBucket(properties.getAvatarBucket(), false);
         } catch (Exception e) {
             log.warn("MinIO avatar bucket 启动时初始化失败（首次上传时将重试）: {}", e.getMessage());
+        }
+        try {
+            ensureBucket(properties.getExportBucket(), false);
+        } catch (Exception e) {
+            log.warn("MinIO export bucket 启动时初始化失败（首次上传时将重试）: {}", e.getMessage());
         }
     }
 
@@ -137,6 +147,63 @@ public class MinioStorageService {
             return "";
         }
         return buildBucketObjectUrl(properties.getVideoCoverBucket(), videoId + ".jpg");
+    }
+
+    /**
+     * 上传科普视频至 video bucket，对象名固定为 {@code {videoId}.mp4}
+     */
+    public String uploadVideo(String videoId, InputStream inputStream, long size, String contentType) {
+        if (videoId == null || videoId.isBlank()) {
+            throw new BusinessException(400, "视频 ID 无效");
+        }
+        String objectName = videoId + ".mp4";
+        String bucket = properties.getVideoBucket();
+        try {
+            ensureBucket(bucket, true);
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(objectName)
+                    .stream(inputStream, size, -1)
+                    .contentType(contentType != null ? contentType : "video/mp4")
+                    .build());
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(500, "视频上传失败: " + e.getMessage());
+        }
+        return buildVideoUrl(videoId);
+    }
+
+    /**
+     * 上传科普视频封面至 video-cover bucket，对象名固定为 {@code {videoId}.jpg}
+     */
+    public String uploadVideoCover(String videoId, InputStream inputStream, long size, String contentType) {
+        if (videoId == null || videoId.isBlank()) {
+            throw new BusinessException(400, "视频 ID 无效");
+        }
+        String objectName = videoId + ".jpg";
+        String bucket = properties.getVideoCoverBucket();
+        try {
+            ensureBucket(bucket, true);
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(objectName)
+                    .stream(inputStream, size, -1)
+                    .contentType(contentType != null ? contentType : "image/jpeg")
+                    .build());
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(500, "视频封面上传失败: " + e.getMessage());
+        }
+        return buildVideoCoverUrl(videoId);
+    }
+
+    public String buildVideoUrl(String videoId) {
+        if (videoId == null || videoId.isBlank()) {
+            return "";
+        }
+        return buildBucketObjectUrl(properties.getVideoBucket(), videoId + ".mp4");
     }
 
     /** AI 医生头像 URL，对象名固定为 {@code {doctorId}.jpg} */
@@ -219,6 +286,39 @@ public class MinioStorageService {
             return "";
         }
         return buildBucketObjectUrl(properties.getCheckinBucket(), objectKey.replaceAll("^/+", ""));
+    }
+
+    /**
+     * 上传用户导出文件至 export bucket，Object Key：{@code {userId}/{fileName}}
+     */
+    public String uploadExportFile(String userId, String fileName, InputStream inputStream,
+                                   long size, String contentType) {
+        if (userId == null || userId.isBlank()) {
+            throw new BusinessException(400, "用户 ID 无效");
+        }
+        if (fileName == null || fileName.isBlank()) {
+            throw new BusinessException(400, "文件名无效");
+        }
+        String objectKey = userId + "/" + fileName.replaceAll("^/+", "");
+        String bucket = properties.getExportBucket();
+        try {
+            ensureBucket(bucket, true);
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(objectKey)
+                    .stream(inputStream, size, -1)
+                    .contentType(contentType != null ? contentType : "application/octet-stream")
+                    .build());
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(500, "导出文件上传失败: " + e.getMessage());
+        }
+        return buildExportFileUrl(userId, fileName);
+    }
+
+    public String buildExportFileUrl(String userId, String fileName) {
+        return buildBucketObjectUrl(properties.getExportBucket(), userId + "/" + fileName.replaceAll("^/+", ""));
     }
 
     private CheckinImageUploadResult uploadCheckinUserImage(String folder, String userId, String fileBaseName,

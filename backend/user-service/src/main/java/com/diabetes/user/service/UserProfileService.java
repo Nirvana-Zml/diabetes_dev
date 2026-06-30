@@ -25,15 +25,18 @@ public class UserProfileService {
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
     private final MinioStorageService minioStorageService;
+    private final VerifyCodeService verifyCodeService;
 
     public UserProfileService(UserMapper userMapper,
                               PasswordEncoder passwordEncoder,
                               ObjectMapper objectMapper,
-                              MinioStorageService minioStorageService) {
+                              MinioStorageService minioStorageService,
+                              VerifyCodeService verifyCodeService) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.objectMapper = objectMapper;
         this.minioStorageService = minioStorageService;
+        this.verifyCodeService = verifyCodeService;
     }
 
     public User getUserOrThrow(String userId) {
@@ -66,16 +69,6 @@ public class UserProfileService {
         if (request.nickname() != null) {
             user.setNickname(request.nickname());
         }
-        if (request.phone() != null) {
-            User existing = userMapper.findByPhone(request.phone());
-            if (existing != null && !existing.getUserId().equals(userId)) {
-                throw new BusinessException(400, "手机号已被其他账号使用");
-            }
-            user.setPhone(request.phone());
-        }
-        if (request.email() != null) {
-            user.setEmail(request.email());
-        }
         if (request.gender() != null) {
             user.setGender(request.gender());
         }
@@ -83,6 +76,38 @@ public class UserProfileService {
             user.setBirthDate(LocalDate.parse(request.birth_date()));
         }
         userMapper.updateProfile(user);
+        return getProfile(userId);
+    }
+
+    @Transactional
+    public UserProfileResponse bindEmail(String userId, BindEmailRequest request) {
+        verifyCodeService.verifyOrThrow(request.email(), request.verify_code());
+
+        User existing = userMapper.findByEmail(request.email().trim());
+        if (existing != null && !existing.getUserId().equals(userId)) {
+            throw new BusinessException(409, "该邮箱已被其他账号绑定");
+        }
+
+        User user = getUserOrThrow(userId);
+        user.setEmail(request.email().trim());
+        userMapper.updateProfile(user);
+        verifyCodeService.remove(request.email());
+        return getProfile(userId);
+    }
+
+    @Transactional
+    public UserProfileResponse bindPhone(String userId, BindPhoneRequest request) {
+        verifyCodeService.verifyOrThrow(request.phone(), request.verify_code());
+
+        User existing = userMapper.findByPhone(request.phone());
+        if (existing != null && !existing.getUserId().equals(userId)) {
+            throw new BusinessException(409, "该手机号已被其他账号绑定");
+        }
+
+        User user = getUserOrThrow(userId);
+        user.setPhone(request.phone());
+        userMapper.updateProfile(user);
+        verifyCodeService.remove(request.phone());
         return getProfile(userId);
     }
 

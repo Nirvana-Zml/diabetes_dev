@@ -11,6 +11,9 @@ function createHttpClient(baseURL) {
   })
 
   client.interceptors.request.use((config) => {
+    if (config.url) {
+      config.url = config.url.replace(/\/+$/, '') || '/'
+    }
     const token = localStorage.getItem('access_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -48,12 +51,14 @@ function createHttpClient(baseURL) {
 const http = createHttpClient(API_BASE)
 const httpV2 = createHttpClient(API_V2_BASE)
 
-async function invoke(client, method, url, { data, params, mockFn, headers } = {}) {
+async function invoke(client, method, url, { data, params, mockFn, headers, onUploadProgress, timeout } = {}) {
   if (USE_MOCK && mockFn) {
     await delay()
     return mockFn()
   }
   const config = { method, url, data, params, headers: headers || {} }
+  if (onUploadProgress) config.onUploadProgress = onUploadProgress
+  if (timeout) config.timeout = timeout
   const res = await client.request(config)
   return res.data !== undefined ? res.data : res
 }

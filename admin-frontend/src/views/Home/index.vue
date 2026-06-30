@@ -39,7 +39,7 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { Document, ArrowRight } from '@element-plus/icons-vue'
+import { Document, VideoCamera, ArrowRight } from '@element-plus/icons-vue'
 import { clearTokens } from '@/api/auth'
 import { USER_PORTAL_URL } from '@/config'
 
@@ -52,6 +52,13 @@ const modules = [
     path: '/articles',
     icon: Document,
     color: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+  },
+  {
+    title: '科普视频管理',
+    desc: '上传科普视频与封面，自动解析时长并同步至首页展示',
+    path: '/videos',
+    icon: VideoCamera,
+    color: 'linear-gradient(135deg, #6366f1, #4f46e5)',
   },
 ]
 

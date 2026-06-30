@@ -36,7 +36,8 @@
     <select id="findByUserId" resultType="com.diabetes.consultation.entity.ConsultationSession">
         SELECT SESSION_ID AS sessionId, USER_ID AS userId, DOCTOR_ID AS doctorId,
                STATUS AS status, LAST_MESSAGE AS lastMessage, LAST_MESSAGE_AT AS lastMessageAt,
-               MESSAGE_COUNT AS messageCount, RATING AS rating, STARTED_AT AS startedAt, ENDED_AT AS endedAt
+               MESSAGE_COUNT AS messageCount, RATING AS rating, FEEDBACK AS feedback,
+               STARTED_AT AS startedAt, ENDED_AT AS endedAt
         FROM CONSULTATION_SESSIONS
         WHERE USER_ID = #{userId} AND DEL_FLAG = 0
         <if test="status != null">

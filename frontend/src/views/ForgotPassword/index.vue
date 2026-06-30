@@ -166,8 +166,9 @@ async function handleSendCode() {
     await sendVerifyCode({
       account: form.account.trim(),
       type: form.verifyType,
+      purpose: 'reset_password',
     })
-    ElMessage.success('验证码已发送')
+    ElMessage.success(form.verifyType === 'email' ? '验证码已发送，请查收邮件' : '验证码已发送')
     startCountdown()
   } catch (err) {
     ElMessage.error(err.message || '发送失败，请稍后重试')
