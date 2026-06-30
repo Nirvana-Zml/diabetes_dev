@@ -73,6 +73,16 @@ class ExportFileGeneratorTest {
     }
 
     @Test
+    void generatePdf_profileAndHealthOnly() {
+        Map<String, Object> payload = Map.of(
+                "exported_at", "2024-01-01",
+                "profile", Map.of("userId", "u_1", "username", "alice"),
+                "health", Map.of("bmi", 22));
+        byte[] bytes = generator.generate("pdf", payload);
+        assertTrue(bytes.length > 0);
+    }
+
+    @Test
     void generateExcel_withListData() {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("user_id", "u_1");

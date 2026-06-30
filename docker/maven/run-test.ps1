@@ -9,9 +9,8 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $Root
 
-$goal = if ($Verify) { "verify" } else { "test" }
-$installCmd = "mvn -pl $Service -am install -Dmaven.test.skip=true -B"
-$testCmd = "mvn -pl $Service $goal -B"
+$installCmd = "mvn -pl $Service -am package -Dmaven.test.skip=true -Djacoco.skip=true -B"
+$testCmd = if ($Verify) { "mvn -pl $Service verify -B" } else { "mvn -pl $Service test -B" }
 
 Write-Host "==> 构建依赖: $installCmd" -ForegroundColor Cyan
 docker compose -f docker-compose.maven.yml run --rm --entrypoint sh maven -c $installCmd

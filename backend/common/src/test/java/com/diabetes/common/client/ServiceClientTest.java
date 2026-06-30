@@ -8,11 +8,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -59,6 +59,8 @@ class ServiceClientTest {
             String path = exchange.getRequestURI().getPath();
             if (path.endsWith("/latest-record")) {
                 respond(exchange, 200, "{\"code\":200,\"data\":{\"height\":170}}");
+            } else if (path.endsWith("/risk-history")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":{\"total\":2,\"items\":[{\"id\":\"r1\"}]}}");
             } else if (path.contains("bad-code")) {
                 respond(exchange, 200, "{\"code\":500,\"message\":\"bad\",\"data\":{\"risk\":\"high\"}}");
             } else if (path.contains("missing-data")) {
@@ -74,12 +76,15 @@ class ServiceClientTest {
         HealthServiceClient client = new HealthServiceClient(baseUrl(), objectMapper);
 
         assertEquals(170, client.getLatestHealthProfile("u_001", null).get("height"));
+        assertEquals(2, client.getRiskHistory("u_001", "key", 1, 10).get("total"));
         assertTrue(client.getLatestRiskAssessment("u_001", "key").isEmpty());
         assertTrue(client.getLatestRiskAssessment("bad-code", "key").isEmpty());
         assertTrue(client.getLatestRiskAssessment("missing-data", "key").isEmpty());
         assertTrue(client.getLatestRiskAssessment("array-data", "key").isEmpty());
         assertTrue(new HealthServiceClient("http://127.0.0.1:1", objectMapper)
                 .getLatestHealthProfile("u_001", "key").isEmpty());
+        assertTrue(new HealthServiceClient("http://127.0.0.1:1", objectMapper)
+                .getRiskHistory("u_001", "key", 1, 10).isEmpty());
     }
 
     @Test
@@ -110,20 +115,107 @@ class ServiceClientTest {
     }
 
     @Test
-    @DisplayName("占位客户端返回空数据结构")
-    void shouldReturnPlaceholderData() {
-        ConsultationServiceClient consultation = new ConsultationServiceClient();
-        HomeServiceClient home = new HomeServiceClient();
+    @DisplayName("ConsultationServiceClient 和 HomeServiceClient 调用内部接口")
+    void shouldFetchConsultationAndHomeData() throws Exception {
+        startServer(exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            String query = exchange.getRequestURI().getQuery();
+            if (path.contains("/consultation/user/ok/sessions")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":{\"total\":1,\"sessions\":[{\"id\":\"s1\"}]}}");
+            } else if (path.contains("/consultation/user/default-code/sessions")) {
+                respond(exchange, 200, "{\"data\":{\"total\":2}}");
+            } else if (path.contains("/consultation/user/bad-code/sessions")) {
+                respond(exchange, 200, "{\"code\":500,\"data\":{\"total\":1}}");
+            } else if (path.contains("/consultation/user/no-data/sessions")) {
+                respond(exchange, 200, "{\"code\":200}");
+            } else if (path.contains("/consultation/user/array-data/sessions")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":[]}");
+            } else if (path.contains("/consultation/user/null-data/sessions")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":null}");
+            } else if (path.endsWith("/knowledge/search") && query != null && query.contains("query=ctx")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":{\"knowledgeContext\":\"context\",\"count\":1}}");
+            } else if (path.endsWith("/knowledge/search") && query != null && query.contains("query=snake")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":{\"knowledge_context\":\"snake context\",\"count\":1}}");
+            } else if (path.endsWith("/knowledge/search") && query != null && query.contains("query=empty")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":{\"knowledgeContext\":\"\",\"count\":0}}");
+            } else if (path.endsWith("/knowledge/search") && query != null && query.contains("query=bad")) {
+                respond(exchange, 200, "{\"code\":500,\"message\":\"bad\",\"data\":{}}");
+            } else if (path.endsWith("/knowledge/search") && query != null && query.contains("query=long")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":{\"knowledgeContext\":\"\",\"count\":0}}");
+            } else if (path.endsWith("/knowledge/search") && query != null && query.contains("query=default-code")) {
+                respond(exchange, 200, "{\"data\":{\"knowledgeContext\":\"default\",\"count\":1}}");
+            } else {
+                respond(exchange, 200, "{}");
+            }
+        });
+        ConsultationServiceClient consultation = new ConsultationServiceClient(baseUrl(), objectMapper);
+        HomeServiceClient home = new HomeServiceClient(baseUrl(), objectMapper);
 
-        assertTrue(consultation.listAiDoctors("内分泌", "糖尿病").isEmpty());
-        assertEquals(Optional.empty(), consultation.getActiveSession("u_001"));
-        assertTrue(home.getHomeContent().banners().isEmpty());
-        assertTrue(home.getHomeContent().categories().isEmpty());
-        assertTrue(home.getHomeContent().videos().isEmpty());
-        assertTrue(home.getRecommend(1, 10).articles().isEmpty());
-        assertEquals(0, home.getRecommend(1, 10).total());
-        assertEquals("d1", new ConsultationServiceClient.AiDoctorPlaceholder("d1", "医生", "内分泌").doctorId());
-        assertEquals("s1", new ConsultationServiceClient.SessionPlaceholder("s1", "d1", "active").sessionId());
+        assertEquals(1, consultation.listSessions("ok", null, 1, 10).get("total"));
+        assertEquals(2, consultation.listSessions("default-code", "key", 1, 10).get("total"));
+        assertTrue(consultation.listSessions("bad-code", "key", 1, 10).isEmpty());
+        assertTrue(consultation.listSessions("no-data", "key", 1, 10).isEmpty());
+        assertTrue(consultation.listSessions("array-data", "key", 1, 10).isEmpty());
+        assertTrue(consultation.listSessions("null-data", "key", 1, 10).isEmpty());
+        assertTrue(new ConsultationServiceClient("http://127.0.0.1:1", objectMapper)
+                .listSessions("ok", "key", 1, 10).isEmpty());
+
+        assertEquals("context", home.searchKnowledgeContext("ctx", 3, null));
+        assertEquals("snake context", home.searchKnowledgeContext("snake", 3, "key"));
+        assertEquals("", home.searchKnowledgeContext(" ", 3, "key"));
+        assertEquals("", home.searchKnowledgeContext(null, 3, "key"));
+        assertEquals("", home.searchKnowledgeContext("empty", 3, "key"));
+        assertEquals("", home.searchKnowledgeContext("bad", 3, "key"));
+        assertEquals("", home.searchKnowledgeContext("long".repeat(30), 3, "key"));
+        assertEquals("default", home.searchKnowledgeContext("default-code", 3, "key"));
+        assertEquals("", new HomeServiceClient("http://127.0.0.1:1", objectMapper)
+                .searchKnowledgeContext("ctx", 3, "key"));
+    }
+
+    @Test
+    @DisplayName("HomeServiceClient truncate 处理 null 和短文本")
+    void shouldTruncateKnowledgeQuery() throws Exception {
+        Method truncate = HomeServiceClient.class.getDeclaredMethod("truncate", String.class, int.class);
+        truncate.setAccessible(true);
+
+        assertEquals("", truncate.invoke(null, null, 80));
+        assertEquals("short", truncate.invoke(null, "short", 80));
+        assertEquals("a".repeat(80) + "...", truncate.invoke(null, "a".repeat(120), 80));
+    }
+
+    @Test
+    @DisplayName("PlanServiceClient 获取方案历史和最新方案")
+    void shouldFetchPlanServiceData() throws Exception {
+        startServer(exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            if (path.contains("/user/ok/history")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":{\"total\":3,\"items\":[{\"id\":\"p1\"}]}}");
+            } else if (path.contains("/user/ok/latest")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":{\"id\":\"p-latest\"}}");
+            } else if (path.contains("/user/array/latest")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":[{\"id\":\"p-array\"}]}");
+            } else if (path.contains("/user/bad-code/latest")) {
+                respond(exchange, 200, "{\"code\":500,\"message\":\"bad\"}");
+            } else if (path.contains("/user/missing-data/latest")) {
+                respond(exchange, 200, "{\"code\":200}");
+            } else if (path.contains("/user/null-data/latest")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":null}");
+            } else {
+                respond(exchange, 200, "{}");
+            }
+        });
+        PlanServiceClient client = new PlanServiceClient(baseUrl(), objectMapper);
+
+        assertEquals(3, client.getPlanHistory("ok", null, 1, 10).get("total"));
+        assertEquals("p-latest", client.getLatestPlan("ok", "key").get("id"));
+        assertTrue(client.getLatestPlan("array", "key").containsKey("items"));
+        assertTrue(client.getLatestPlan("bad-code", "key").isEmpty());
+        assertTrue(client.getLatestPlan("missing-data", "key").isEmpty());
+        assertTrue(client.getLatestPlan("null-data", "key").isEmpty());
+        assertTrue(new PlanServiceClient("http://127.0.0.1:1", objectMapper)
+                .getLatestPlan("ok", "key").isEmpty());
+        assertTrue(new PlanServiceClient("http://127.0.0.1:1", objectMapper)
+                .getPlanHistory("ok", "key", 1, 10).isEmpty());
     }
 
     private void startServer(ExchangeHandler handler) throws IOException {

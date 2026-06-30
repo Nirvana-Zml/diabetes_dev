@@ -132,6 +132,19 @@ class UserProfileServiceTest {
     }
 
     @Test
+    void updateProfile_nullBirthDate() throws Exception {
+        User user = sampleUser();
+        when(userMapper.findById("u_1")).thenReturn(user);
+        when(objectMapper.readValue(anyString(), any(TypeReference.class)))
+                .thenReturn(Map.of("show", true));
+
+        userProfileService.updateProfile("u_1",
+                new UpdateProfileRequest(null, null, null, null, null, null));
+
+        assertEquals(LocalDate.of(1995, 3, 15), user.getBirthDate());
+    }
+
+    @Test
     void bindEmail_success() {
         User user = sampleUser();
         when(userMapper.findById("u_1")).thenReturn(user);
@@ -177,6 +190,20 @@ class UserProfileServiceTest {
         assertThrows(BusinessException.class,
                 () -> userProfileService.bindPhone("u_1",
                         new BindPhoneRequest("13900139000", "123456")));
+    }
+
+    @Test
+    void bindPhone_sameUserOwnPhone() throws Exception {
+        User user = sampleUser();
+        user.setPhone("13900139000");
+        when(userMapper.findByPhone("13900139000")).thenReturn(user);
+        when(userMapper.findById("u_1")).thenReturn(user);
+        when(objectMapper.readValue(anyString(), any(TypeReference.class)))
+                .thenReturn(Map.of("show", true));
+
+        userProfileService.bindPhone("u_1", new BindPhoneRequest("13900139000", "123456"));
+
+        verify(userMapper).updateProfile(user);
     }
 
     @Test
@@ -280,6 +307,14 @@ class UserProfileServiceTest {
         assertThrows(BusinessException.class,
                 () -> userProfileService.updatePrivacy("u_1",
                         new PrivacySettingsRequest(Map.of())));
+    }
+
+    @Test
+    void updatePrivacy_nullSettings() {
+        when(userMapper.findById("u_1")).thenReturn(sampleUser());
+        assertThrows(BusinessException.class,
+                () -> userProfileService.updatePrivacy("u_1",
+                        new PrivacySettingsRequest(null)));
     }
 
     @Test

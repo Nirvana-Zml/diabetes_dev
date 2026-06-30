@@ -203,6 +203,14 @@ class AuthServiceTest {
     }
 
     @Test
+    void sendVerifyCode_phoneResetPasswordRegistered() {
+        when(userMapper.findByPhone("13800138000")).thenReturn(user("u_1", "alice", "h"));
+        when(verifyCodeService.generateAndStore("13800138000")).thenReturn("999888");
+        authService.sendVerifyCode("13800138000", "phone", "reset_password");
+        verify(verifyCodeService).generateAndStore("13800138000");
+    }
+
+    @Test
     void sendVerifyCode_emailBind() {
         when(verifyCodeService.generateAndStore("user@test.com")).thenReturn("123456");
         authService.sendVerifyCode("user@test.com", "email", "bind");

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -86,6 +87,11 @@ class DifyClientTest {
         JsonNode nullModeBody = objectMapper.readTree(requestBodies.get(2));
         assertEquals("ok", nullModeResult.get("answer").asText());
         assertEquals("blocking", nullModeBody.get("response_mode").asText());
+
+        JsonNode customModeResult = client.runWorkflowBlocking("api-key", "u_001", Map.of(), "streaming");
+        JsonNode customModeBody = objectMapper.readTree(requestBodies.get(3));
+        assertEquals("ok", customModeResult.get("answer").asText());
+        assertEquals("streaming", customModeBody.get("response_mode").asText());
     }
 
     @Test
@@ -198,22 +204,61 @@ class DifyClientTest {
     void shouldRunStreamingCalls() throws Exception {
         startServer(exchange -> {
             requestBodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            respond(exchange, 200, "line1\nline2");
+            if (exchange.getRequestURI().getPath().endsWith("/workflows/run")) {
+                respond(exchange, 200, "data: line1\n\ndata: line2\n\n", "text/event-stream");
+            } else {
+                respond(exchange, 200, "line1\nline2", "text/plain");
+            }
         });
         DifyClient client = new DifyClient(baseUrl(), 5, objectMapper);
 
-        List<String> workflow = client.runWorkflowStreaming("api-key", "u_001", Map.of("a", 1))
+        List<ServerSentEvent<String>> workflow = client.runWorkflowStreaming("api-key", "u_001", Map.of("a", 1))
+                .collectList()
+                .block();
+        List<ServerSentEvent<String>> anonymousWorkflow = client.runWorkflowStreaming("api-key", " ", Map.of())
+                .collectList()
+                .block();
+        List<ServerSentEvent<String>> nullUserWorkflow = client.runWorkflowStreaming("api-key", null, null)
                 .collectList()
                 .block();
         List<String> chat = client.runChatStreaming("api-key", " ", "hello", "c_001", Map.of("a", 1))
                 .collectList()
                 .block();
+        List<String> chatWithoutConversation = client.runChatStreaming("api-key", "u_001", "hello", null, Map.of())
+                .collectList()
+                .block();
 
-        assertEquals(List.of("line1", "line2"), workflow);
+        assertNotNull(workflow);
+        assertNotNull(anonymousWorkflow);
+        assertNotNull(nullUserWorkflow);
+        assertNotNull(chat);
+        assertNotNull(chatWithoutConversation);
+        assertEquals(List.of("line1", "line2"), workflow.stream().map(ServerSentEvent::data).toList());
         assertEquals(List.of("line1", "line2"), chat);
-        JsonNode chatBody = objectMapper.readTree(requestBodies.get(1));
+        JsonNode chatBody = objectMapper.readTree(requestBodies.get(3));
+        JsonNode chatWithoutConversationBody = objectMapper.readTree(requestBodies.get(4));
         assertEquals("guest", chatBody.get("user").asText());
         assertEquals("c_001", chatBody.get("conversation_id").asText());
+        assertFalse(chatWithoutConversationBody.has("conversation_id"));
+    }
+
+    @Test
+    @DisplayName("工作流输入支持布尔 false 和浮点数值")
+    void shouldSerializeBooleanFalseAndFloatInputs() throws Exception {
+        startServer(exchange -> {
+            requestBodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            respond(exchange, 200, "{\"answer\":\"ok\"}");
+        });
+        DifyClient client = new DifyClient(baseUrl(), 5, objectMapper);
+
+        JsonNode result = client.runWorkflowBlocking("api-key", "u_001", Map.of(
+                "enabled", false,
+                "ratio", 0.25f));
+
+        assertEquals("ok", result.get("answer").asText());
+        JsonNode body = objectMapper.readTree(requestBodies.get(0));
+        assertFalse(body.path("inputs").path("enabled").asBoolean());
+        assertEquals(0.25, body.path("inputs").path("ratio").asDouble(), 0.001);
     }
 
     @Test
@@ -245,8 +290,12 @@ class DifyClientTest {
     }
 
     private static void respond(HttpExchange exchange, int status, String body) throws IOException {
+        respond(exchange, status, body, "application/json");
+    }
+
+    private static void respond(HttpExchange exchange, int status, String body, String contentType) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
+        exchange.getResponseHeaders().add("Content-Type", contentType);
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.close();

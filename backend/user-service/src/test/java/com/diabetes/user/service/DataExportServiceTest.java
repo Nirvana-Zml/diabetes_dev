@@ -286,6 +286,237 @@ class DataExportServiceTest {
         verify(exportFileGenerator).generate(eq("excel"), any());
     }
 
+    @Test
+    void submitExport_checkinOnlyStartDate() {
+        stubProfile();
+        when(checkinServiceClient.getRecentCheckins(anyString(), anyString(), eq(90)))
+                .thenReturn(List.of(Map.of("checkin_date", "2024-06-15")));
+        stubExportUpload();
+
+        dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("checkin"), "excel", "2024-06-01", null));
+        verify(checkinServiceClient).getRecentCheckins("u_1", "internal-key", 90);
+    }
+
+    @Test
+    void submitExport_checkinOnlyEndDate() {
+        stubProfile();
+        when(checkinServiceClient.getRecentCheckins(anyString(), anyString(), eq(90)))
+                .thenReturn(List.of(Map.of("checkin_date", "2024-06-15")));
+        stubExportUpload();
+
+        dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("checkin"), "excel", null, "2024-06-30"));
+        verify(checkinServiceClient).getRecentCheckins("u_1", "internal-key", 90);
+    }
+
+    @Test
+    void submitExport_checkinBlankStartDate() {
+        stubProfile();
+        when(checkinServiceClient.getRecentCheckins(anyString(), anyString(), eq(90)))
+                .thenReturn(List.of(Map.of("checkin_date", "2024-06-15")));
+        stubExportUpload();
+
+        dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("checkin"), "excel", "  ", "2024-06-30"));
+        verify(checkinServiceClient).getRecentCheckins("u_1", "internal-key", 90);
+    }
+
+    @Test
+    void submitExport_checkinValidDateRangeDays() {
+        stubProfile();
+        when(checkinServiceClient.getRecentCheckins(anyString(), anyString(), eq(30)))
+                .thenReturn(List.of(Map.of("checkin_date", "2024-06-15")));
+        stubExportUpload();
+
+        dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("checkin"), "excel", "2024-06-01", "2024-06-30"));
+        verify(checkinServiceClient).getRecentCheckins("u_1", "internal-key", 30);
+    }
+
+    @Test
+    void submitExport_consultationNullSource() {
+        stubProfile();
+        when(consultationServiceClient.listSessions(anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(null);
+        stubExportUpload();
+
+        assertDoesNotThrow(() -> dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("consultation"), "excel", "2024-06-01", "2024-06-30")));
+    }
+
+    @Test
+    void submitExport_planPartialDateRange() {
+        stubProfile();
+        when(planServiceClient.getPlanHistory(anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(Map.of("plans", List.of(Map.of("generated_at", "2024-06-15"))));
+        stubExportUpload();
+
+        dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("plan"), "excel", "2024-06-01", null));
+        verify(planServiceClient).getPlanHistory("u_1", "internal-key", 1, 100);
+    }
+
+    @Test
+    void submitExport_planBlankEndDate() {
+        stubProfile();
+        when(planServiceClient.getPlanHistory(anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(Map.of("plans", List.of(Map.of("generated_at", "2024-06-15"))));
+        stubExportUpload();
+
+        dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("plan"), "excel", "2024-06-01", "  "));
+        verify(planServiceClient).getPlanHistory("u_1", "internal-key", 1, 100);
+    }
+
+    @Test
+    void submitExport_checkinDateOutsideRange() {
+        stubProfile();
+        when(checkinServiceClient.getRecentCheckins(anyString(), anyString(), anyInt()))
+                .thenReturn(List.of(
+                        Map.of("checkin_date", "2024-05-01"),
+                        Map.of("checkin_date", "2024-07-01"),
+                        Map.of("checkin_date", "2024-06-15")));
+        stubExportUpload();
+
+        dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("checkin"), "excel", "2024-06-01", "2024-06-30"));
+        verify(checkinServiceClient).getRecentCheckins("u_1", "internal-key", 30);
+    }
+
+    @Test
+    void submitExport_checkinShortDateValue() {
+        stubProfile();
+        when(checkinServiceClient.getRecentCheckins(anyString(), anyString(), anyInt()))
+                .thenReturn(List.of(Map.of("checkin_date", "2024-6-5")));
+        stubExportUpload();
+
+        assertDoesNotThrow(() -> dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("checkin"), "excel", "2024-06-01", "2024-06-30")));
+    }
+
+    @Test
+    void submitExport_consultationUsesPrimaryKey() {
+        stubProfile();
+        when(consultationServiceClient.listSessions(anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(Map.of("sessions", List.of(Map.of("started_at", "2024-06-15"))));
+        stubExportUpload();
+
+        dataExportService.submitExport("u_1",
+                new ExportDataRequest(List.of("consultation"), "excel", "2024-06-01", "2024-06-30"));
+        verify(consultationServiceClient).listSessions("u_1", "internal-key", 1, 100);
+    }
+
+    @Test
+    void withinDateRange_nullValue() throws Exception {
+        var method = DataExportService.class.getDeclaredMethod(
+                "withinDateRange", String.class, String.class, String.class);
+        method.setAccessible(true);
+        assertEquals(false, method.invoke(dataExportService, null, "2024-06-01", "2024-06-30"));
+    }
+
+    @Test
+    void withinDateRange_blankValue() throws Exception {
+        var method = DataExportService.class.getDeclaredMethod(
+                "withinDateRange", String.class, String.class, String.class);
+        method.setAccessible(true);
+        assertEquals(false, method.invoke(dataExportService, "  ", "2024-06-01", "2024-06-30"));
+    }
+
+    @Test
+    void resolveCheckinDays_blankEndDate() throws Exception {
+        var method = DataExportService.class.getDeclaredMethod(
+                "resolveCheckinDays", String.class, String.class);
+        method.setAccessible(true);
+        assertEquals(90, method.invoke(dataExportService, "2024-06-01", "  "));
+    }
+
+    @Test
+    void filterCheckins_startBlankEndValid() throws Exception {
+        var method = DataExportService.class.getDeclaredMethod(
+                "filterCheckins", List.class, String.class, String.class);
+        method.setAccessible(true);
+        List<Map<String, Object>> records = List.of(Map.of("checkin_date", "2024-06-15"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> result = (List<Map<String, Object>>) method.invoke(
+                dataExportService, records, "  ", "2024-06-30");
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void filterCheckins_validStartBlankEnd() throws Exception {
+        var method = DataExportService.class.getDeclaredMethod(
+                "filterCheckins", List.class, String.class, String.class);
+        method.setAccessible(true);
+        List<Map<String, Object>> records = List.of(Map.of("checkin_date", "2024-06-15"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> result = (List<Map<String, Object>>) method.invoke(
+                dataExportService, records, "2024-06-01", "  ");
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void filterCheckins_nullStartBlankEnd() throws Exception {
+        var method = DataExportService.class.getDeclaredMethod(
+                "filterCheckins", List.class, String.class, String.class);
+        method.setAccessible(true);
+        List<Map<String, Object>> records = List.of(Map.of("checkin_date", "2024-06-15"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> result = (List<Map<String, Object>>) method.invoke(
+                dataExportService, records, null, "  ");
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void filterByDateRange_blankEndDateReturnsSource() throws Exception {
+        var method = DataExportService.class.getDeclaredMethod(
+                "filterByDateRange", Map.class, String.class, String.class,
+                String.class, String.class, String.class, String.class);
+        method.setAccessible(true);
+        Map<String, Object> source = Map.of("plans", List.of(Map.of("generated_at", "2024-06-15")));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> result = (Map<String, Object>) method.invoke(
+                dataExportService, source, "plans", null,
+                "generatedAt", "generated_at", "2024-06-01", "  ");
+        assertSame(source, result);
+    }
+
+    @Test
+    void filterByDateRange_blankStartValidEnd() throws Exception {
+        var method = DataExportService.class.getDeclaredMethod(
+                "filterByDateRange", Map.class, String.class, String.class,
+                String.class, String.class, String.class, String.class);
+        method.setAccessible(true);
+        Map<String, Object> source = Map.of("plans", List.of(Map.of("generated_at", "2024-06-15")));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> result = (Map<String, Object>) method.invoke(
+                dataExportService, source, "plans", null,
+                "generatedAt", "generated_at", "  ", "2024-06-30");
+        assertSame(source, result);
+    }
+
+    @Test
+    void filterByDateRange_nullPrimaryWithoutSecondaryKey() throws Exception {
+        var method = DataExportService.class.getDeclaredMethod(
+                "filterByDateRange", Map.class, String.class, String.class,
+                String.class, String.class, String.class, String.class);
+        method.setAccessible(true);
+        Map<String, Object> source = Map.of("total", 0);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> result = (Map<String, Object>) method.invoke(
+                dataExportService, source, "plans", null,
+                "generatedAt", "generated_at", "2024-06-01", "2024-06-30");
+        assertSame(source, result);
+    }
+
+    private void stubExportUpload() {
+        when(exportFileGenerator.generate(anyString(), any())).thenReturn(new byte[]{1});
+        when(exportFileGenerator.fileExtension(anyString())).thenReturn("xlsx");
+        when(exportFileGenerator.contentType(anyString())).thenReturn("application/vnd.ms-excel");
+        when(minioStorageService.uploadExportFile(anyString(), anyString(), any(), anyLong(), anyString()))
+                .thenReturn("http://minio/file");
+    }
+
     private ExportTaskResponse submitSampleExport() {
         stubProfile();
         when(exportFileGenerator.generate(anyString(), any())).thenReturn(new byte[]{1});
