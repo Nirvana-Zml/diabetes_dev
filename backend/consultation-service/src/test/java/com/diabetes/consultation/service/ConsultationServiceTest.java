@@ -1792,6 +1792,20 @@ class ConsultationServiceTest {
         assertTrue(result.isNull() || result.isMissingNode());
     }
 
+    @Test
+    @DisplayName("extractDoctorReply - 第二个路径 doctor_reply 为 null")
+    void extractDoctorReply_secondPathNull() throws Exception {
+        String json = "{\"data\":{\"outputs\":{}},\"outputs\":{\"doctor_reply\":null}}";
+        JsonNode response = objectMapper.readTree(json);
+
+        java.lang.reflect.Method method = ConsultationService.class.getDeclaredMethod("extractDoctorReply",
+                JsonNode.class);
+        method.setAccessible(true);
+        JsonNode result = (JsonNode) method.invoke(service, response);
+
+        assertTrue(result.isNull() || result.isMissingNode());
+    }
+
     // ==================== parseDoctorReply 分支覆盖 (通过反射) ====================
 
     @Test

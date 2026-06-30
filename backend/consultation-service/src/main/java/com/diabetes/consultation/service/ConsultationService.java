@@ -385,7 +385,7 @@ public class ConsultationService {
         if (recent.isEmpty()) {
             return "";
         }
-        if (excludeLatest && !recent.isEmpty()) {
+        if (excludeLatest) {
             recent = recent.subList(1, recent.size());
         }
         Collections.reverse(recent);
