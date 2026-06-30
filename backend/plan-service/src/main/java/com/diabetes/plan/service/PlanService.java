@@ -83,11 +83,9 @@ public class PlanService {
                         .data(Map.of("stage", "exercise", "content", planContent.getOrDefault("exercisePlan", Map.of()))));
                 emitter.send(SseEmitter.event().name("stage_rest")
                         .data(Map.of("stage", "rest", "content", planContent.getOrDefault("restPlan", Map.of()))));
-
-                if (planContent.containsKey("medicationNote")) {
-                    emitter.send(SseEmitter.event().name("stage_medication")
-                            .data(Map.of("stage", "medication", "content", planContent.get("medicationNote"))));
-                }
+                emitter.send(SseEmitter.event().name("stage_medication")
+                        .data(Map.of("stage", "medication",
+                                "content", planContent.getOrDefault("medicationNote", ""))));
 
                 HealthPlan plan = planPersistenceService.savePlan(userId, profile, dailyCalories, planContent);
                 emitter.send(SseEmitter.event().name("complete")
@@ -142,8 +140,7 @@ public class PlanService {
         if (lastError instanceof BusinessException be) {
             throw be;
         }
-        throw new BusinessException(502, "Dify 方案生成失败: "
-                + (lastError == null ? "响应格式异常" : lastError.getMessage()));
+        throw new BusinessException(502, "Dify 方案生成失败: " + lastError.getMessage());
     }
 
     public Map<String, Object> getDifyWorkflowSpec() {

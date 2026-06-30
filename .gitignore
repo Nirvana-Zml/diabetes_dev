@@ -61,6 +61,8 @@ docker/mysql/data/
 docker/minio/data/
 docker/redis/data/
 docker/milvus/data/
+docker/maven/repository/*
+!docker/maven/repository/.gitkeep
 
 # =========================
 # Build / Temp
