@@ -43,4 +43,24 @@ export default defineConfig({
  	    },
     },
   },
+  test: {
+    environment: 'happy-dom',
+    globals: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{js,vue}'],
+      exclude: [
+        'src/**/*.test.js',
+        'src/**/*.spec.js',
+      ],
+      thresholds: {
+        statements: 90,
+        branches: 75,
+        functions: 80,
+        lines: 90,
+      },
+    },
+  },
 })

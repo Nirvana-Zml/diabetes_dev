@@ -56,9 +56,6 @@ export function normalizeRiskResult(data) {
       weight: f.weight,
     }))
   }
-  if (r.reportSummary && !r.report_summary) {
-    r.report_summary = r.reportSummary
-  }
   return r
 }
 
@@ -68,9 +65,6 @@ export function normalizePlan(data) {
   p.diet_plan = normalizeDietPlan(p.diet_plan || {})
   p.exercise_plan = normalizeExercisePlan(p.exercise_plan)
   p.rest_plan = normalizeRestPlan(p.rest_plan || {})
-  if (p.medication_note == null && data.medicationNote) {
-    p.medication_note = data.medicationNote
-  }
   return p
 }
 
