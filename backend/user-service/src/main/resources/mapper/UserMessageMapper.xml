@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.user.mapper.UserMessageMapper">
+
+    <resultMap id="UserMessageMap" type="com.diabetes.user.entity.UserMessage">
+        <id column="MESSAGE_ID" property="messageId"/>
+        <result column="USER_ID" property="userId"/>
+        <result column="MESSAGE_TYPE" property="messageType"/>
+        <result column="STATUS" property="status"/>
+        <result column="TITLE" property="title"/>
+        <result column="SUMMARY" property="summary"/>
+        <result column="BIZ_ID" property="bizId"/>
+        <result column="LINK_PATH" property="linkPath"/>
+        <result column="LINK_QUERY" property="linkQuery"/>
+        <result column="EXTRA" property="extra"/>
+        <result column="IS_READ" property="read"/>
+        <result column="READ_AT" property="readAt" jdbcType="TIMESTAMP"/>
+        <result column="EXPIRE_AT" property="expireAt" jdbcType="TIMESTAMP"/>
+        <result column="CREATED_AT" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="UPDATED_AT" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="BaseColumns">
+        MESSAGE_ID, USER_ID, MESSAGE_TYPE, STATUS, TITLE, SUMMARY, BIZ_ID,
+        LINK_PATH, LINK_QUERY, EXTRA, IS_READ, READ_AT, EXPIRE_AT, CREATED_AT, UPDATED_AT
+    </sql>
+
+    <insert id="insert">
+        INSERT INTO USER_MESSAGES (
+            MESSAGE_ID, USER_ID, MESSAGE_TYPE, STATUS, TITLE, SUMMARY, BIZ_ID,
+            LINK_PATH, LINK_QUERY, EXTRA, IS_READ, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{messageId}, #{userId}, #{messageType}, #{status}, #{title}, #{summary}, #{bizId},
+            #{linkPath}, #{linkQuery}, #{extra}, 0, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateByBiz">
+        UPDATE USER_MESSAGES SET
+            STATUS = #{status},
+            TITLE = #{title},
+            SUMMARY = #{summary},
+            LINK_PATH = #{linkPath},
+            LINK_QUERY = #{linkQuery},
+            EXTRA = #{extra},
+            IS_READ = 0,
+            READ_AT = NULL,
+            UPDATED_AT = NOW()
+        WHERE USER_ID = #{userId}
+          AND MESSAGE_TYPE = #{messageType}
+          AND BIZ_ID = #{bizId}
+    </update>
+
+    <select id="findById" resultMap="UserMessageMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM USER_MESSAGES
+        WHERE MESSAGE_ID = #{messageId}
+    </select>
+
+    <select id="findByUserTypeBiz" resultMap="UserMessageMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM USER_MESSAGES
+        WHERE USER_ID = #{userId}
+          AND MESSAGE_TYPE = #{messageType}
+          AND BIZ_ID = #{bizId}
+        LIMIT 1
+    </select>
+
+    <select id="listByUser" resultMap="UserMessageMap">
+        SELECT <include refid="BaseColumns"/>
+        FROM USER_MESSAGES
+        WHERE USER_ID = #{userId}
+        <if test="unreadOnly">
+            AND IS_READ = 0
+        </if>
+        ORDER BY CREATED_AT DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByUser" resultType="int">
+        SELECT COUNT(1) FROM USER_MESSAGES
+        WHERE USER_ID = #{userId}
+        <if test="unreadOnly">
+            AND IS_READ = 0
+        </if>
+    </select>
+
+    <select id="countUnread" resultType="int">
+        SELECT COUNT(1) FROM USER_MESSAGES
+        WHERE USER_ID = #{userId} AND IS_READ = 0
+    </select>
+
+    <update id="markRead">
+        UPDATE USER_MESSAGES SET IS_READ = 1, READ_AT = NOW(), UPDATED_AT = NOW()
+        WHERE MESSAGE_ID = #{messageId} AND USER_ID = #{userId} AND IS_READ = 0
+    </update>
+
+    <update id="markAllRead">
+        UPDATE USER_MESSAGES SET IS_READ = 1, READ_AT = NOW(), UPDATED_AT = NOW()
+        WHERE USER_ID = #{userId} AND IS_READ = 0
+    </update>
+
+    <update id="markReadByBiz">
+        UPDATE USER_MESSAGES SET IS_READ = 1, READ_AT = NOW(), UPDATED_AT = NOW()
+        WHERE USER_ID = #{userId}
+          AND MESSAGE_TYPE = #{messageType}
+          AND BIZ_ID = #{bizId}
+          AND IS_READ = 0
+    </update>
+</mapper>

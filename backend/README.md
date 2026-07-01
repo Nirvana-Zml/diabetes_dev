@@ -1,4 +1,4 @@
-# 糖尿病预治助手 — 后端微服务
+# 糖尿病智能助手 — 后端微服务
 
 Spring Boot 3 + MyBatis + Java 17，8 个业务微服务 + 1 个 API 网关，对应 `db/init.sql` 中 8 个分库。
 

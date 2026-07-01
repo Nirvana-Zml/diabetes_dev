@@ -1,6 +1,9 @@
 /** 是否使用 Mock 占位数据 */
 export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
 
+/** 系统名称 */
+export const APP_NAME = '糖尿病智能助手'
+
 /** 后端 API 基础路径（现有服务） */
 export const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 

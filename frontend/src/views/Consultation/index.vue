@@ -234,6 +234,7 @@ import MarkdownContent from '@/components/MarkdownContent.vue'
 import { getDoctors } from '@/api/home'
 import { doctorAvatarUrl } from '@/utils/media'
 import { useUserStore } from '@/stores/user'
+import { useMessageCenter } from '@/composables/useMessageCenter'
 import {
   createConsultation,
   getConsultMessages,
@@ -472,6 +473,10 @@ async function sendMsg() {
       await loadAiSuggestion()
       await nextTick()
       await scrollToBottom()
+      const sid = await ensureSessionId()
+      if (sid) {
+        useMessageCenter().markConsultSessionRead(sid)
+      }
     }
   } catch (e) {
     messages.value = messages.value.filter((m) => m.message_id !== pendingId)
@@ -1143,4 +1148,54 @@ async function scrollToBottom() {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@media (max-width: 768px) {
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-bar :deep(.el-select),
+  .filter-bar :deep(.el-input) {
+    width: 100% !important;
+  }
+
+  .doctor-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .doctor-row .el-button {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .chat-page {
+    height: calc(100dvh - var(--header-height));
+    min-height: 0;
+    padding: 0 12px;
+  }
+
+  .chat-toolbar {
+    display: none;
+  }
+
+  .doctor-card {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .doctor-card__end {
+    width: 100%;
+    text-align: center;
+  }
+
+  .chat-footer {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .rate-overlay {
+    padding: 16px;
+  }
+}
 </style>

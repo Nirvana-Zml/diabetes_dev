@@ -2,6 +2,7 @@ import axios from 'axios'
 import { API_BASE, API_V2_BASE, USE_MOCK } from '@/config'
 import { delay } from '@/utils/delay'
 import { clearTokens } from '@/api/auth'
+import { isPublicRoute } from '@/utils/auth'
 import router from '@/router'
 
 function createHttpClient(baseURL) {
@@ -32,9 +33,10 @@ function createHttpClient(baseURL) {
     (err) => {
       if (err.response?.status === 401) {
         clearTokens()
-        const current = router.currentRoute.value.fullPath
-        if (current !== '/login') {
-          router.push({ path: '/login', query: { redirect: current } })
+        const current = router.currentRoute.value
+        const onPublicPage = isPublicRoute(current) || current.path === '/login'
+        if (!onPublicPage) {
+          router.push({ path: '/login', query: { redirect: current.fullPath } })
         }
       }
       const msg = err.response?.data?.message || err.message || '网络错误'

@@ -40,6 +40,8 @@ dify:
 services:
   health:
     base-url: http://${HEALTH_SERVICE_HOST:localhost}:${HEALTH_SERVICE_PORT:8083}
+  user:
+    base-url: http://${USER_SERVICE_HOST:localhost}:${USER_SERVICE_PORT:8081}
 
 dify-internal:
   key: ${DIFY_INTERNAL_KEY:}

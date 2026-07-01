@@ -58,8 +58,7 @@ function go(item) {
   padding: 6px 0 calc(10px + env(safe-area-inset-bottom));
   z-index: 200;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
-  max-width: 768px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .nav-item {

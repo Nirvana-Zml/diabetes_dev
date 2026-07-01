@@ -2,6 +2,12 @@
   <div class="auth-page">
     <router-link to="/login" class="auth-back">← 返回登录</router-link>
 
+    <div class="auth-header auth-header--compact">
+      <AuthLogo size="sm" />
+      <h1 class="auth-title">重置密码</h1>
+      <p class="auth-subtitle">验证身份后设置新密码</p>
+    </div>
+
     <div class="auth-tip">
       验证码将发送至您注册时绑定的手机号或邮箱。若未绑定，请联系管理员处理。
     </div>
@@ -86,6 +92,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import AuthLogo from '@/components/AuthLogo.vue'
 import { resetPassword, sendVerifyCode } from '@/api/auth.js'
 
 const router = useRouter()

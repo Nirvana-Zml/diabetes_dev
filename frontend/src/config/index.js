@@ -1,6 +1,9 @@
 /** 是否使用 Mock 占位数据（不请求真实后端） */
 export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
 
+/** 系统名称 */
+export const APP_NAME = '糖尿病智能助手'
+
 /** 后端 API 基础路径（现有服务） */
 export const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 
@@ -29,3 +32,7 @@ export const DIFY_WORKFLOWS = {
 
 export const DISCLAIMER =
   '⚠️ 以上内容由AI生成，仅供参考，不能替代专业医生的诊断和治疗建议。如有健康问题，请及时前往正规医疗机构就医。'
+
+/** 平台简介（页脚 / 个人中心系统说明） */
+export const PLATFORM_INTRO =
+  '为糖尿病患者及关注人群提供一站式健康管理服务，让控糖更简单、更科学。'

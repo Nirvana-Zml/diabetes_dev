@@ -1,5 +1,5 @@
 <template>
-  <SiteLayout :show-back="false" class="health-info-page">
+  <SiteLayout :show-back="isMobile && isDetail" class="health-info-page" :class="{ 'health-info-page--detail-mobile': isMobile && isDetail }">
 
     <!-- 列表页 -->
     <div v-if="!isDetail" class="info-list-page">
@@ -143,7 +143,7 @@
 
     <!-- 详情页 -->
     <div v-else class="info-detail-page">
-      <nav v-if="detail" class="detail-breadcrumb" aria-label="面包屑">
+      <nav v-if="detail && !isMobile" class="detail-breadcrumb" aria-label="面包屑">
         <button type="button" class="detail-breadcrumb__link" @click="goHome">首页</button>
         <span class="detail-breadcrumb__sep">&gt;</span>
         <button type="button" class="detail-breadcrumb__link" @click="goList">健康资讯</button>
@@ -267,6 +267,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
+import { useIsMobile } from '@/composables/useBreakpoints'
 import MarkdownContent from '@/components/MarkdownContent.vue'
 import DisclaimerBar from '@/components/DisclaimerBar.vue'
 import {
@@ -310,6 +311,7 @@ const mainTabs = [
 
 const route = useRoute()
 const router = useRouter()
+const isMobile = useIsMobile()
 const isDetail = computed(() => !!route.params.id)
 const articles = ref([])
 const detail = ref(null)
@@ -1345,6 +1347,48 @@ function handleShare() {
   .related-card__thumb {
     width: 100%;
     height: 160px;
+  }
+
+  /* 详情页：去掉面包屑与白卡片 */
+  .health-info-page--detail-mobile :deep(.site-main) {
+    padding-top: 16px;
+  }
+
+  .info-detail-page {
+    max-width: none;
+    padding: 0 0 32px;
+  }
+
+  .detail-article {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    margin-bottom: 24px;
+  }
+
+  .detail-hero__cover {
+    border-radius: 12px;
+    max-height: 220px;
+  }
+
+  .detail-article__title {
+    font-size: 22px;
+    margin-top: 4px;
+  }
+
+  .detail-meta {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+  }
+
+  .detail-article__actions {
+    margin-top: 8px;
+  }
+
+  .related-section {
+    padding: 0;
   }
 }
 </style>

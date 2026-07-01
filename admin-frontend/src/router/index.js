@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isLoggedIn, isAdmin, redirectToLogin } from '@/utils/auth'
+import { APP_NAME } from '@/config'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -42,7 +43,7 @@ router.beforeEach((to) => {
 })
 
 router.afterEach((to) => {
-  document.title = `${to.meta.title || '管理后台'} - 糖尿病预治助手`
+  document.title = `${to.meta.title || '管理后台'} - ${APP_NAME}`
 })
 
 export default router

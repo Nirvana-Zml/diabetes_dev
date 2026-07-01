@@ -23,7 +23,15 @@ public class RiskAssessmentController {
     @PostMapping("/assess")
     public ApiResponse<Map<String, Object>> assess(@CurrentUserId String userId,
                                                    @Valid @RequestBody RiskAssessRequest request) {
-        return ApiResponse.ok(riskAssessmentService.assess(userId, request));
+        try {
+            return ApiResponse.ok(riskAssessmentService.assess(userId, request));
+        } catch (BusinessException e) {
+            riskAssessmentService.notifyAssessmentFailed(userId, e.getMessage());
+            throw e;
+        } catch (RuntimeException e) {
+            riskAssessmentService.notifyAssessmentFailed(userId, e.getMessage());
+            throw e;
+        }
     }
 
     @GetMapping("/dify-workflow-spec")

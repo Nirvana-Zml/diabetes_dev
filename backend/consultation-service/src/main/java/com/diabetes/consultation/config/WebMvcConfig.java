@@ -19,6 +19,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(jwtAuthInterceptor)
                 .addPathPatterns("/api/v1/ai-doctors/**", "/api/v1/consultations/**",
                         "/api/v2/ai-doctors/**", "/api/v2/consultations/**")
-                .excludePathPatterns("/api/v1/internal/**", "/api/v2/internal/**");
+                .excludePathPatterns(
+                        "/api/v1/internal/**",
+                        "/api/v2/internal/**",
+                        "/api/v1/ai-doctors",
+                        "/api/v1/ai-doctors/departments",
+                        "/api/v2/ai-doctors",
+                        "/api/v2/ai-doctors/departments");
     }
 }

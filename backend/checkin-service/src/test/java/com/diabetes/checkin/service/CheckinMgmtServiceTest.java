@@ -1,6 +1,7 @@
 package com.diabetes.checkin.service;
 
 import com.diabetes.common.client.HealthServiceClient;
+import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.common.dify.DifyClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -19,14 +20,15 @@ class CheckinMgmtServiceTest {
 
     private final CheckinService checkinService = mock(CheckinService.class);
     private final HealthServiceClient healthClient = mock(HealthServiceClient.class);
+    private final UserServiceClient userServiceClient = mock(UserServiceClient.class);
     private final DifyClient difyClient = mock(DifyClient.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     void delegatesStatsTrendsAndBuildsSpecAndExportTask() {
         CheckinMgmtService service = service("");
-        CheckinMgmtService nullModeService = new CheckinMgmtService(checkinService, healthClient, difyClient,
-                objectMapper, null, "", null, "");
+        CheckinMgmtService nullModeService = new CheckinMgmtService(checkinService, healthClient, userServiceClient,
+                difyClient, objectMapper, null, "", null, "");
         LocalDate start = LocalDate.of(2024, 1, 1);
         LocalDate end = LocalDate.of(2024, 1, 2);
         when(checkinService.buildStats("u1", start, end)).thenReturn(Map.of("totalCheckins", 1));
@@ -154,8 +156,8 @@ class CheckinMgmtServiceTest {
     @Test
     void privateDifyParsingHelpers_coverRemainingBranches() throws Exception {
         CheckinMgmtService service = service("key");
-        CheckinMgmtService nullKeyService = new CheckinMgmtService(checkinService, healthClient, difyClient,
-                objectMapper, "http://dify/", null, "blocking", "internal");
+        CheckinMgmtService nullKeyService = new CheckinMgmtService(checkinService, healthClient, userServiceClient,
+                difyClient, objectMapper, "http://dify/", null, "blocking", "internal");
         Method assertWorkflowSucceeded = CheckinMgmtService.class.getDeclaredMethod("assertWorkflowSucceeded", com.fasterxml.jackson.databind.JsonNode.class);
         Method unwrapJsonNode = CheckinMgmtService.class.getDeclaredMethod("unwrapJsonNode", com.fasterxml.jackson.databind.JsonNode.class);
         Method firstPresent = CheckinMgmtService.class.getDeclaredMethod("firstPresent", Map.class, String[].class);
@@ -185,7 +187,7 @@ class CheckinMgmtServiceTest {
     }
 
     private CheckinMgmtService service(String apiKey) {
-        return new CheckinMgmtService(checkinService, healthClient, difyClient, objectMapper,
+        return new CheckinMgmtService(checkinService, healthClient, userServiceClient, difyClient, objectMapper,
                 "http://dify/", apiKey, " streaming ", "internal");
     }
 

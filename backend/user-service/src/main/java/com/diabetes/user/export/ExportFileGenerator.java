@@ -121,7 +121,7 @@ public class ExportFileGenerator {
             document.open();
             Font titleFont = createCjkFont(16, Font.BOLD);
             Font bodyFont = createCjkFont(11, Font.NORMAL);
-            document.add(new Paragraph("糖尿病预治助手 - 个人健康数据导出", titleFont));
+            document.add(new Paragraph("糖尿病智能助手 - 个人健康数据导出", titleFont));
             document.add(new Paragraph("导出时间：" + stringValue(payload.get("exported_at")), bodyFont));
             document.add(new Paragraph(" ", bodyFont));
 

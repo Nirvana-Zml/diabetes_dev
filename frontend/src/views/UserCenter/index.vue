@@ -22,7 +22,7 @@
               <el-icon><Edit /></el-icon>
             </button>
             <div class="profile-hero__avatar-wrap">
-              <el-avatar :size="80" :src="profile?.avatar_url" class="avatar" />
+              <el-avatar :size="avatarSize" :src="profile?.avatar_url" class="avatar" />
             </div>
             <div class="profile-text">
               <h2>{{ profile?.nickname || '用户' }}</h2>
@@ -201,19 +201,42 @@
             </div>
             <el-switch v-model="privacy.data_visible" @change="savePrivacy" />
           </div>
-          <div class="switch-row">
+          <div ref="checkinNotifyRef" class="switch-row switch-row--highlight">
             <div>
               <div class="switch-label">打卡提醒</div>
-              <div class="switch-desc">未打卡时段推送提醒</div>
+              <div class="switch-desc">在您设定的时段提醒您完成饮食、运动、用药、血糖打卡</div>
+              <div class="switch-links">
+                <button type="button" class="text-link" @click="router.push('/checkin-reminder-settings')">
+                  管理提醒时段
+                </button>
+                <button
+                  v-if="notificationSupported && browserNotifyLabel !== '已授权'"
+                  type="button"
+                  class="text-link"
+                  @click="enableBrowserNotify"
+                >
+                  开启浏览器通知
+                </button>
+              </div>
             </div>
             <el-switch v-model="privacy.checkin_notify" @change="savePrivacy" />
           </div>
           <div class="switch-row">
             <div>
-              <div class="switch-label">问诊消息通知</div>
-              <div class="switch-desc">医生回复时通知您</div>
+              <div class="switch-label">消息通知</div>
+              <div class="switch-desc">风险评估、健康方案、医生回复、打卡分析完成或失败时通知您</div>
+              <div class="switch-links">
+                <button
+                  v-if="notificationSupported && browserNotifyLabel !== '已授权'"
+                  type="button"
+                  class="text-link"
+                  @click="enableBrowserNotify"
+                >
+                  开启浏览器通知
+                </button>
+              </div>
             </div>
-            <el-switch v-model="privacy.consult_notify" @change="savePrivacy" />
+            <el-switch v-model="privacy.message_notify" @change="savePrivacy" />
           </div>
           <div class="switch-row">
             <div>
@@ -221,6 +244,21 @@
               <div class="switch-desc">接收个性化健康资讯</div>
             </div>
             <el-switch v-model="privacy.marketing_notify" @change="savePrivacy" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 移动端：平台与服务 -->
+      <div v-if="isMobile" class="section-card">
+        <div class="menu-list">
+          <div class="menu-item" @click="showPlatformInfo = true">
+            <div class="menu-item__left">
+              <div class="menu-icon menu-icon--gray">
+                <el-icon :size="20"><InfoFilled /></el-icon>
+              </div>
+              <span class="menu-label">平台与服务</span>
+            </div>
+            <el-icon class="arrow"><ArrowRight /></el-icon>
           </div>
         </div>
       </div>
@@ -233,12 +271,60 @@
     <ExportDialog v-model="showExport" />
     <ConsultationDrawer v-model="showConsultations" />
     <SecurityDialog v-model="showSecurity" :profile="profile" @saved="onProfileSaved" />
+
+    <el-dialog
+      v-model="showPlatformInfo"
+      title="平台与服务"
+      width="92%"
+      style="max-width: 420px"
+      destroy-on-close
+    >
+      <div class="platform-info-dialog">
+        <div class="platform-info-dialog__brand">
+          <span class="platform-info-dialog__logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+            </svg>
+          </span>
+          <span class="platform-info-dialog__name">{{ APP_NAME }}</span>
+        </div>
+
+        <section class="platform-info-block">
+          <h4 class="platform-info-block__title">系统说明</h4>
+          <p class="platform-info-block__text">{{ platformIntro }}</p>
+        </section>
+
+        <section class="platform-info-block">
+          <h4 class="platform-info-block__title">服务项目</h4>
+          <p class="platform-info-block__text">{{ platformServiceText }}</p>
+        </section>
+
+        <section class="platform-info-block">
+          <h4 class="platform-info-block__title">关于我们</h4>
+          <p class="platform-info-block__text">{{ platformAboutText }}</p>
+        </section>
+
+        <section class="platform-info-block">
+          <h4 class="platform-info-block__title">联系我们</h4>
+          <p class="platform-info-block__text">
+            客服邮箱：{{ platformContact.email }}<br />
+            客服电话：{{ platformContact.phone }}
+          </p>
+        </section>
+
+        <footer class="platform-info-dialog__footer">
+          <p class="platform-info-dialog__copy">{{ platformCopyright }}</p>
+          <p class="platform-info-dialog__extra">{{ platformExtraText }}</p>
+          <p class="platform-info-dialog__tip">{{ platformFooterTip }}</p>
+        </footer>
+      </div>
+    </el-dialog>
   </SiteLayout>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowRight,
@@ -249,9 +335,20 @@ import {
   ChatLineRound,
   Download,
   Lock,
+  InfoFilled,
 } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
+import { useIsMobile } from '@/composables/useBreakpoints'
+import { PLATFORM_INTRO, APP_NAME } from '@/config'
+import {
+  PLATFORM_SERVICE_LINKS,
+  PLATFORM_ABOUT_LINKS,
+  PLATFORM_CONTACT,
+  PLATFORM_EXTRA_LINKS,
+  PLATFORM_COPYRIGHT,
+  PLATFORM_FOOTER_TIP,
+} from '@/constants/siteLinks'
 import ProfileEditDialog from './components/ProfileEditDialog.vue'
 import HealthRecordDialog from './components/HealthRecordDialog.vue'
 import ExportDialog from './components/ExportDialog.vue'
@@ -268,6 +365,11 @@ import {
 import { getCheckinStats } from '@/api/checkin'
 import { useUserStore } from '@/stores/user'
 import {
+  isNotificationSupported,
+  getNotificationPermission,
+  requestNotificationPermission,
+} from '@/utils/notification'
+import {
   GENDER_LABELS,
   DIABETES_TYPE_LABELS,
   SMOKING_LABELS,
@@ -276,7 +378,40 @@ import {
 } from './constants'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
+const isMobile = useIsMobile()
+const platformIntro = PLATFORM_INTRO
+const platformContact = PLATFORM_CONTACT
+const platformCopyright = PLATFORM_COPYRIGHT
+const platformFooterTip = PLATFORM_FOOTER_TIP
+const platformServiceText = PLATFORM_SERVICE_LINKS.map((item) => item.label).join('、')
+const platformAboutText = PLATFORM_ABOUT_LINKS.map((item) => item.label).join('、')
+const platformExtraText = PLATFORM_EXTRA_LINKS.map((item) => item.label).join(' · ')
+
+const avatarSize = computed(() => (isMobile.value ? 56 : 80))
+
+const checkinNotifyRef = ref(null)
+
+const notificationSupported = computed(() => isNotificationSupported())
+const browserNotifyLabel = computed(() => {
+  if (!notificationSupported.value) return '不支持'
+  const p = getNotificationPermission()
+  if (p === 'granted') return '已授权'
+  if (p === 'denied') return '已拒绝'
+  return '未授权'
+})
+
+async function enableBrowserNotify() {
+  const result = await requestNotificationPermission()
+  if (result === 'granted') {
+    ElMessage.success('浏览器通知已开启')
+  } else if (result === 'denied') {
+    ElMessage.warning('您已拒绝浏览器通知，请在浏览器设置中手动开启')
+  } else if (result === 'unsupported') {
+    ElMessage.warning('当前环境不支持浏览器通知')
+  }
+}
 
 const pageLoading = ref(false)
 const profile = ref(null)
@@ -291,11 +426,12 @@ const showHealthEdit = ref(false)
 const showExport = ref(false)
 const showConsultations = ref(false)
 const showSecurity = ref(false)
+const showPlatformInfo = ref(false)
 
 const privacy = reactive({
   data_visible: true,
   checkin_notify: true,
-  consult_notify: true,
+  message_notify: true,
   marketing_notify: false,
 })
 
@@ -343,7 +479,13 @@ const glucoseClass = computed(() => {
   return 'value-normal'
 })
 
-onMounted(loadPage)
+onMounted(async () => {
+  await loadPage()
+  if (route.query.section === 'checkin-notify') {
+    await nextTick()
+    checkinNotifyRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+})
 
 async function loadPage() {
   pageLoading.value = true
@@ -365,7 +507,7 @@ async function loadPage() {
     const ps = p.privacy_settings || {}
     privacy.data_visible = ps.data_visible ?? true
     privacy.checkin_notify = ps.checkin_notify ?? true
-    privacy.consult_notify = ps.consult_notify ?? true
+    privacy.message_notify = ps.message_notify ?? ps.consult_notify ?? true
     privacy.marketing_notify = ps.marketing_notify ?? false
     userStore.profile = p
   } finally {
@@ -882,6 +1024,17 @@ async function handleLogout() {
   gap: 16px;
 }
 
+.switch-row--highlight {
+  scroll-margin-top: 96px;
+}
+
+.switch-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
 .switch-label {
   font-size: 14px;
   font-weight: 500;
@@ -917,6 +1070,80 @@ async function handleLogout() {
   background: #fef2f2;
 }
 
+.platform-info-dialog__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.platform-info-dialog__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--health-400), var(--health-600));
+  color: #fff;
+}
+
+.platform-info-dialog__logo svg {
+  width: 20px;
+  height: 20px;
+}
+
+.platform-info-dialog__name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--warm-800);
+}
+
+.platform-info-block + .platform-info-block {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--warm-100);
+}
+
+.platform-info-block__title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warm-500);
+}
+
+.platform-info-block__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--warm-600);
+}
+
+.platform-info-dialog__footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--warm-100);
+  text-align: center;
+}
+
+.platform-info-dialog__copy,
+.platform-info-dialog__extra,
+.platform-info-dialog__tip {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--warm-400);
+}
+
+.platform-info-dialog__extra {
+  margin-top: 8px;
+}
+
+.platform-info-dialog__tip {
+  margin-top: 12px;
+  color: var(--warm-300);
+}
+
 @media (max-width: 1024px) {
   .uc-layout {
     grid-template-columns: 1fr;
@@ -940,20 +1167,165 @@ async function handleLogout() {
 }
 
 @media (max-width: 768px) {
+  .uc-page {
+    padding-bottom: 72px;
+  }
+
+  .uc-layout {
+    gap: 12px;
+  }
+
+  .uc-sidebar {
+    gap: 10px;
+  }
+
+  .uc-main {
+    gap: 0;
+  }
+
+  .alert-banner {
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    gap: 8px;
+  }
+
+  .alert-banner__icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .alert-banner__text {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
   .profile-hero {
-    padding: 24px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    text-align: left;
+    box-shadow: 0 4px 16px rgba(13, 148, 136, 0.15);
+  }
+
+  .profile-hero__avatar-wrap {
+    width: 56px;
+    height: 56px;
+    margin: 0;
+  }
+
+  .avatar {
+    width: 56px;
+    height: 56px;
+  }
+
+  .profile-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .profile-text h2 {
+    font-size: 17px;
+    margin-bottom: 2px;
+  }
+
+  .username {
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+
+  .badges {
+    justify-content: flex-start;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .badge {
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+
+  .profile-extra {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .profile-edit-btn {
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+  }
+
+  .stat-stack {
+    flex-direction: row;
+    gap: 8px;
   }
 
   .stat-card {
-    padding: 14px 16px;
+    flex: 1;
+    min-width: 0;
+    padding: 10px 6px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   }
 
   .stat-value {
-    font-size: 22px;
+    font-size: 17px;
+    margin-bottom: 2px;
   }
 
   .stat-label {
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .logout-btn {
+    padding: 10px;
+    font-size: 13px;
+    border-radius: 10px;
+    border-width: 1px;
+  }
+
+  .uc-page :deep(.section-card) {
+    padding: 14px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .section-header {
+    margin-bottom: 10px;
+  }
+
+  .uc-page .section-title {
+    font-size: 15px;
+  }
+
+  .menu-group-title,
+  .privacy-title {
+    margin-bottom: 10px;
+  }
+
+  .section-title-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .ai-tag {
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+
+  .trend-text {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .text-link {
+    font-size: 13px;
   }
 
   .health-grid {
@@ -961,12 +1333,85 @@ async function handleLogout() {
     gap: 0;
   }
 
-  .uc-page :deep(.section-card) {
-    padding: 24px;
+  .health-row {
+    padding: 8px 0;
+  }
+
+  .health-label,
+  .health-value {
+    font-size: 13px;
+  }
+
+  .record-time {
+    margin-top: 10px;
+    font-size: 11px;
+  }
+
+  .menu-row {
+    gap: 10px;
+  }
+
+  .menu-row__item {
+    margin-bottom: 0;
+  }
+
+  .menu-list {
+    gap: 4px;
+  }
+
+  .menu-item {
+    padding: 10px 8px;
+    border-radius: 10px;
+  }
+
+  .menu-item__left {
+    gap: 10px;
+  }
+
+  .menu-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .menu-icon :deep(.el-icon) {
+    font-size: 17px !important;
+  }
+
+  .menu-label {
+    font-size: 13px;
   }
 
   .menu-item__right .menu-desc {
     display: none;
+  }
+
+  .switch-list {
+    gap: 14px;
+  }
+
+  .switch-row {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .switch-label {
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+
+  .switch-desc {
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .switch-links {
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .uc-page :deep(.el-switch) {
+    height: 20px;
   }
 }
 </style>

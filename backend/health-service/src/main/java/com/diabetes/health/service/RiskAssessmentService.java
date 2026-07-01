@@ -1,5 +1,6 @@
 package com.diabetes.health.service;
 
+import com.diabetes.common.client.UserMessageClientHelper;
 import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.common.dify.DifyClient;
 import com.diabetes.common.exception.BusinessException;
@@ -209,7 +210,14 @@ public class RiskAssessmentService {
         result.put("reportSummary", analysis);
         result.put("userAge", age);
         result.put("userGender", gender);
+
+        UserMessageClientHelper.notifyRiskCompleted(userServiceClient, difyInternalKey, userId,
+                assessmentId, medicalCalculator.riskLevelName(riskLevel), riskScore);
         return result;
+    }
+
+    public void notifyAssessmentFailed(String userId, String errorMessage) {
+        UserMessageClientHelper.notifyRiskFailed(userServiceClient, difyInternalKey, userId, errorMessage);
     }
 
     private JsonNode callDify(String userId, RiskAssessRequest request, Map<String, Object> userProfile,

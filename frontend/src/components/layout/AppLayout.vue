@@ -1,5 +1,11 @@
 <template>
-  <div class="app-layout" :class="{ 'app-layout--full': fullWidth }">
+  <div
+    class="app-layout"
+    :class="{
+      'app-layout--full': fullWidth,
+      'app-layout--with-nav': showNav,
+    }"
+  >
     <slot />
     <BottomNav v-if="showNav" />
   </div>
@@ -18,7 +24,6 @@ defineProps({
 .app-layout {
   min-height: 100vh;
   background: #f5f7fa;
-  padding-bottom: 70px;
   max-width: 768px;
   margin: 0 auto;
 }
@@ -27,6 +32,9 @@ defineProps({
   max-width: none;
   width: 100%;
   margin: 0;
-  padding-bottom: 0;
+}
+
+.app-layout--with-nav {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
 }
 </style>

@@ -1,8 +1,8 @@
 <template>
-  <SiteLayout title="" :show-footer="false" fill-height>
+  <SiteLayout title="" :show-footer="false" fill-height full-bleed>
     <div class="assistant-page">
       <div class="page-inner">
-        <div class="chat-card">
+        <div class="chat-shell">
           <div class="chat-messages" ref="msgRef">
             <div v-if="welcomeMsg" class="welcome-block">
               <div class="assistant-avatar assistant-avatar--lg" aria-hidden="true">
@@ -77,7 +77,14 @@
             </div>
           </div>
 
-          <div class="chat-footer">
+          <div class="risk-tip">
+            <svg class="risk-tip__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <p class="risk-tip__text">{{ disclaimerText }}</p>
+          </div>
+
+          <div class="chat-input-bar">
             <div class="input-row">
               <textarea
                 v-model="query"
@@ -101,12 +108,6 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                 </svg>
               </button>
-            </div>
-            <div class="risk-tip">
-              <svg class="risk-tip__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-              </svg>
-              <p class="risk-tip__text">{{ disclaimerText }}</p>
             </div>
           </div>
         </div>
@@ -235,7 +236,7 @@ async function send() {
   box-sizing: border-box;
 }
 
-.chat-card {
+.chat-shell {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -248,6 +249,7 @@ async function send() {
 }
 
 .chat-messages {
+  order: 1;
   flex: 1;
   overflow-y: auto;
   padding: 24px clamp(16px, 3vw, 28px) 20px;
@@ -495,7 +497,8 @@ async function send() {
   font-size: 0.9em;
 }
 
-.chat-footer {
+.chat-input-bar {
+  order: 2;
   flex-shrink: 0;
   padding: 16px clamp(16px, 3vw, 28px) 20px;
   border-top: 1px solid var(--warm-200);
@@ -572,10 +575,11 @@ async function send() {
 }
 
 .risk-tip {
+  order: 3;
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 12px;
+  margin: 0 clamp(16px, 3vw, 28px) 16px;
   padding: 10px 14px;
   background: #fffbeb;
   border-radius: 12px;
@@ -597,18 +601,58 @@ async function send() {
   color: #92400e;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .page-inner {
-    padding-top: 16px;
-    padding-bottom: 16px;
+    flex: 1;
+    max-width: none;
+    min-height: 0;
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
   }
 
-  .chat-card {
-    border-radius: 16px;
+  .chat-shell {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .risk-tip {
+    order: 0;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 10px var(--edge-padding);
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
   }
 
   .chat-messages {
-    padding-top: 18px;
+    order: 1;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px var(--edge-padding) 20px;
+  }
+
+  .chat-input-bar {
+    order: 2;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    padding: 12px var(--edge-padding);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    background: var(--warm-50);
+    border-top: 1px solid var(--warm-200);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
   }
 
   .quick-section {

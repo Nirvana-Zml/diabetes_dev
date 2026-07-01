@@ -29,6 +29,13 @@ public class UserServiceClient {
         return fetchInternal("/api/v1/internal/user/" + userId + "/overview", difyKey);
     }
 
+    /**
+     * 创建用户消息（工作流完成/失败时调用）。失败时静默忽略，不影响主流程。
+     */
+    public void createMessage(String difyKey, Map<String, Object> body) {
+        postInternal("/api/v1/internal/messages", difyKey, body);
+    }
+
     private Map<String, Object> fetchInternal(String path, String difyKey) {
         try {
             String body = restClient.get()
@@ -44,6 +51,19 @@ public class UserServiceClient {
             return objectMapper.convertValue(data, Map.class);
         } catch (Exception e) {
             return new HashMap<>();
+        }
+    }
+
+    private void postInternal(String path, String difyKey, Map<String, Object> body) {
+        try {
+            restClient.post()
+                    .uri(path)
+                    .header("X-Dify-Key", difyKey == null ? "" : difyKey)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+        } catch (Exception ignored) {
+            // 消息写入失败不阻断业务
         }
     }
 }

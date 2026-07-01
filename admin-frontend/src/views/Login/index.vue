@@ -8,7 +8,7 @@
         </svg>
       </div>
       <h1 class="auth-title">管理后台</h1>
-      <p class="auth-subtitle">糖尿病预治智能助手 · 内容运营平台</p>
+      <p class="auth-subtitle">{{ APP_NAME }} · 内容运营平台</p>
     </div>
 
     <div class="auth-tip">
@@ -62,7 +62,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { login, saveTokens, clearTokens } from '@/api/auth'
-import { USER_PORTAL_URL } from '@/config'
+import { USER_PORTAL_URL, APP_NAME } from '@/config'
 
 const router = useRouter()
 const route = useRoute()

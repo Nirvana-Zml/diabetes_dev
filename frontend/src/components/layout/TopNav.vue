@@ -19,9 +19,10 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { ArrowLeft } from '@element-plus/icons-vue'
+import { APP_NAME } from '@/config'
 
 defineProps({
-  title: { type: String, default: '糖尿病智能助手' },
+  title: { type: String, default: APP_NAME },
   showBack: { type: Boolean, default: false },
 })
 

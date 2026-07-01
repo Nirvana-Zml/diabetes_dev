@@ -113,7 +113,7 @@ public class AuthService {
 
         String code = verifyCodeService.generateAndStore(normalizedAccount);
         if ("email".equals(normalizedType)) {
-            String subject = "【糖尿病预治助手】验证码";
+            String subject = "【糖尿病智能助手】验证码";
             String text = buildEmailText(code, normalizedPurpose);
             mailUtil.sendMail(normalizedAccount, subject, text);
         } else {
@@ -154,7 +154,7 @@ public class AuthService {
 
                 验证码 5 分钟内有效，请勿泄露给他人。如非本人操作，请忽略本邮件。
 
-                —— 糖尿病预治助手
+                —— 糖尿病智能助手
                 """.formatted(action, code);
     }
 

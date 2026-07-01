@@ -1,5 +1,7 @@
 package com.diabetes.plan.service;
 
+import com.diabetes.common.client.UserMessageClientHelper;
+import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.common.dify.DifyClient;
 import com.diabetes.common.dify.DifyJsonSchema;
 import com.diabetes.common.exception.BusinessException;
@@ -37,10 +39,12 @@ public class PlanService {
     private final CalorieCalculator calorieCalculator;
     private final PlanPromptBuilder planPromptBuilder;
     private final DifyClient difyClient;
+    private final UserServiceClient userServiceClient;
     private final ObjectMapper objectMapper;
     private final String difyApiKey;
     private final String difyBaseUrl;
     private final String difyResponseMode;
+    private final String difyInternalKey;
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
     public PlanService(HealthPlanMapper healthPlanMapper,
@@ -49,20 +53,24 @@ public class PlanService {
                        CalorieCalculator calorieCalculator,
                        PlanPromptBuilder planPromptBuilder,
                        DifyClient difyClient,
+                       UserServiceClient userServiceClient,
                        ObjectMapper objectMapper,
                        @Value("${dify.base-url:http://localhost}") String difyBaseUrl,
                        @Value("${dify.workflows.plan-generation.api-key:}") String difyApiKey,
-                       @Value("${dify.workflows.plan-generation.response-mode:blocking}") String difyResponseMode) {
+                       @Value("${dify.workflows.plan-generation.response-mode:blocking}") String difyResponseMode,
+                       @Value("${dify-internal.key:}") String difyInternalKey) {
         this.healthPlanMapper = healthPlanMapper;
         this.planPersistenceService = planPersistenceService;
         this.userProfileService = userProfileService;
         this.calorieCalculator = calorieCalculator;
         this.planPromptBuilder = planPromptBuilder;
         this.difyClient = difyClient;
+        this.userServiceClient = userServiceClient;
         this.objectMapper = objectMapper;
         this.difyBaseUrl = difyBaseUrl;
         this.difyApiKey = difyApiKey;
         this.difyResponseMode = difyResponseMode == null ? "blocking" : difyResponseMode.trim();
+        this.difyInternalKey = difyInternalKey;
     }
 
     public SseEmitter generatePlanStream(String userId, Map<String, Object> profile) {
@@ -88,11 +96,15 @@ public class PlanService {
                                 "content", planContent.getOrDefault("medicationNote", ""))));
 
                 HealthPlan plan = planPersistenceService.savePlan(userId, profile, dailyCalories, planContent);
+                UserMessageClientHelper.notifyPlanCompleted(userServiceClient, difyInternalKey,
+                        userId, plan.getPlanId());
                 emitter.send(SseEmitter.event().name("complete")
                         .data(Map.of("planId", plan.getPlanId(), "version", plan.getVersion())));
                 emitter.complete();
             } catch (Exception e) {
                 log.error("方案生成失败 userId={}: {}", userId, e.getMessage(), e);
+                UserMessageClientHelper.notifyPlanFailed(userServiceClient, difyInternalKey, userId,
+                        e.getMessage() == null ? "方案生成失败" : e.getMessage());
                 try {
                     emitter.send(SseEmitter.event().name("error")
                             .data(Map.of("message", e.getMessage() == null ? "方案生成失败" : e.getMessage())));

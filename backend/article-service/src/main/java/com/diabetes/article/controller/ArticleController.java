@@ -27,9 +27,10 @@ public class ArticleController {
     @GetMapping("/recommend")
     public ApiResponse<Map<String, Object>> recommend(@RequestParam(defaultValue = "1") int page,
                                                     @RequestParam(defaultValue = "10") int size,
+                                                    @RequestParam(required = false) String strategy,
                                                     HttpServletRequest request) {
         String userId = (String) request.getAttribute(OptionalJwtInterceptor.ATTR_USER_ID);
-        return ApiResponse.ok(articleService.recommend(userId, page, size));
+        return ApiResponse.ok(articleService.recommend(userId, page, size, strategy));
     }
 
     @GetMapping

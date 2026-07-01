@@ -63,7 +63,11 @@ class WebMvcConfigTest {
 
         verify(interceptorRegistration).excludePathPatterns(
                 "/api/v1/internal/**",
-                "/api/v2/internal/**");
+                "/api/v2/internal/**",
+                "/api/v1/ai-doctors",
+                "/api/v1/ai-doctors/departments",
+                "/api/v2/ai-doctors",
+                "/api/v2/ai-doctors/departments");
     }
 
     @Test
@@ -101,6 +105,6 @@ class WebMvcConfigTest {
         ArgumentCaptor<String[]> excludePathsCaptor = ArgumentCaptor.forClass(String[].class);
         verify(interceptorRegistration).excludePathPatterns(excludePathsCaptor.capture());
 
-        assertEquals(2, excludePathsCaptor.getValue().length);
+        assertEquals(6, excludePathsCaptor.getValue().length);
     }
 }

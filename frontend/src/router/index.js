@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { isLoggedIn, isPublicRoute, redirectToLogin } from '@/utils/auth'
+import { APP_NAME } from '@/config'
 
 const routeFiles = import.meta.glob('./modules/*.js', { eager: true })
 let asyncRoutes = []
@@ -41,7 +42,7 @@ router.beforeEach((to) => {
 })
 
 router.afterEach((to) => {
-  document.title = `${to.meta.title || '糖尿病预治智能助手'} - 糖尿病预治智能助手`
+  document.title = `${to.meta.title || APP_NAME} - ${APP_NAME}`
 })
 
 export default router

@@ -15,15 +15,21 @@ export { categoryMap }
 /** GET /api/articles/recommend — 登录后个性化推荐（含 Dify AI 重排 rec_reason），未登录为热门推荐 */
 export async function getRecommendArticles(params = {}) {
   const data = await get('/articles/recommend', {
-    params: { page: params.page || 1, size: params.size || 10 },
+    params: {
+      page: params.page || 1,
+      size: params.size || 10,
+      strategy: params.strategy || undefined,
+    },
     mockFn: async () => ({
       articles: mockArticles.map((a, i) => ({
         ...a,
-        rec_reason: i === 0 ? '与您的饮食管理兴趣高度相关' : undefined,
+        rec_reason: params.strategy === 'popular' || !params.strategy
+          ? undefined
+          : i === 0 ? '与您的饮食管理兴趣高度相关' : undefined,
       })),
       total: mockArticles.length,
-      strategy: 'personalized',
-      phase: 4,
+      strategy: params.strategy === 'popular' ? 'popular' : 'personalized',
+      phase: params.strategy === 'popular' ? 1 : 4,
     }),
   })
   const list = (data.articles || []).map(normalizeRecommendArticle)
@@ -33,6 +39,11 @@ export async function getRecommendArticles(params = {}) {
     strategy: data.strategy || 'popular',
     phase: data.phase,
   }
+}
+
+/** 首页热门推荐 — 始终走 popular 快速路径，不触发个性化/Dify */
+export async function getPopularArticles(params = {}) {
+  return getRecommendArticles({ ...params, strategy: 'popular' })
 }
 
 /** GET /api/articles/{id}/related */

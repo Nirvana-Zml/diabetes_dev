@@ -10,7 +10,7 @@ spring:
         - id: user-auth
           uri: http://${USER_SERVICE_HOST:user-service}:${USER_SERVICE_PORT:8081}
           predicates:
-            - Path=/api/v1/auth/**,/api/v1/user/**,/api/v1/internal/user/**
+            - Path=/api/v1/auth/**,/api/v1/user/**,/api/v1/internal/user/**,/api/v1/user/messages,/api/v1/user/messages/**,/api/v1/internal/messages/**
         - id: home-service
           uri: http://${HOME_SERVICE_HOST:home-service}:${HOME_SERVICE_PORT:8082}
           predicates:
@@ -42,7 +42,7 @@ spring:
         - id: user-auth-v2
           uri: http://${USER_SERVICE_HOST:user-service}:${USER_SERVICE_PORT:8081}
           predicates:
-            - Path=/api/v2/auth/**,/api/v2/user/**,/api/v2/internal/user/**
+            - Path=/api/v2/auth/**,/api/v2/user/**,/api/v2/internal/user/**,/api/v2/user/messages,/api/v2/user/messages/**,/api/v2/internal/messages/**
         - id: home-service-v2
           uri: http://${HOME_SERVICE_HOST:home-service}:${HOME_SERVICE_PORT:8082}
           predicates:

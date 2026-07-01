@@ -1,5 +1,6 @@
 /** 无需登录即可访问的路由前缀 */
 export const PUBLIC_PATHS = [
+  '/',
   '/home',
   '/health-info',
   '/assistant',
@@ -27,3 +28,5 @@ export function redirectToLogin(redirectPath) {
   const query = redirectPath ? { redirect: redirectPath } : undefined
   return { path: '/login', query }
 }
+
+export const LOGIN_REQUIRED_MESSAGE = '请先登录或注册'

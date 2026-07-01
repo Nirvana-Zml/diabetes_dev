@@ -114,13 +114,13 @@
             </ul>
           </div>
           <el-row v-if="foodsRecommend.length || foodsAvoid.length" :gutter="16" class="food-lists">
-            <el-col :span="12" v-if="foodsRecommend.length">
+            <el-col :xs="24" :sm="12" :span="12" v-if="foodsRecommend.length">
               <div class="list-box recommend">
                 <h4>推荐食物</h4>
                 <el-tag v-for="f in foodsRecommend" :key="f" size="small" type="success">{{ f }}</el-tag>
               </div>
             </el-col>
-            <el-col :span="12" v-if="foodsAvoid.length">
+            <el-col :xs="24" :sm="12" :span="12" v-if="foodsAvoid.length">
               <div class="list-box avoid">
                 <h4>应避免</h4>
                 <el-tag v-for="f in foodsAvoid" :key="f" size="small" type="danger">{{ f }}</el-tag>
@@ -234,6 +234,7 @@ import SiteLayout from '@/components/layout/SiteLayout.vue'
 import DisclaimerBar from '@/components/DisclaimerBar.vue'
 import { getLatestPlan, generatePlan, getPlanHistory, togglePlanFavorite, getPlanDetail } from '@/api/plan'
 import { normalizePlan } from '@/utils/normalize'
+import { useMessageCenter } from '@/composables/useMessageCenter'
 
 const plan = ref(null)
 const previewPlan = ref(null)
@@ -381,6 +382,7 @@ async function handleGenerate() {
   generating.value = true
   genStep.value = 0
   genProgress.value = 0
+  ElMessage.info('分析中，请稍后查看')
   streamingCalories.value = null
   previewPlan.value = reactive({
     daily_calories: null,
@@ -413,12 +415,13 @@ async function handleGenerate() {
           previewPlan.value = null
           loadPlan()
           loadHistory()
-          ElMessage.success('方案生成完成')
+          useMessageCenter().refresh()
         }
       },
     })
   } catch (e) {
     ElMessage.error(e.message || '方案生成失败')
+    useMessageCenter().refresh()
     previewPlan.value = null
   } finally {
     generating.value = false
@@ -705,6 +708,34 @@ function handlePrint() {
   .history-card,
   .progress-card {
     display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-actions {
+    width: 100%;
+  }
+
+  .hero-actions .el-button {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .progress-card :deep(.el-steps) {
+    overflow-x: auto;
+  }
+
+  .food-lists {
+    row-gap: 12px;
+  }
+
+  .exercise-table {
+    width: 100%;
   }
 }
 </style>

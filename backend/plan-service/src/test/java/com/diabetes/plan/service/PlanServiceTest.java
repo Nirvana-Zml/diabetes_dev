@@ -1,5 +1,6 @@
 package com.diabetes.plan.service;
 
+import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.common.dify.DifyClient;
 import com.diabetes.common.exception.BusinessException;
 import com.diabetes.plan.dify.DifyPlanLlmOutputAssembler;
@@ -42,6 +43,8 @@ class PlanServiceTest {
     private PlanPromptBuilder planPromptBuilder;
     @Mock
     private DifyClient difyClient;
+    @Mock
+    private UserServiceClient userServiceClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private PlanService planServiceNoDify;
@@ -51,12 +54,12 @@ class PlanServiceTest {
     void setUp() {
         planServiceNoDify = new PlanService(
                 healthPlanMapper, planPersistenceService, userProfileService,
-                calorieCalculator, planPromptBuilder, difyClient, objectMapper,
-                "http://dify", "", "blocking");
+                calorieCalculator, planPromptBuilder, difyClient, userServiceClient, objectMapper,
+                "http://dify", "", "blocking", "");
         planServiceWithDify = new PlanService(
                 healthPlanMapper, planPersistenceService, userProfileService,
-                calorieCalculator, planPromptBuilder, difyClient, objectMapper,
-                "http://dify/", "api-key", null);
+                calorieCalculator, planPromptBuilder, difyClient, userServiceClient, objectMapper,
+                "http://dify/", "api-key", null, "internal-key");
     }
 
     @Test

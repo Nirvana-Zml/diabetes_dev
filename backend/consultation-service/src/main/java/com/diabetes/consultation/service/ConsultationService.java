@@ -9,6 +9,7 @@ import com.diabetes.consultation.mapper.ConsultationSessionMapper;
 import com.diabetes.consultation.mapper.DoctorMapper;
 import com.diabetes.common.client.HealthServiceClient;
 import com.diabetes.common.client.HomeServiceClient;
+import com.diabetes.common.client.UserMessageClientHelper;
 import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.common.dify.DifyClient;
 import com.diabetes.common.dify.DifyJsonSchema;
@@ -302,6 +303,8 @@ public class ConsultationService {
                 replyContent, 1, aiMetadata);
         int count = messageMapper.countBySessionId(session.getSessionId());
         sessionMapper.updateAfterMessage(session.getSessionId(), truncate(replyContent, 500), count);
+        UserMessageClientHelper.notifyConsultReply(userServiceClient, difyInternalKey, userId,
+                session.getSessionId(), doctor.getName());
         return toMessageVo(aiMsg);
     }
 

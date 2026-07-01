@@ -64,3 +64,19 @@
   --el-link-text-color: var(--health-600);
   --el-link-hover-text-color: var(--health-500);
 }
+
+@media (max-width: 768px) {
+  .section-card {
+    padding: 16px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-size: 16px;
+  }
+
+  .chart-box {
+    height: 220px;
+  }
+}

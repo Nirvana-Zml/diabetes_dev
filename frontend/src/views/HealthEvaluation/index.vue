@@ -15,20 +15,41 @@
           @click="activeTab = 'assess'"
         >
           风险问卷
+          <span v-if="hasUnreadHistory && !showResult" class="he-tab-dot" aria-label="有新评估报告" />
           <span v-if="activeTab === 'assess'" class="he-tab-indicator" />
         </button>
         <button
           type="button"
           class="he-tab"
           :class="{ active: activeTab === 'history' }"
-          @click="activeTab = 'history'"
+          @click="switchToHistoryTab"
         >
           历史记录
+          <span v-if="hasUnreadHistory" class="he-tab-dot" aria-label="有未读评估" />
           <span v-if="activeTab === 'history'" class="he-tab-indicator" />
         </button>
       </div>
 
       <template v-if="activeTab === 'assess'">
+        <!-- 新报告提示 -->
+        <div
+          v-if="hasUnreadHistory && !showResult && latestUnreadAssessment"
+          class="section-card he-new-report-banner animate-fade-in"
+        >
+          <div class="he-new-report-banner__main">
+            <span class="he-new-badge he-new-badge--lg">新</span>
+            <div>
+              <p class="he-new-report-banner__title">您有一份新的风险评估报告</p>
+              <p class="he-new-report-banner__meta">
+                {{ formatTime(latestUnreadAssessment.assessed_at) }}
+                · {{ levelText(latestUnreadAssessment.risk_level) }}
+                · {{ latestUnreadAssessment.risk_score }} 分
+              </p>
+            </div>
+          </div>
+          <el-button type="primary" @click="viewHistory(latestUnreadAssessment)">查看新报告</el-button>
+        </div>
+
         <!-- 用户信息概览 -->
         <div v-if="userProfile && !showResult" class="section-card he-user-card animate-fade-in">
           <div class="he-user-row">
@@ -135,7 +156,7 @@
                   <div class="he-info-row">
                     <div class="he-info-label">出生日期</div>
                     <div class="he-info-value">{{ userProfile?.birth_date || '未设置' }}</div>
-                    <div class="he-info-label">计算年龄</div>
+                    <div class="he-info-label">年龄</div>
                     <div class="he-info-value">{{ userAge ?? '-' }} 岁</div>
                   </div>
                 </div>
@@ -273,7 +294,7 @@
                         <el-radio :value="true">是</el-radio>
                         <el-radio :value="false">否</el-radio>
                       </el-radio-group>
-                      <p class="field-hint">用于妊娠糖尿病（GDM）风险评估</p>
+                      
                     </el-form-item>
                   </el-col>
                 </el-row>
@@ -427,7 +448,7 @@
                 type="primary"
                 size="large"
                 class="he-btn-primary"
-                :loading="loading"
+                :loading="submitting"
                 @click="submitAssess"
               >
                 提交评估
@@ -440,7 +461,10 @@
         <div v-if="showResult && result" class="section-card he-report-card animate-fade-in">
           <div class="he-report-header">
             <div>
-              <h3 class="he-report-title">AI 风险评估报告</h3>
+              <div class="he-report-title-row">
+                <h3 class="he-report-title">AI 风险评估报告</h3>
+                <span v-if="isCurrentResultUnread" class="he-new-badge">新</span>
+              </div>
               <p class="he-report-sub">基于您提交的健康数据综合评估</p>
             </div>
             <el-button link type="primary" @click="resetQuestionnaire">重新填写问卷</el-button>
@@ -521,9 +545,13 @@
               v-for="row in historyList"
               :key="row.assessment_id || row.assessed_at"
               class="he-history-item"
+              :class="{ 'he-history-item--unread': isUnreadAssessment(row) }"
               @click="viewHistory(row)"
             >
-              <div class="he-history-time">{{ formatTime(row.assessed_at) }}</div>
+              <div class="he-history-time">
+                {{ formatTime(row.assessed_at) }}
+                <span v-if="isUnreadAssessment(row)" class="he-new-badge he-new-badge--inline">新</span>
+              </div>
               <div class="he-history-meta">
                 <span class="he-history-level" :class="`he-history-level--${row.risk_level}`">
                   {{ levelText(row.risk_level) }}
@@ -550,6 +578,8 @@ import DisclaimerBar from '@/components/DisclaimerBar.vue'
 import { assessRisk, getRiskHistory, getRiskDetail } from '@/api/risk'
 import { getUserProfile } from '@/api/user'
 import { getHealthRecord } from '@/api/healthRecord'
+import { useUserStore } from '@/stores/user'
+import { useMessageCenter } from '@/composables/useMessageCenter'
 import {
   QUESTIONNAIRE_STEPS,
   DIABETES_TYPE_OPTIONS,
@@ -569,16 +599,95 @@ import {
   genderLabel,
 } from './constants'
 
+const RISK_PENDING_MAX_MS = 130000
+
+const userStore = useUserStore()
 const activeTab = ref('assess')
 const formRef = ref()
-const loading = ref(false)
+const submitting = ref(false)
 const result = ref(null)
 const showResult = ref(false)
 const historyList = ref([])
+const unreadAssessmentIds = ref([])
+const assessPending = ref(false)
 const gaugeRef = ref()
 const radarRef = ref()
 const userProfile = ref(null)
 const currentStep = ref(0)
+
+const hasUnreadHistory = computed(() => unreadAssessmentIds.value.length > 0)
+
+const latestUnreadAssessment = computed(() =>
+  historyList.value.find((row) => isUnreadAssessment(row)) ?? null,
+)
+
+const isCurrentResultUnread = computed(() => {
+  const id = result.value?.assessment_id
+  return id && unreadAssessmentIds.value.includes(id)
+})
+
+function riskStorageKey(suffix) {
+  const uid = userProfile.value?.user_id || userProfile.value?.id || userStore.profile?.user_id || 'guest'
+  return `he_risk_${uid}_${suffix}`
+}
+
+function readUnreadIds() {
+  try {
+    const raw = localStorage.getItem(riskStorageKey('unread'))
+    unreadAssessmentIds.value = raw ? JSON.parse(raw) : []
+  } catch {
+    unreadAssessmentIds.value = []
+  }
+}
+
+function persistUnreadIds() {
+  localStorage.setItem(riskStorageKey('unread'), JSON.stringify(unreadAssessmentIds.value))
+}
+
+function addUnreadAssessment(id) {
+  if (!id || unreadAssessmentIds.value.includes(id)) return
+  unreadAssessmentIds.value = [...unreadAssessmentIds.value, id]
+  persistUnreadIds()
+}
+
+function isUnreadAssessment(row) {
+  const id = row?.assessment_id
+  return id && unreadAssessmentIds.value.includes(id)
+}
+
+function syncPendingFromStorage() {
+  const raw = localStorage.getItem(riskStorageKey('pending_at'))
+  if (!raw) {
+    assessPending.value = false
+    return
+  }
+  const elapsed = Date.now() - Number(raw)
+  if (!Number.isFinite(elapsed) || elapsed > RISK_PENDING_MAX_MS) {
+    localStorage.removeItem(riskStorageKey('pending_at'))
+    assessPending.value = false
+    return
+  }
+  assessPending.value = true
+}
+
+function markAssessPending() {
+  localStorage.setItem(riskStorageKey('pending_at'), String(Date.now()))
+  assessPending.value = true
+}
+
+function clearAssessPending() {
+  localStorage.removeItem(riskStorageKey('pending_at'))
+  assessPending.value = false
+}
+
+function snapshotForm() {
+  return {
+    ...form,
+    family_histories: form.family_histories.map((item) => ({ ...item })),
+    medical_histories: form.medical_histories.map((item) => ({ ...item })),
+    medications: form.medications.map((item) => ({ ...item })),
+  }
+}
 
 const form = reactive(createDefaultForm())
 
@@ -601,7 +710,10 @@ const rules = {
 }
 
 onMounted(async () => {
-  await Promise.all([loadProfile(), loadHealthRecord(), loadHistory()])
+  await loadProfile()
+  readUnreadIds()
+  syncPendingFromStorage()
+  await Promise.all([loadHealthRecord(), loadHistory()])
 })
 
 async function loadProfile() {
@@ -647,6 +759,19 @@ async function loadHealthRecord() {
 async function loadHistory() {
   const data = await getRiskHistory()
   historyList.value = data.list
+  if (assessPending.value && data.list.length > 0) {
+    const latestId = data.list[0]?.assessment_id
+    const pendingAt = Number(localStorage.getItem(riskStorageKey('pending_at')) || 0)
+    const latestAt = data.list[0]?.assessed_at ? new Date(data.list[0].assessed_at).getTime() : 0
+    if (latestId && pendingAt && latestAt >= pendingAt - 5000) {
+      clearAssessPending()
+      addUnreadAssessment(latestId)
+    }
+  }
+}
+
+function switchToHistoryTab() {
+  activeTab.value = 'history'
 }
 
 function addFamilyHistory() {
@@ -708,19 +833,42 @@ async function submitAssess() {
     currentStep.value = 1
     return
   }
-  loading.value = true
-  try {
-    result.value = await assessRisk({ ...form })
-    showResult.value = true
-    await nextTick()
-    renderCharts()
-    ElMessage.success('评估完成，健康档案已更新')
-    await loadHistory()
-  } catch (e) {
-    ElMessage.error(e?.message || '提交失败，请检查填写内容')
-  } finally {
-    loading.value = false
+  if (submitting.value || assessPending.value) {
+    ElMessage.info('分析中，请稍后查看')
+    return
   }
+
+  const payload = snapshotForm()
+  submitting.value = true
+  showResult.value = false
+  result.value = null
+  currentStep.value = 0
+  markAssessPending()
+
+  ElMessage.info({
+    message: '分析中，请稍后查看',
+    duration: 5000,
+  })
+
+  assessRisk(payload)
+    .then(async (res) => {
+      clearAssessPending()
+      const id = res.assessment_id || res.assessmentId
+      if (id) addUnreadAssessment(id)
+      await loadHistory()
+      const { refresh } = useMessageCenter()
+      refresh()
+    })
+    .catch((e) => {
+      clearAssessPending()
+      if (document.visibilityState === 'visible') {
+        ElMessage.error(e?.message || '评估生成失败，请稍后重试')
+      }
+      useMessageCenter().refresh()
+    })
+    .finally(() => {
+      submitting.value = false
+    })
 }
 
 function resetQuestionnaire() {
@@ -753,6 +901,10 @@ function renderCharts() {
 }
 
 async function viewHistory(row) {
+  if (row.assessment_id) {
+    unreadAssessmentIds.value = unreadAssessmentIds.value.filter((id) => id !== row.assessment_id)
+    persistUnreadIds()
+  }
   const detail = row.assessment_id ? await getRiskDetail(row.assessment_id) : row
   result.value = detail
   showResult.value = true
@@ -820,6 +972,16 @@ async function viewHistory(row) {
 }
 .he-tab:hover { color: var(--he-text-secondary); }
 .he-tab.active { color: var(--he-primary); font-weight: 600; }
+.he-tab-dot {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff;
+}
 .he-tab-indicator {
   position: absolute;
   bottom: -1px;
@@ -828,6 +990,63 @@ async function viewHistory(row) {
   height: 3px;
   background: var(--he-primary);
   border-radius: 3px 3px 0 0;
+}
+
+.he-new-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: #ef4444;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.he-new-badge--lg {
+  min-width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+.he-new-badge--inline {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.he-new-report-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  border: 1px solid #fecaca;
+  background: linear-gradient(135deg, #fff7ed, #fff1f2);
+}
+.he-new-report-banner__main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.he-new-report-banner__title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--he-text);
+}
+.he-new-report-banner__meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--he-text-secondary);
+}
+.he-report-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 /* User overview card */
@@ -1234,6 +1453,14 @@ async function viewHistory(row) {
   transition: background 0.2s;
 }
 .he-history-item:hover { background: var(--he-primary-bg); }
+.he-history-item--unread {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+.he-history-item--unread .he-history-time {
+  font-weight: 600;
+  color: #c2410c;
+}
 .he-history-time { flex: 1; font-size: 14px; color: var(--he-text); }
 .he-history-meta { display: flex; align-items: center; gap: 12px; }
 .he-history-level {

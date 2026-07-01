@@ -1,9 +1,60 @@
 <template>
-  <SiteLayout full-bleed>
+  <SiteLayout title="生活打卡" full-bleed>
 
-    <div class="checkin-page">
-      <!-- 统计卡片 -->
-      <section class="stats-grid">
+    <div class="checkin-page" :class="{ 'checkin-page--mobile-ref': isMobile }">
+      <!-- 待完成打卡提醒横幅 -->
+      <div v-if="bannerReminders.length" class="reminder-banner-wrap">
+        <el-alert
+          v-for="item in bannerReminders"
+          :key="item.log_id || item.logId"
+          type="warning"
+          :closable="true"
+          show-icon
+          class="reminder-banner"
+          @close="dismissBanner(item)"
+        >
+          <template #title>{{ item.title || item.checkin_type_label + '提醒' }}</template>
+          <div class="reminder-banner__body">
+            <span>{{ item.body }}</span>
+            <el-button type="primary" size="small" @click="goReminderTab(item)">立即打卡</el-button>
+          </div>
+        </el-alert>
+      </div>
+
+      <!-- 统计卡片：手机三列 / 桌面四列 -->
+      <section v-if="isMobile" class="stats-grid stats-grid--mobile">
+        <div class="stat-card stat-card--mobile-ref">
+          <div class="stat-card__mobile-head">
+            <div class="stat-icon stat-icon--primary">
+              <el-icon :size="14"><DocumentChecked /></el-icon>
+            </div>
+            <span class="stat-badge stat-badge--primary">+{{ stats.week_checkins }} 本周</span>
+          </div>
+          <p class="stat-value">{{ stats.total_checkins }}</p>
+          <p class="stat-label">总卡数量</p>
+        </div>
+        <div class="stat-card stat-card--mobile-ref">
+          <div class="stat-card__mobile-head">
+            <div class="stat-icon stat-icon--accent">
+              <el-icon :size="14"><Star /></el-icon>
+            </div>
+            <span class="stat-badge stat-badge--accent">+{{ todayStatus.today_points || 0 }} 今日</span>
+          </div>
+          <p class="stat-value">{{ stats.total_points.toLocaleString() }}</p>
+          <p class="stat-label">总积分</p>
+        </div>
+        <div class="stat-card stat-card--mobile-ref">
+          <div class="stat-card__mobile-head">
+            <div class="stat-icon stat-icon--orange">
+              <el-icon :size="14"><Sunny /></el-icon>
+            </div>
+            <span v-if="stats.streak_days >= 7" class="stat-badge stat-badge--orange">火热</span>
+          </div>
+          <p class="stat-value">{{ stats.streak_days }}</p>
+          <p class="stat-label">连续打卡</p>
+        </div>
+      </section>
+      <section v-else class="stats-grid">
         <div class="stat-card">
           <div class="stat-card__top">
             <div>
@@ -61,6 +112,18 @@
         </div>
       </section>
 
+      <!-- 手机端快捷入口 -->
+      <nav class="mobile-checkin-nav" aria-label="打卡相关功能">
+        <button type="button" class="mobile-nav-chip mobile-nav-chip--analysis" @click="$router.push('/checkin-analysis')">
+          <el-icon><DataAnalysis /></el-icon>
+          <span>打卡分析</span>
+        </button>
+        <button type="button" class="mobile-nav-chip mobile-nav-chip--reminder" @click="$router.push('/checkin-reminder-settings')">
+          <el-icon><Bell /></el-icon>
+          <span>提醒设置</span>
+        </button>
+      </nav>
+
       <div class="page-body">
         <div class="workspace-layout">
           <aside class="workspace-aside">
@@ -78,33 +141,33 @@
               </div>
             </section>
 
-            <section class="achievement-section panel-card">
-            <div class="section-head">
-              <h3>成就墙</h3>
-              <div class="ach-count">
-                <span class="ach-count-done">{{ unlockedCount }}</span>
-                <span class="ach-count-sep">/</span>
-                <span class="ach-count-total">{{ achievements.length }}</span>
-              </div>
-            </div>
-            <div class="achievement-grid">
-              <div
-                v-for="(a, idx) in achievements"
-                :key="a.id"
-                class="achievement-card"
-                :class="{ unlocked: a.unlocked, [`tone-${idx % 3}`]: a.unlocked }"
-              >
-                <div class="achievement-icon">
-                  <span>{{ a.unlocked ? '🏅' : '🔒' }}</span>
+            <details class="achievement-collapse" open>
+              <summary class="achievement-collapse__summary" @click="onAchievementSummaryClick">
+                <h3>成就墙</h3>
+                <div class="ach-count">
+                  <span class="ach-count-done">{{ unlockedCount }}</span>
+                  <span class="ach-count-sep">/</span>
+                  <span class="ach-count-total">{{ achievements.length }}</span>
                 </div>
-                <h4 class="ach-name">{{ a.name }}</h4>
-                <p class="ach-desc">{{ a.desc }}</p>
-                <div class="ach-status">
-                  <span>{{ a.unlocked ? '已解锁' : '未解锁' }}</span>
+              </summary>
+              <div class="achievement-grid">
+                <div
+                  v-for="(a, idx) in achievements"
+                  :key="a.id"
+                  class="achievement-card"
+                  :class="{ unlocked: a.unlocked, [`tone-${idx % 3}`]: a.unlocked }"
+                >
+                  <div class="achievement-icon">
+                    <span>{{ a.unlocked ? '🏅' : '🔒' }}</span>
+                  </div>
+                  <h4 class="ach-name">{{ a.name }}</h4>
+                  <p class="ach-desc">{{ a.desc }}</p>
+                  <div class="ach-status">
+                    <span>{{ a.unlocked ? '已解锁' : '未解锁' }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </details>
           </aside>
 
           <!-- 右侧：日期栏 + 打卡操作区 -->
@@ -187,6 +250,10 @@
         <!-- ===== 食物打卡 ===== -->
         <section v-show="activeTab === 'food'" class="module-panel">
           <template v-if="foodMode === 'preset'">
+            <h3
+              v-if="isMobile && foodCategories.length"
+              class="panel-label food-section-label"
+            >食物分类</h3>
             <div v-if="foodCategories.length" class="category-tabs">
               <button
                 v-for="c in foodCategories"
@@ -202,6 +269,9 @@
                 <div class="food-img-wrap">
                   <img v-if="f.image_url" :src="f.image_url" :alt="f.food_name" @error="onImgError" />
                   <span v-else class="food-placeholder">🍽</span>
+                  <span v-if="isMobile" class="food-add-badge" aria-hidden="true">
+                    <el-icon :size="14"><Plus /></el-icon>
+                  </span>
                 </div>
                 <span class="food-name">{{ f.food_name }}</span>
                 <span class="food-kcal">{{ f.calories_per_gram }} kcal/g</span>
@@ -550,14 +620,16 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import {
   ArrowLeft, ArrowRight, Dish, FirstAidKit, Odometer, TrendCharts,
-  DataAnalysis, Camera, DocumentChecked, Star, Sunny, Plus, Search,
+  DataAnalysis, Camera, DocumentChecked, Star, Sunny, Plus, Search, Bell,
 } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
+import { useIsMobile } from '@/composables/useBreakpoints'
 import {
   getTodayStatus, getCheckinStats, getAchievements,
   getFoodCategories, getFoodPresets, createFoodCheckin, getFoodRecords, uploadCheckinImage,
@@ -565,6 +637,35 @@ import {
   getExercisePresets, createExerciseCheckin, getExerciseRecords,
   createGlucoseCheckin, getGlucoseRecords, getGlucoseHistory,
 } from '@/api/checkin'
+import { pendingReminders, useCheckinReminder } from '@/composables/useCheckinReminder'
+import { ackReminder, clickReminder } from '@/api/checkinReminder'
+
+const route = useRoute()
+const isMobile = useIsMobile()
+const { refresh: refreshReminders } = useCheckinReminder()
+
+function onAchievementSummaryClick(e) {
+  if (!isMobile.value) {
+    e.preventDefault()
+    return
+  }
+}
+
+const bannerReminders = computed(() => pendingReminders.value || [])
+
+async function goReminderTab(item) {
+  const tab = item.tab || 'food'
+  const logId = item.log_id || item.logId
+  if (logId) {
+    try { await clickReminder(logId) } catch { /* ignore */ }
+  }
+  switchTab(tab)
+}
+
+function dismissBanner(item) {
+  const logId = item.log_id || item.logId
+  if (logId) ackReminder(logId).catch(() => {})
+}
 
 const GLUCOSE_STATUS_LABELS = {
   low: '偏低',
@@ -683,9 +784,14 @@ const dateDisplay = computed(() => {
 })
 
 onMounted(async () => {
+  const tabQuery = route.query.tab
+  if (tabQuery && mainTabs.some((t) => t.key === tabQuery)) {
+    activeTab.value = tabQuery
+  }
   await loadHeroData()
   await ensureCategoryLists()
   await loadTabData()
+  refreshReminders()
 })
 
 watch(foodMode, (mode) => {
@@ -1115,6 +1221,21 @@ async function submitGlucose() {
 
 <style scoped>
 /* 与首页 site.css 设计 token 对齐 */
+.reminder-banner-wrap {
+  padding: 12px 16px 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.reminder-banner {
+  margin-bottom: 8px;
+}
+.reminder-banner__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 .checkin-page {
   --ck-border: var(--warm-200);
   --ck-accent-bg: #f0fdfa;
@@ -1869,16 +1990,54 @@ async function submitGlucose() {
   border: 1px solid var(--ck-border);
 }
 
-.achievement-section .achievement-grid {
+.achievement-collapse {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--ck-border);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.achievement-collapse__summary {
+  display: none;
+  list-style: none;
+  cursor: pointer;
+}
+
+.achievement-collapse__summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .achievement-collapse__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    pointer-events: none;
+    cursor: default;
+  }
+}
+
+.mobile-checkin-nav {
+  display: none;
+}
+
+.achievement-section .achievement-grid,
+.achievement-collapse .achievement-grid {
   grid-template-columns: 1fr;
   gap: 12px;
 }
 
-.achievement-section .achievement-card {
+.achievement-section .achievement-card,
+.achievement-collapse .achievement-card {
   padding: 16px;
 }
 
-.achievement-section .achievement-icon {
+.achievement-section .achievement-icon,
+.achievement-collapse .achievement-icon {
   width: 48px;
   height: 48px;
   font-size: 22px;
@@ -1909,8 +2068,8 @@ async function submitGlucose() {
 
 .achievement-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
 .achievement-card {
@@ -2078,16 +2237,700 @@ async function submitGlucose() {
   .workspace-aside {
     position: static;
   }
-  .achievement-section .achievement-grid {
-    grid-template-columns: repeat(3, 1fr);
+  .achievement-section .achievement-grid,
+  .achievement-collapse .achievement-grid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 768px) {
-  .checkin-page { padding: 16px; }
-  .stats-grid { grid-template-columns: 1fr; }
-  .main-layout { grid-template-columns: 1fr; }
-  .food-grid { grid-template-columns: repeat(2, 1fr); }
-  .achievement-section .achievement-grid { grid-template-columns: repeat(2, 1fr); }
+  .checkin-page--mobile-ref {
+    padding: 16px 16px 24px;
+    overflow-x: hidden;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .checkin-page--mobile-ref .reminder-banner-wrap {
+    margin-bottom: 12px;
+  }
+
+  .checkin-page--mobile-ref .reminder-banner__body {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* 统计：三列网格 */
+  .checkin-page--mobile-ref .stats-grid--mobile {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref {
+    padding: 12px 10px;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref:active {
+    transform: scale(0.97);
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    opacity: 0.45;
+    transform: translate(35%, -45%);
+    pointer-events: none;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref:nth-child(1)::after {
+    background: var(--ck-accent-bg);
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref:nth-child(2)::after {
+    background: #fffbeb;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref:nth-child(3)::after {
+    background: #fff7ed;
+  }
+
+  .checkin-page--mobile-ref .stat-card__mobile-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref .stat-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 8px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref .stat-badge {
+    font-size: 9px;
+    padding: 2px 5px;
+    border-radius: 999px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref .stat-value {
+    position: relative;
+    z-index: 1;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref .stat-label {
+    position: relative;
+    z-index: 1;
+    font-size: 11px;
+    margin-top: 2px;
+  }
+
+  /* 快捷入口：双列 */
+  .checkin-page--mobile-ref .mobile-checkin-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+
+  .checkin-page--mobile-ref .mobile-nav-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
+    min-width: 0;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .checkin-page--mobile-ref .mobile-nav-chip--analysis {
+    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+    color: var(--health-700);
+    box-shadow: 0 4px 16px rgba(13, 148, 136, 0.12);
+  }
+
+  .checkin-page--mobile-ref .mobile-nav-chip--analysis .el-icon {
+    color: var(--health-600);
+    font-size: 18px;
+  }
+
+  .checkin-page--mobile-ref .mobile-nav-chip--reminder {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    color: #b45309;
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.12);
+  }
+
+  .checkin-page--mobile-ref .mobile-nav-chip--reminder .el-icon {
+    color: #d97706;
+    font-size: 18px;
+  }
+
+  .checkin-page--mobile-ref .mobile-nav-chip:active {
+    transform: scale(0.98);
+  }
+
+  .checkin-page--mobile-ref .page-body,
+  .checkin-page--mobile-ref .workspace-layout,
+  .checkin-page--mobile-ref .checkin-workspace,
+  .checkin-page--mobile-ref .main-layout,
+  .checkin-page--mobile-ref .layout-sidebar,
+  .checkin-page--mobile-ref .layout-main,
+  .checkin-page--mobile-ref .workspace-aside {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .checkin-page--mobile-ref .page-body {
+    gap: 0;
+  }
+
+  .checkin-page--mobile-ref .workspace-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .checkin-page--mobile-ref .checkin-workspace.panel-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    order: 1;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+
+  .checkin-page--mobile-ref .main-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .checkin-page--mobile-ref .analysis-banner {
+    display: none;
+  }
+
+  .checkin-page--mobile-ref .workspace-aside {
+    order: 2;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .checkin-page--mobile-ref .date-section--embedded {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
+    border: 1px solid var(--ck-border);
+    margin-bottom: 16px;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .checkin-page--mobile-ref .date-nav-btn {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    background: #f5f5f4;
+    color: #a8a29e;
+  }
+
+  .checkin-page--mobile-ref .date-nav-btn:not(:disabled):active {
+    background: var(--ck-accent-bg);
+    color: var(--health-600);
+  }
+
+  .checkin-page--mobile-ref .date-center {
+    flex: 1;
+    min-width: 0;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .checkin-page--mobile-ref .date-badge {
+    padding: 4px 12px;
+    font-size: 12px;
+    border-radius: 999px;
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.15);
+  }
+
+  .checkin-page--mobile-ref .date-main {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .checkin-page--mobile-ref .date-weekday {
+    font-size: 13px;
+  }
+
+  .checkin-page--mobile-ref .layout-sidebar {
+    position: static;
+    margin: 0 0 4px;
+    padding: 0;
+    background: transparent;
+  }
+
+  .checkin-page--mobile-ref .checkin-inner-panel,
+  .checkin-page--mobile-ref .sidebar-panel {
+    padding: 0;
+    border: none;
+    background: transparent;
+    width: 100%;
+  }
+
+  .checkin-page--mobile-ref .sidebar-block {
+    margin-bottom: 16px;
+    padding-top: 0 !important;
+    border-top: none !important;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .checkin-page--mobile-ref .panel-label,
+  .checkin-page--mobile-ref .food-section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #44403c;
+  }
+
+  .checkin-page--mobile-ref .panel-label::before,
+  .checkin-page--mobile-ref .food-section-label::before {
+    content: '';
+    width: 4px;
+    height: 16px;
+    background: linear-gradient(180deg, var(--health-500), var(--health-600));
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* 横向滚动行：必须限制宽度防止撑开页面 */
+  .checkin-page--mobile-ref .category-nav,
+  .checkin-page--mobile-ref .meal-chips,
+  .checkin-page--mobile-ref .category-tabs {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin: 0;
+    padding: 2px 0 6px;
+  }
+
+  .checkin-page--mobile-ref .category-nav::-webkit-scrollbar,
+  .checkin-page--mobile-ref .meal-chips::-webkit-scrollbar,
+  .checkin-page--mobile-ref .category-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .checkin-page--mobile-ref .category-nav-btn {
+    width: auto;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 999px;
+    white-space: nowrap;
+    border: none;
+    transition: transform 0.2s ease;
+  }
+
+  .checkin-page--mobile-ref .meal-chip,
+  .checkin-page--mobile-ref .cat-tab {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 999px;
+    white-space: nowrap;
+    transition: transform 0.2s ease;
+  }
+
+  .checkin-page--mobile-ref .category-nav-btn:not(.active),
+  .checkin-page--mobile-ref .meal-chip:not(.active),
+  .checkin-page--mobile-ref .cat-tab:not(.active) {
+    background: #fff;
+    color: #78716c;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .checkin-page--mobile-ref .category-nav-btn.active,
+  .checkin-page--mobile-ref .meal-chip.active {
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+  }
+
+  .checkin-page--mobile-ref .cat-tab.active {
+    background: #fff;
+    border: 2px solid var(--health-500);
+    color: var(--health-600);
+    box-shadow: none;
+  }
+
+  .checkin-page--mobile-ref .category-nav-btn:active,
+  .checkin-page--mobile-ref .meal-chip:active,
+  .checkin-page--mobile-ref .cat-tab:active {
+    transform: scale(0.95);
+  }
+
+  .checkin-page--mobile-ref .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+  }
+
+  .checkin-page--mobile-ref .quick-action-btn {
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    border-radius: 16px;
+    padding: 14px 8px;
+    font-size: 13px;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .checkin-page--mobile-ref .quick-action-btn span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .checkin-page--mobile-ref .quick-action-btn:active {
+    transform: scale(0.98);
+  }
+
+  .checkin-page--mobile-ref .layout-main {
+    margin-top: 4px;
+  }
+
+  .checkin-page--mobile-ref .module-panel {
+    background: transparent;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+    width: 100%;
+  }
+
+  .checkin-page--mobile-ref .mode-switch {
+    background: #fff;
+    border-radius: 16px;
+    padding: 4px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    margin-bottom: 16px;
+    width: 100%;
+  }
+
+  .checkin-page--mobile-ref .mode-switch button {
+    padding: 10px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+
+  /* 食物：双列卡片 */
+  .checkin-page--mobile-ref .food-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0 0 16px;
+    width: 100%;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .checkin-page--mobile-ref .food-item {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid rgba(231, 229, 228, 0.8);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .checkin-page--mobile-ref .food-item:active {
+    transform: scale(0.98);
+  }
+
+  .checkin-page--mobile-ref .food-img-wrap {
+    position: relative;
+  }
+
+  .checkin-page--mobile-ref .food-add-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--health-600);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .checkin-page--mobile-ref .food-name {
+    padding: 10px 10px 2px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .checkin-page--mobile-ref .food-kcal {
+    padding: 0 10px 10px;
+    font-size: 11px;
+  }
+
+  .checkin-page--mobile-ref .exercise-list {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .checkin-page--mobile-ref .exercise-item,
+  .checkin-page--mobile-ref .drug-item {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .checkin-page--mobile-ref .glucose-input-card {
+    border-radius: 16px;
+    padding: 16px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .checkin-page--mobile-ref .glucose-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .checkin-page--mobile-ref .glucose-chart {
+    height: 200px;
+  }
+
+  .checkin-page--mobile-ref .trend-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .checkin-page--mobile-ref .records-section {
+    margin-top: 16px;
+    padding: 16px;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid var(--ck-border);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .checkin-page--mobile-ref .records-head {
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+
+  .checkin-page--mobile-ref .records-title {
+    font-size: 15px;
+  }
+
+  .checkin-page--mobile-ref .daily-kcal-value {
+    font-size: 18px;
+  }
+
+  .checkin-page--mobile-ref .record-card {
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .checkin-page--mobile-ref .record-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    font-size: 20px;
+  }
+
+  .checkin-page--mobile-ref .custom-form {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid var(--ck-border);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 成就墙：置于底部，默认展开 */
+  .checkin-page--mobile-ref .achievement-collapse {
+    display: block;
+    width: 100%;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid var(--ck-border);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  }
+
+  .checkin-page--mobile-ref .achievement-collapse__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    list-style: none;
+    cursor: pointer;
+    border-bottom: 1px solid var(--ck-border);
+  }
+
+  .checkin-page--mobile-ref .achievement-collapse__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .checkin-page--mobile-ref .achievement-collapse__summary h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .checkin-page--mobile-ref .achievement-collapse .achievement-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    overflow: visible;
+    margin: 0;
+    padding: 12px 16px 16px;
+  }
+
+  .checkin-page--mobile-ref .achievement-collapse .achievement-card {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    align-items: center;
+    gap: 0 12px;
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+
+  .checkin-page--mobile-ref .achievement-collapse .achievement-icon {
+    grid-row: 1 / span 3;
+    grid-column: 1;
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    margin: 0;
+  }
+
+  .checkin-page--mobile-ref .achievement-collapse .ach-name {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 14px;
+    margin: 0;
+  }
+
+  .checkin-page--mobile-ref .achievement-collapse .ach-desc {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 12px;
+    margin: 2px 0 0;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .checkin-page--mobile-ref .achievement-collapse .ach-status {
+    grid-column: 2;
+    grid-row: 3;
+    margin-top: 4px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .checkin-page--mobile-ref {
+    padding: 12px 12px 16px;
+  }
+
+  .checkin-page--mobile-ref .stats-grid--mobile {
+    gap: 8px;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref {
+    padding: 12px;
+  }
+
+  .checkin-page--mobile-ref .stat-card--mobile-ref .stat-value {
+    font-size: 20px;
+  }
+
+  .checkin-page--mobile-ref .date-main {
+    font-size: 16px;
+  }
+
+  .checkin-page--mobile-ref .quick-action-btn span {
+    font-size: 12px;
+  }
+
+  .checkin-page--mobile-ref .category-nav-btn span {
+    font-size: 13px;
+  }
 }
 </style>

@@ -1,14 +1,19 @@
 <template>
-  <SiteLayout title="打卡分析">
+  <SiteLayout title="打卡分析" show-back>
 
-    <div class="page-container">
+    <div class="analysis-page page-container">
       <!-- 时间筛选 -->
       <div class="section-card filter-bar">
-        <el-radio-group v-model="period" @change="loadData">
-          <el-radio-button value="weekly">周报</el-radio-button>
-          <el-radio-button value="monthly">月报</el-radio-button>
-          <el-radio-button value="custom">自定义</el-radio-button>
-        </el-radio-group>
+        <div class="segment-control">
+          <button
+            v-for="opt in periodOptions"
+            :key="opt.value"
+            type="button"
+            class="segment-btn"
+            :class="{ active: period === opt.value }"
+            @click="setPeriod(opt.value)"
+          >{{ opt.label }}</button>
+        </div>
         <el-date-picker
           v-if="period === 'custom'"
           v-model="dateRange"
@@ -16,30 +21,32 @@
           value-format="YYYY-MM-DD"
           start-placeholder="开始"
           end-placeholder="结束"
-          style="margin-top:10px;width:100%"
+          class="custom-range-picker"
           @change="loadData"
         />
       </div>
 
       <!-- 统计概览 -->
-      <el-row :gutter="12" class="stat-row">
-        <el-col :span="6" v-for="s in statCards" :key="s.label">
-          <div class="section-card stat-card">
-            <div class="stat-num">{{ s.value }}</div>
-            <div class="stat-lbl">{{ s.label }}</div>
-          </div>
-        </el-col>
-      </el-row>
+      <div class="stats-strip">
+        <div v-for="s in statCards" :key="s.label" class="stat-card">
+          <div class="stat-num">{{ s.value }}</div>
+          <div class="stat-lbl">{{ s.label }}</div>
+        </div>
+      </div>
 
       <!-- 趋势图 -->
-      <div class="section-card">
+      <div class="section-card chart-panel">
         <h3 class="section-title">打卡趋势</h3>
-        <el-tabs v-model="chartType">
-          <el-tab-pane label="饮食" name="diet" />
-          <el-tab-pane label="运动" name="exercise" />
-          <el-tab-pane label="用药" name="medication" />
-          <el-tab-pane label="血糖" name="glucose" />
-        </el-tabs>
+        <div class="chart-type-nav">
+          <button
+            v-for="opt in chartTypeOptions"
+            :key="opt.value"
+            type="button"
+            class="chart-type-btn"
+            :class="{ active: chartType === opt.value }"
+            @click="chartType = opt.value"
+          >{{ opt.label }}</button>
+        </div>
         <div ref="chartRef" class="chart-box" />
       </div>
 
@@ -111,23 +118,39 @@
         </el-skeleton>
       </div>
 
-      <div class="section-card">
-        <el-button type="primary" @click="handleExport">导出统计报告</el-button>
+      <div class="section-card action-bar">
+        <el-button type="primary" class="action-btn" @click="handleExport">导出统计报告</el-button>
+        <el-button plain class="action-btn" @click="$router.push('/checkin-reminder-settings')">开启打卡提醒</el-button>
+        <el-button plain class="action-btn action-btn--ghost" @click="$router.push('/checkin-records')">返回生活打卡</el-button>
       </div>
     </div>
   </SiteLayout>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
 import MarkdownContent from '@/components/MarkdownContent.vue'
 import { getManagementStats, getManagementTrends, getAiSummary, exportReport } from '@/api/checkinManagement'
 import { buildDateRange } from '@/utils/normalize'
+import { useMessageCenter } from '@/composables/useMessageCenter'
 
 const AI_CACHE_KEY = 'checkin_ai_summary_cache'
+
+const periodOptions = [
+  { value: 'weekly', label: '周报' },
+  { value: 'monthly', label: '月报' },
+  { value: 'custom', label: '自定义' },
+]
+
+const chartTypeOptions = [
+  { value: 'diet', label: '饮食' },
+  { value: 'exercise', label: '运动' },
+  { value: 'medication', label: '用药' },
+  { value: 'glucose', label: '血糖' },
+]
 
 const period = ref('weekly')
 const dateRange = ref([])
@@ -173,6 +196,11 @@ const ANOMALY_LABELS = {
   missed_all: '全部漏打卡',
   glucose_abnormal: '血糖异常',
   medication_missed: '漏服药物',
+}
+
+function setPeriod(value) {
+  period.value = value
+  loadData()
 }
 
 function typeLabel(type) {
@@ -232,7 +260,21 @@ function restoreAiCache(currentKey) {
   return true
 }
 
-onMounted(loadData)
+function resizeChart() {
+  chart?.resize()
+}
+
+onMounted(() => {
+  loadData()
+  window.addEventListener('resize', resizeChart)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', resizeChart)
+  chart?.dispose()
+  chart = null
+})
+
 watch(chartType, () => renderChart())
 
 async function loadData() {
@@ -268,15 +310,20 @@ async function loadData() {
 }
 
 async function loadAiSummary(params, key) {
+  ElMessage.info('分析中，请稍后查看')
   try {
     const ai = await getAiSummary(params)
     applyAiData(ai)
     writeAiCache(key, ai)
     aiCacheStale.value = false
+    if ((ai.source || ai.ai_source) === 'dify') {
+      useMessageCenter().refresh()
+    }
   } catch (e) {
     if (!hasAiContent.value) {
       ElMessage.warning(e.message || 'AI 分析加载失败')
     }
+    useMessageCenter().refresh()
   } finally {
     aiRefreshing.value = false
     aiInitialLoading.value = false
@@ -290,15 +337,22 @@ function renderChart() {
   const isGlucose = chartType.value === 'glucose'
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: data.map((d) => d.date) },
-    yAxis: { type: 'value' },
+    grid: { left: 36, right: 12, top: 24, bottom: 28 },
+    xAxis: {
+      type: 'category',
+      data: data.map((d) => d.date),
+      axisLabel: { fontSize: 11, rotate: data.length > 7 ? 35 : 0 },
+    },
+    yAxis: { type: 'value', axisLabel: { fontSize: 11 } },
     series: [{
       type: isGlucose ? 'line' : 'bar',
       data: data.map((d) => d.value ?? d.count),
       itemStyle: { color: '#0d9488' },
       smooth: true,
+      barMaxWidth: 28,
     }],
   })
+  resizeChart()
 }
 
 async function handleExport() {
@@ -308,11 +362,106 @@ async function handleExport() {
 </script>
 
 <style scoped>
-.filter-bar { text-align: center; }
-.stat-row { margin-bottom: 0; }
-.stat-card { text-align: center; padding: 12px !important; }
-.stat-num { font-size: 20px; font-weight: 700; color: #0d9488; }
-.stat-lbl { font-size: 11px; color: #909399; margin-top: 4px; }
+.analysis-page {
+  padding-bottom: 8px;
+}
+
+.filter-bar {
+  text-align: center;
+}
+
+.segment-control {
+  display: inline-flex;
+  width: 100%;
+  max-width: 360px;
+  padding: 4px;
+  background: #f5f5f4;
+  border-radius: 12px;
+  gap: 4px;
+}
+
+.segment-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #78716c;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.segment-btn.active {
+  background: #fff;
+  color: var(--health-700);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.custom-range-picker {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 10px;
+  text-align: center;
+  border: 1px solid rgba(231, 229, 228, 0.8);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0d9488;
+  line-height: 1.2;
+}
+
+.stat-lbl {
+  font-size: 11px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+.chart-panel .section-title {
+  margin-bottom: 12px;
+}
+
+.chart-type-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chart-type-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #e7e5e4;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: #78716c;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chart-type-btn.active {
+  background: var(--health-600);
+  border-color: var(--health-600);
+  color: #fff;
+}
+
 .ai-panel-head {
   display: flex;
   align-items: center;
@@ -320,7 +469,9 @@ async function handleExport() {
   gap: 12px;
   margin-bottom: 12px;
 }
+
 .ai-panel-head .section-title { margin: 0; }
+
 .ai-refresh-badge {
   display: inline-flex;
   align-items: center;
@@ -330,7 +481,9 @@ async function handleExport() {
   background: #f0fdfa;
   padding: 4px 10px;
   border-radius: 999px;
+  flex-shrink: 0;
 }
+
 .ai-refresh-dot {
   width: 7px;
   height: 7px;
@@ -338,27 +491,141 @@ async function handleExport() {
   background: #0d9488;
   animation: aiPulse 1.2s ease-in-out infinite;
 }
+
 @keyframes aiPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.45; transform: scale(0.85); }
 }
+
 .ai-refresh-tip { margin-bottom: 12px; }
 .ai-summary { margin-bottom: 16px; }
 .ai-fallback-tip { margin-bottom: 12px; }
 .ai-section { margin-top: 16px; }
 .ai-subtitle { font-size: 14px; font-weight: 600; color: #303133; margin: 0 0 10px; }
+
 .pattern-card {
   background: #f8fafc;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 12px;
   margin-bottom: 8px;
 }
+
 .pattern-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pattern-rate { font-size: 12px; color: #606266; margin-left: auto; }
-.pattern-desc { font-size: 13px; color: #606266; margin: 8px 0 4px; }
-.pattern-suggestion { font-size: 12px; color: #0d9488; margin: 0; }
+.pattern-desc { font-size: 13px; color: #606266; margin: 8px 0 4px; line-height: 1.5; }
+.pattern-suggestion { font-size: 12px; color: #0d9488; margin: 0; line-height: 1.5; }
 .anomaly-item { margin-bottom: 8px; }
 .anomaly-reason { font-size: 12px; color: #909399; margin: 4px 0 0; }
-.improvement-list { margin: 0; padding-left: 20px; color: #606266; font-size: 13px; }
+.improvement-list { margin: 0; padding-left: 20px; color: #606266; font-size: 13px; line-height: 1.6; }
 .improvement-list li { margin-bottom: 6px; }
+
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 140px;
+}
+
+.action-btn--ghost {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .analysis-page {
+    padding-bottom: 12px;
+  }
+
+  .segment-control {
+    max-width: none;
+  }
+
+  .segment-btn {
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .stats-strip {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin: 0 -16px 12px;
+    padding: 0 16px 4px;
+    gap: 8px;
+  }
+
+  .stats-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stat-card {
+    flex: 0 0 88px;
+    scroll-snap-align: start;
+    padding: 12px 8px;
+    border-radius: 12px;
+  }
+
+  .stat-num {
+    font-size: 18px;
+  }
+
+  .stat-lbl {
+    font-size: 10px;
+  }
+
+  .chart-type-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin: 0 -16px 12px;
+    padding: 0 16px 2px;
+  }
+
+  .chart-type-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chart-type-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .chart-panel :deep(.chart-box) {
+    height: 200px;
+  }
+
+  .ai-panel-head {
+    flex-wrap: wrap;
+  }
+
+  .pattern-header .pattern-rate {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .action-bar {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 0;
+  }
+
+  .action-btn {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .action-btn--ghost {
+    display: inline-flex;
+  }
+}
 </style>

@@ -4,7 +4,7 @@
       <div class="admin-header-inner">
         <div>
           <h1>管理后台</h1>
-          <p>糖尿病预治智能助手 · 内容运营</p>
+          <p>{{ APP_NAME }} · 内容运营</p>
         </div>
         <div class="header-actions">
           <el-button @click="goUserPortal">用户端门户</el-button>
@@ -41,7 +41,7 @@ import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { Document, VideoCamera, ArrowRight } from '@element-plus/icons-vue'
 import { clearTokens } from '@/api/auth'
-import { USER_PORTAL_URL } from '@/config'
+import { USER_PORTAL_URL, APP_NAME } from '@/config'
 
 const router = useRouter()
 

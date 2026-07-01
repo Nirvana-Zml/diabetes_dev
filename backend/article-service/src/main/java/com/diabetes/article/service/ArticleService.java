@@ -58,7 +58,10 @@ public class ArticleService {
         this.difyApiKey = difyApiKey;
     }
 
-    public Map<String, Object> recommend(String userId, int page, int size) {
+    public Map<String, Object> recommend(String userId, int page, int size, String strategy) {
+        if (strategy != null && "popular".equalsIgnoreCase(strategy.trim())) {
+            return articleRecommendService.popularRecommend(page, size);
+        }
         return articleRecommendService.recommend(userId, page, size);
     }
 

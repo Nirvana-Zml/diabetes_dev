@@ -5,8 +5,7 @@ import { getV2 } from '@/utils/request'
 import { toSnakeCase } from '@/utils/normalize'
 import { bannerImageUrl, videoCoverUrl, videoFileUrl, doctorAvatarUrl } from '@/utils/media'
 import { mockBanners, mockCategories, mockVideos, mockDoctors } from '@/mock/data'
-import { getRecommendArticles } from '@/api/article'
-import { USE_MOCK } from '@/config'
+import { getPopularArticles } from '@/api/article'
 
 const DOCTOR_STATUS_MAP = {
   1: 'online',
@@ -116,13 +115,9 @@ export async function getHomeContent() {
   }
 }
 
-/** 首页资讯推荐 — 对接 article-service 个性化/热门推荐 */
-export async function getRecommend() {
-  if (USE_MOCK) {
-    const data = await getRecommendArticles()
-    return data.list
-  }
-  const data = await getRecommendArticles({ size: 4 })
+/** 首页资讯 — 始终使用热门推荐快速路径 */
+export async function getHomeArticles(size = 4) {
+  const data = await getPopularArticles({ size })
   return data.list
 }
 

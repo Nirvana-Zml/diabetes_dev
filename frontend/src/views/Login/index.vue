@@ -1,13 +1,8 @@
 <template>
   <div class="auth-page">
     <div class="auth-header">
-      <div class="auth-logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 21s-6-4.35-6-10a6 6 0 0 1 12 0c0 5.65-6 10-6 10z" />
-          <path d="M12 11v4M12 9h.01" />
-        </svg>
-      </div>
-      <h1 class="auth-title">糖尿病预治助手</h1>
+      <AuthLogo />
+      <h1 class="auth-title">{{ APP_NAME }}</h1>
       <p class="auth-subtitle">登录账号，开启智能健康管理</p>
     </div>
 
@@ -25,7 +20,6 @@
           placeholder="请输入用户名"
           maxlength="50"
           clearable
-          :prefix-icon="User"
         />
       </el-form-item>
 
@@ -36,7 +30,6 @@
           placeholder="请输入密码"
           show-password
           clearable
-          :prefix-icon="Lock"
           @keyup.enter="handleSubmit"
         />
       </el-form-item>
@@ -62,9 +55,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock } from '@element-plus/icons-vue'
+import AuthLogo from '@/components/AuthLogo.vue'
 import { login, saveTokens, clearTokens } from '@/api/auth.js'
-import { ADMIN_PORTAL_URL } from '@/config'
+import { ADMIN_PORTAL_URL, APP_NAME } from '@/config'
 
 const router = useRouter()
 const route = useRoute()

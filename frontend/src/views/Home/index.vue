@@ -1,6 +1,6 @@
 <template>
-  <AppLayout :show-nav="false" full-width>
-    <div class="home-root">
+  <AppLayout :show-nav="isMobile" full-width>
+    <div class="home-root" :class="{ 'home-root--mobile-nav': isMobile }">
       <SiteHeader />
 
       <main class="home-main">
@@ -33,7 +33,7 @@
             <div class="quick-grid">
               <button
                 v-for="entry in quickEntries"
-                :key="entry.path"
+                :key="entry.key"
                 type="button"
                 class="quick-card card-lift"
                 :class="`quick-card--${entry.theme}`"
@@ -156,7 +156,7 @@
                 v-for="art in articles"
                 :key="art.article_id"
                 class="article-card card-lift"
-                @click="$router.push(`/health-info/${art.article_id}`)"
+                @click="openArticle(art)"
               >
                 <div class="article-card__inner">
                   <div class="article-thumb">
@@ -188,7 +188,7 @@
             </div>
           </section>
 
-          <DisclaimerBar />
+          <DisclaimerBar class="home-disclaimer" />
         </div>
       </main>
 
@@ -200,7 +200,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -211,13 +211,18 @@ import SiteHeader from '@/components/layout/SiteHeader.vue'
 import SiteFooter from '@/components/layout/SiteFooter.vue'
 import DisclaimerBar from '@/components/DisclaimerBar.vue'
 import VideoPlayerDialog from '@/components/VideoPlayerDialog.vue'
-import { getHomeContent, getRecommend, getDoctors } from '@/api/home'
-import { isLoggedIn, redirectToLogin } from '@/utils/auth'
+import { useIsMobile } from '@/composables/useBreakpoints'
+import { getHomeContent, getHomeArticles, getDoctors } from '@/api/home'
+import { isLoggedIn } from '@/utils/auth'
+import { requireLogin } from '@/utils/loginGate'
+import { useUserStore } from '@/stores/user'
 
 dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
 
 const router = useRouter()
+const userStore = useUserStore()
+const isMobile = useIsMobile()
 const banners = ref([])
 const videos = ref([])
 const doctors = ref([])
@@ -226,8 +231,16 @@ const bannerHeight = ref('220px')
 const playerVisible = ref(false)
 const playingVideo = ref(null)
 
-const quickEntries = [
+const quickEntries = computed(() => {
+  const ps = userStore.profile?.privacy_settings || {}
+  const checkinNotify = ps.checkin_notify ?? true
+  const reminderPath = checkinNotify
+    ? '/checkin-reminder-settings'
+    : { path: '/user-center', query: { section: 'checkin-notify' } }
+
+  return [
   {
+    key: 'health-evaluation',
     path: '/health-evaluation',
     label: '风险评估',
     desc: '3分钟测一测您的患病风险',
@@ -237,6 +250,7 @@ const quickEntries = [
     requireAuth: true,
   },
   {
+    key: 'living-plans',
     path: '/living-plans',
     label: '健康方案',
     desc: '定制您的专属控糖计划',
@@ -246,6 +260,7 @@ const quickEntries = [
     requireAuth: true,
   },
   {
+    key: 'checkin-records',
     path: '/checkin-records',
     label: '生活打卡',
     desc: '记录饮食、运动、用药与血糖',
@@ -255,15 +270,17 @@ const quickEntries = [
     requireAuth: true,
   },
   {
-    path: '/checkin-records',
-    label: '用药提醒',
-    desc: '定时提醒，不再漏服药物',
-    action: '设置提醒',
+    key: 'checkin-reminder',
+    path: reminderPath,
+    label: '打卡提醒',
+    desc: '设定时段，提醒您完成饮食/运动/用药/血糖打卡',
+    action: checkinNotify ? '管理时段' : '设置提醒',
     icon: Clock,
     theme: 'health-deep',
     requireAuth: true,
   },
 ]
+})
 
 function updateBannerHeight() {
   const edgePad = Math.min(Math.max(window.innerWidth * 0.04, 24), 64) * 2
@@ -275,15 +292,26 @@ onMounted(async () => {
   updateBannerHeight()
   window.addEventListener('resize', updateBannerHeight)
 
-  const [content, recommend, docList] = await Promise.all([
+  if (isLoggedIn()) {
+    userStore.fetchProfile()
+  }
+
+  const [contentResult, articlesResult, doctorsResult] = await Promise.allSettled([
     getHomeContent(),
-    getRecommend(),
+    getHomeArticles(4),
     getDoctors(),
   ])
-  banners.value = content.banners
-  videos.value = content.videos
-  articles.value = recommend
-  doctors.value = docList.slice(0, 4)
+
+  if (contentResult.status === 'fulfilled') {
+    banners.value = contentResult.value.banners
+    videos.value = contentResult.value.videos
+  }
+  if (articlesResult.status === 'fulfilled') {
+    articles.value = articlesResult.value
+  }
+  if (doctorsResult.status === 'fulfilled') {
+    doctors.value = doctorsResult.value.slice(0, 4)
+  }
 })
 
 onUnmounted(() => {
@@ -291,12 +319,14 @@ onUnmounted(() => {
 })
 
 function navigateTo(to, requireAuth = false) {
-  const target = typeof to === 'string' ? to : to.path
-  if (requireAuth && !isLoggedIn()) {
-    router.push(redirectToLogin(target))
-    return
-  }
+  if (requireAuth && !requireLogin(to)) return
   router.push(to)
+}
+
+function openArticle(art) {
+  const path = `/health-info/${art.article_id}`
+  if (!requireLogin(path)) return
+  router.push(path)
 }
 
 function consultBtnText(status) {
@@ -312,10 +342,13 @@ function formatRelative(iso) {
 }
 
 function startConsult(doc) {
-  navigateTo({ path: '/consultation/chat', query: { doctor_id: doc.doctor_id } }, true)
+  const target = { path: '/consultation/chat', query: { doctor_id: doc.doctor_id } }
+  if (!requireLogin(target)) return
+  router.push(target)
 }
 
 function openVideo(video) {
+  if (!requireLogin('/home')) return
   playingVideo.value = video
   playerVisible.value = true
 }
@@ -1016,15 +1049,284 @@ function openVideo(video) {
     padding-top: 32px;
   }
 
+  .home-root--mobile-nav .site-footer {
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+
   .glass-overlay {
     padding: 20px 16px;
   }
 
+  .home-carousel :deep(.el-carousel__arrow) {
+    width: 36px;
+    height: 36px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .banner-section:hover .home-carousel :deep(.el-carousel__arrow) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .home-carousel :deep(.el-carousel__indicators) {
+    bottom: 12px;
+  }
+
+  .home-carousel :deep(.el-carousel__indicator) {
+    padding: 0 3px;
+  }
+
+  .home-carousel :deep(.el-carousel__button) {
+    width: 5px;
+    height: 5px;
+    background: rgba(120, 120, 120, 0.55);
+  }
+
+  .home-carousel :deep(.el-carousel__indicator.is-active .el-carousel__button) {
+    width: 14px;
+    background: rgba(100, 100, 100, 0.85);
+  }
+
+  .section-heading--between {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .home-disclaimer {
+    display: none;
+  }
+
+  /* 横向滚动卡片条 */
   .quick-grid,
   .video-grid,
   .doctor-grid,
   .article-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-left: calc(-1 * var(--edge-padding));
+    margin-right: calc(-1 * var(--edge-padding));
+    padding-left: var(--edge-padding);
+    padding-right: var(--edge-padding);
+    padding-bottom: 4px;
+  }
+
+  .quick-grid::-webkit-scrollbar,
+  .video-grid::-webkit-scrollbar,
+  .doctor-grid::-webkit-scrollbar,
+  .article-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 快捷服务 */
+  .quick-card {
+    flex: 0 0 128px;
+    width: 128px;
+    padding: 14px 12px;
+    border-radius: 16px;
+    scroll-snap-align: start;
+  }
+
+  .quick-card__glow {
+    width: 72px;
+    height: 72px;
+  }
+
+  .quick-card__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+  }
+
+  .quick-card__icon :deep(.el-icon) {
+    font-size: 22px !important;
+  }
+
+  .quick-card__title {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .quick-card__desc,
+  .quick-card__action {
+    display: none;
+  }
+
+  /* 科普视频 */
+  .video-card {
+    flex: 0 0 136px;
+    width: 136px;
+    scroll-snap-align: start;
+  }
+
+  .video-cover {
+    border-radius: 12px;
+    margin-bottom: 8px;
+  }
+
+  .video-title {
+    font-size: 13px;
+    -webkit-line-clamp: 2;
+  }
+
+  .duration {
+    bottom: 8px;
+    right: 8px;
+    font-size: 10px;
+  }
+
+  .play-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .play-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* 医师团队 */
+  .doctor-card {
+    flex: 0 0 132px;
+    width: 132px;
+    padding: 14px 10px;
+    border-radius: 16px;
+    scroll-snap-align: start;
+  }
+
+  .doctor-avatar-wrap {
+    margin-bottom: 8px;
+  }
+
+  .doctor-avatar-wrap :deep(.el-avatar) {
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  .status-dot {
+    width: 16px;
+    height: 16px;
+  }
+
+  .status-dot::after {
+    width: 10px;
+    height: 10px;
+  }
+
+  .doc-name {
+    font-size: 14px;
+  }
+
+  .doc-title {
+    font-size: 11px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .doc-rating {
+    margin-top: 6px;
+  }
+
+  .doc-rating svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .rating-value {
+    font-size: 12px;
+  }
+
+  .rating-count {
+    display: none;
+  }
+
+  .consult-btn {
+    margin-top: 10px;
+    padding: 8px 0;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  /* 知识科普 */
+  .article-card {
+    flex: 0 0 248px;
+    width: 248px;
+    border-radius: 16px;
+    scroll-snap-align: start;
+  }
+
+  .article-card__inner {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .article-thumb {
+    width: 72px;
+    height: 72px;
+    border-radius: 10px;
+  }
+
+  .article-body {
+    padding: 0;
+    justify-content: center;
+  }
+
+  .article-title {
+    font-size: 14px;
+    -webkit-line-clamp: 2;
+  }
+
+  .article-summary {
+    display: none;
+  }
+
+  .article-meta {
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 11px;
+  }
+
+  .article-meta svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .quick-card {
+    flex: 0 0 120px;
+    width: 120px;
+  }
+
+  .video-card {
+    flex: 0 0 128px;
+    width: 128px;
+  }
+
+  .doctor-card {
+    flex: 0 0 124px;
+    width: 124px;
+  }
+
+  .article-card {
+    flex: 0 0 232px;
+    width: 232px;
+  }
+
+  .heading-title {
+    font-size: 18px;
   }
 }
 </style>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.checkin.mapper.CheckinReminderRuleMapper">
+
+    <select id="findByUserId" resultType="com.diabetes.checkin.entity.CheckinReminderRule">
+        SELECT RULE_ID AS ruleId, USER_ID AS userId, CHECKIN_TYPE AS checkinType,
+               REMIND_TIME AS remindTime, ENABLED AS enabled, SORT_ORDER AS sortOrder,
+               CREATED_AT AS createdAt, UPDATED_AT AS updatedAt
+        FROM CHECKIN_REMINDER_RULES
+        WHERE USER_ID = #{userId}
+        ORDER BY CHECKIN_TYPE, SORT_ORDER, REMIND_TIME
+    </select>
+
+    <delete id="deleteByUserId">
+        DELETE FROM CHECKIN_REMINDER_RULES WHERE USER_ID = #{userId}
+    </delete>
+
+    <insert id="insert">
+        INSERT INTO CHECKIN_REMINDER_RULES (
+            RULE_ID, USER_ID, CHECKIN_TYPE, REMIND_TIME, ENABLED, SORT_ORDER, CREATED_AT, UPDATED_AT
+        ) VALUES (
+            #{ruleId}, #{userId}, #{checkinType}, #{remindTime}, #{enabled}, #{sortOrder}, NOW(), NOW()
+        )
+    </insert>
+</mapper>

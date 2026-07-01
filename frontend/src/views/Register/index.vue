@@ -3,14 +3,7 @@
     <router-link to="/login" class="auth-back">← 返回登录</router-link>
 
     <div class="auth-header">
-      <div class="auth-logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <line x1="19" y1="8" x2="19" y2="14" />
-          <line x1="22" y1="11" x2="16" y2="11" />
-        </svg>
-      </div>
+      <AuthLogo />
       <h1 class="auth-title">创建账号</h1>
       <p class="auth-subtitle">注册后即可使用风险评估、打卡与 AI 问诊</p>
     </div>
@@ -78,6 +71,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import AuthLogo from '@/components/AuthLogo.vue'
 import { register } from '@/api/auth.js'
 
 const router = useRouter()

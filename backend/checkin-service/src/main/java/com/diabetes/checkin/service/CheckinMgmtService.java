@@ -1,7 +1,9 @@
 package com.diabetes.checkin.service;
 
 import com.diabetes.checkin.dify.DifyCheckinAnalysisWorkflowContract;
+import com.diabetes.common.client.UserMessageClientHelper;
 import com.diabetes.common.client.HealthServiceClient;
+import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.common.dify.DifyClient;
 import com.diabetes.common.dify.DifyJsonSchema;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,6 +26,7 @@ public class CheckinMgmtService {
 
     private final CheckinService checkinService;
     private final HealthServiceClient healthServiceClient;
+    private final UserServiceClient userServiceClient;
     private final DifyClient difyClient;
     private final ObjectMapper objectMapper;
     private final String difyApiKey;
@@ -33,6 +36,7 @@ public class CheckinMgmtService {
 
     public CheckinMgmtService(CheckinService checkinService,
                               HealthServiceClient healthServiceClient,
+                              UserServiceClient userServiceClient,
                               DifyClient difyClient,
                               ObjectMapper objectMapper,
                               @Value("${dify.base-url:http://localhost}") String difyBaseUrl,
@@ -41,6 +45,7 @@ public class CheckinMgmtService {
                               @Value("${dify-internal.key:}") String difyInternalKey) {
         this.checkinService = checkinService;
         this.healthServiceClient = healthServiceClient;
+        this.userServiceClient = userServiceClient;
         this.difyClient = difyClient;
         this.objectMapper = objectMapper;
         this.difyBaseUrl = difyBaseUrl;
@@ -71,11 +76,17 @@ public class CheckinMgmtService {
                 Map<String, Object> parsed = parseBehaviorAnalysis(response);
                 if (parsed != null) {
                     parsed.put("source", "dify");
+                    UserMessageClientHelper.notifyCheckinAnalysisCompleted(userServiceClient, difyInternalKey,
+                            userId, start.toString(), end.toString());
                     return parsed;
                 }
                 log.warn("Dify 行为分析响应缺少 summary，降级本地总结");
+                UserMessageClientHelper.notifyCheckinAnalysisFailed(userServiceClient, difyInternalKey,
+                        userId, start.toString(), end.toString(), "分析结果不完整");
             } catch (Exception e) {
                 log.warn("Dify 行为分析调用失败，降级本地总结: {}", e.getMessage());
+                UserMessageClientHelper.notifyCheckinAnalysisFailed(userServiceClient, difyInternalKey,
+                        userId, start.toString(), end.toString(), e.getMessage());
             }
         } else {
             log.debug("未配置 DIFY_CHECKIN_API_KEY，使用本地行为分析总结");
