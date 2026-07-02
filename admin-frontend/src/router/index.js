@@ -25,6 +25,12 @@ const router = createRouter({
       meta: { title: '资讯管理' },
     },
     {
+      path: '/statistics',
+      name: 'AdminStatistics',
+      component: () => import('@/views/Statistics/index.vue'),
+      meta: { title: '数据统计' },
+    },
+    {
       path: '/videos',
       name: 'AdminVideos',
       component: () => import('@/views/Videos/index.vue'),
@@ -34,6 +40,12 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
+  if (to.path === '/login') {
+    if (isLoggedIn() && isAdmin()) {
+      return { path: '/home', replace: true }
+    }
+    return true
+  }
   if (to.meta.public) return true
   if (!isLoggedIn()) return redirectToLogin(to.fullPath)
   if (!isAdmin()) {

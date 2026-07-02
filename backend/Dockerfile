@@ -13,7 +13,6 @@ COPY checkin-service/pom.xml checkin-service/
 COPY consultation-service/pom.xml consultation-service/
 COPY plan-service/pom.xml plan-service/
 COPY article-service/pom.xml article-service/
-COPY audit-service/pom.xml audit-service/
 RUN mvn dependency:go-offline -B
 
 COPY common common
@@ -25,7 +24,6 @@ COPY checkin-service checkin-service
 COPY consultation-service consultation-service
 COPY plan-service plan-service
 COPY article-service article-service
-COPY audit-service audit-service
 
 ARG SERVICE=gateway
 RUN mvn -pl ${SERVICE} -am package -DskipTests -B

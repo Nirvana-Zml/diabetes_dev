@@ -39,6 +39,9 @@ vi.mock('element-plus', () => ({
 vi.mock('@element-plus/icons-vue', () => ({
   User: {},
   Lock: {},
+  Iphone: {},
+  Message: {},
+  Key: {},
 }))
 
 vi.mock('@/config', () => ({

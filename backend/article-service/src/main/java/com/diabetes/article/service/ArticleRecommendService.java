@@ -176,7 +176,8 @@ public class ArticleRecommendService {
                     + popularityScore(c) * 0.5);
             sa.setReason("相关推荐");
             return sa;
-        }).sorted(Comparator.comparingDouble(ScoredArticle::getScore).reversed()).toList();
+        }).sorted(Comparator.comparingDouble(ScoredArticle::getScore).reversed())
+                .collect(Collectors.toCollection(ArrayList::new));
 
         if (userId != null && properties.isPhase2Enabled()) {
             applyPhase2Collaborative(scored, ctx);
@@ -281,7 +282,8 @@ public class ArticleRecommendService {
 
     private List<ScoredArticle> scoreCandidates(RecommendContext ctx) {
         if (!properties.isPhase1Enabled()) {
-            return ctx.candidates.stream().map(ScoredArticle::new).toList();
+            return ctx.candidates.stream().map(ScoredArticle::new)
+                    .collect(Collectors.toCollection(ArrayList::new));
         }
         List<ScoredArticle> result = new ArrayList<>();
         for (ArticleCandidate c : ctx.candidates) {

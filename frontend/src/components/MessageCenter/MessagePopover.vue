@@ -1,5 +1,7 @@
 <template>
-  <div class="message-popover">
+  <div class="message-popover" :class="{ 'message-popover--mobile': mobile }">
+    <div v-if="mobile" class="sheet-handle" aria-hidden="true" />
+
     <div class="popover-header">
       <span class="popover-title">消息通知</span>
       <button
@@ -12,8 +14,19 @@
         全部已读
       </button>
     </div>
-    <div v-if="loading" class="popover-loading">加载中…</div>
-    <div v-else-if="!messages.length" class="popover-empty">暂无消息</div>
+
+    <div v-if="loading" class="popover-loading">
+      <span class="loading-dot" />
+      加载中…
+    </div>
+    <div v-else-if="!messages.length" class="popover-empty">
+      <div class="empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+        </svg>
+      </div>
+      <p>暂无消息</p>
+    </div>
     <ul v-else class="message-list">
       <li
         v-for="msg in messages"
@@ -21,9 +34,14 @@
         class="message-item"
         :class="{ unread: !(msg.is_read ?? msg.isRead), failed: msg.status === 'failed' }"
       >
-        <div class="message-title">{{ msg.title }}</div>
-        <div v-if="msg.summary" class="message-summary">{{ msg.summary }}</div>
-        <div class="message-meta">{{ formatTime(msg.created_at || msg.createdAt) }}</div>
+        <div class="message-item__body">
+          <div class="message-item__head">
+            <span v-if="!(msg.is_read ?? msg.isRead)" class="unread-dot" aria-hidden="true" />
+            <div class="message-title">{{ msg.title }}</div>
+          </div>
+          <div v-if="msg.summary" class="message-summary">{{ msg.summary }}</div>
+          <div class="message-meta">{{ formatTime(msg.created_at || msg.createdAt) }}</div>
+        </div>
         <button type="button" class="action-btn" @click="handleOpen(msg)">
           {{ actionLabel(msg) }}
         </button>
@@ -37,6 +55,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { markAllMessagesRead, markMessageRead } from '@/api/message'
 import { useMessageCenter } from '@/composables/useMessageCenter'
+
+defineProps({
+  mobile: { type: Boolean, default: false },
+})
 
 const emit = defineEmits(['open'])
 const router = useRouter()
@@ -110,28 +132,64 @@ onMounted(async () => {
   max-height: 480px;
   display: flex;
   flex-direction: column;
+  --msg-primary: var(--health-600, #0d9488);
+  --msg-primary-light: #ccfbf1;
+  --msg-primary-soft: rgba(204, 251, 241, 0.55);
+  --msg-text: var(--warm-800, #292524);
+  --msg-text-secondary: var(--warm-500, #78716c);
+  --msg-border: var(--warm-200, #e7e5e4);
+}
+
+.message-popover--mobile {
+  width: 100%;
+  max-height: none;
+  height: 100%;
+  min-height: 0;
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  margin: 10px auto 4px;
+  border-radius: 999px;
+  background: var(--warm-300, #d6d3d1);
+  flex-shrink: 0;
 }
 
 .popover-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
+  padding: 12px 16px 14px;
+  border-bottom: 1px solid var(--msg-border);
+  flex-shrink: 0;
+}
+
+.message-popover--mobile .popover-header {
+  padding: 4px 20px 14px;
 }
 
 .popover-title {
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--msg-text);
 }
 
 .read-all-btn {
   border: none;
   background: none;
-  color: var(--el-color-primary, #409eff);
+  color: var(--msg-primary);
   cursor: pointer;
   font-size: 13px;
-  padding: 0;
+  font-weight: 500;
+  padding: 6px 8px;
+  margin: -6px -8px -6px 0;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.read-all-btn:hover:not(:disabled) {
+  background: var(--msg-primary-soft);
 }
 
 .read-all-btn:disabled {
@@ -141,10 +199,60 @@ onMounted(async () => {
 
 .popover-loading,
 .popover-empty {
-  padding: 32px 16px;
+  padding: 36px 16px;
   text-align: center;
-  color: #909399;
+  color: var(--msg-text-secondary);
   font-size: 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.popover-loading {
+  flex-direction: row;
+}
+
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--msg-primary);
+  animation: msgPulse 1s ease-in-out infinite;
+}
+
+@keyframes msgPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.empty-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--msg-primary-soft);
+  color: var(--msg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.popover-empty p {
+  margin: 0;
 }
 
 .message-list {
@@ -153,53 +261,128 @@ onMounted(async () => {
   padding: 0;
   overflow-y: auto;
   max-height: 420px;
+  flex: 1;
+  min-height: 0;
+}
+
+.message-popover--mobile .message-list {
+  max-height: none;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
 }
 
 .message-item {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--msg-border);
 }
 
-.message-item.unread .message-title::before {
-  content: '● ';
-  color: var(--el-color-primary, #409eff);
-  font-size: 10px;
+.message-popover--mobile .message-item {
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--msg-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.message-popover--mobile .message-item:last-child {
+  margin-bottom: 0;
+}
+
+.message-popover--mobile .message-item.unread {
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 100%);
+  border-color: rgba(13, 148, 136, 0.22);
+}
+
+.message-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-item__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.unread-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--msg-primary);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
 }
 
 .message-item.failed .message-title {
-  color: var(--el-color-warning, #e6a23c);
+  color: var(--accent-600, #ea580c);
 }
 
 .message-title {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--msg-text);
+  line-height: 1.45;
   margin-bottom: 4px;
+}
+
+.message-item__head .message-title {
+  margin-bottom: 0;
 }
 
 .message-summary {
   font-size: 13px;
-  color: #606266;
-  line-height: 1.4;
-  margin-bottom: 4px;
+  color: var(--msg-text-secondary);
+  line-height: 1.5;
+  margin: 6px 0 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .message-meta {
   font-size: 12px;
-  color: #909399;
-  margin-bottom: 8px;
+  color: var(--warm-400, #a8a29e);
 }
 
 .action-btn {
-  border: 1px solid var(--el-color-primary, #409eff);
-  background: #fff;
-  color: var(--el-color-primary, #409eff);
-  border-radius: 4px;
-  padding: 4px 12px;
+  flex-shrink: 0;
+  border: 1px solid rgba(13, 148, 136, 0.35);
+  background: var(--msg-primary-soft);
+  color: var(--msg-primary);
+  border-radius: 8px;
+  padding: 6px 14px;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.message-popover--mobile .action-btn {
+  align-self: stretch;
+  text-align: center;
+  padding: 10px 14px;
+  font-size: 13px;
+  border-radius: 10px;
+  min-height: 40px;
 }
 
 .action-btn:hover {
-  background: var(--el-color-primary-light-9, #ecf5ff);
+  background: var(--msg-primary-light);
+  border-color: var(--msg-primary);
+  color: var(--health-700, #0f766e);
+}
+
+.action-btn:active {
+  transform: scale(0.98);
 }
 </style>

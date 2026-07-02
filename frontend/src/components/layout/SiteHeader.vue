@@ -36,12 +36,14 @@
         >
           {{ link.label }}
         </button>
+
         <el-popover
-          v-if="loggedIn"
+          v-if="loggedIn && !isMobile"
           placement="bottom-end"
-          :width="popoverWidth"
+          :width="380"
           trigger="click"
-          @show="onPopoverShow"
+          popper-class="message-popover-panel"
+          @show="onMessageOpen"
         >
           <template #reference>
             <button type="button" class="nav-link bell-btn" aria-label="消息通知">
@@ -52,13 +54,38 @@
           </template>
           <MessagePopover @open="() => {}" />
         </el-popover>
+
+        <template v-if="loggedIn && isMobile">
+          <button
+            type="button"
+            class="nav-link bell-btn bell-btn--mobile"
+            aria-label="消息通知"
+            @click="messageDrawerOpen = true"
+          >
+            <el-badge :value="badgeValue" :hidden="unreadCount <= 0" :max="99">
+              <el-icon :size="20"><Bell /></el-icon>
+            </el-badge>
+          </button>
+
+          <el-drawer
+            v-model="messageDrawerOpen"
+            direction="btt"
+            size="72%"
+            :with-header="false"
+            append-to-body
+            class="message-sheet"
+            @open="onMessageOpen"
+          >
+            <MessagePopover mobile @open="messageDrawerOpen = false" />
+          </el-drawer>
+        </template>
       </nav>
     </div>
   </header>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
 import { isLoggedIn, redirectToLogin } from '@/utils/auth'
@@ -75,8 +102,7 @@ const router = useRouter()
 const route = useRoute()
 const { loadList } = useMessageCenter()
 const isMobile = useIsMobile()
-
-const popoverWidth = ref(380)
+const messageDrawerOpen = ref(false)
 
 const showMobileBack = computed(() => isMobile.value && route.path !== '/home')
 
@@ -86,19 +112,6 @@ const mobileTitle = computed(() => {
   return route.meta?.title || ''
 })
 
-function syncPopoverWidth() {
-  popoverWidth.value = window.innerWidth <= 480 ? Math.min(window.innerWidth - 24, 360) : 380
-}
-
-onMounted(() => {
-  syncPopoverWidth()
-  window.addEventListener('resize', syncPopoverWidth)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', syncPopoverWidth)
-})
-
 const loggedIn = computed(() => {
   void route.path
   return isLoggedIn()
@@ -106,7 +119,7 @@ const loggedIn = computed(() => {
 
 const badgeValue = computed(() => unreadCount.value)
 
-function onPopoverShow() {
+function onMessageOpen() {
   loadList()
 }
 
@@ -154,5 +167,29 @@ function goBack() {
   align-items: center;
   padding: 4px 8px;
   margin-left: 4px;
+}
+
+.bell-btn--mobile {
+  width: 36px;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  margin-left: 0;
+  border: 1px solid var(--warm-200, #e7e5e4);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--warm-600, #57534e);
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.bell-btn--mobile:hover,
+.bell-btn--mobile:focus-visible {
+  border-color: var(--health-500, #14b8a6);
+  color: var(--health-600, #0d9488);
+  background: rgba(204, 251, 241, 0.35);
+}
+
+.bell-btn--mobile::after {
+  display: none;
 }
 </style>

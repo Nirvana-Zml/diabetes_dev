@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.user.mapper.AdminStatsMapper">
+
+    <select id="countUsers" resultType="int">
+        SELECT COUNT(1) FROM USERS WHERE IS_DELETED = 0
+    </select>
+
+    <select id="countNewUsers" resultType="int">
+        SELECT COUNT(1) FROM USERS
+        WHERE IS_DELETED = 0 AND CREATED_AT &gt;= #{since}
+    </select>
+
+    <select id="countActiveUsers" resultType="int">
+        SELECT COUNT(DISTINCT USER_ID) FROM (
+            SELECT USER_ID FROM DIABETES_CHECKIN.CHECKIN_RECORDS
+            WHERE DEL_FLAG = 0 AND CHECKIN_DATE &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+            UNION
+            SELECT USER_ID FROM DIABETES_CONSULTATION.CONSULTATION_SESSIONS
+            WHERE DEL_FLAG = 0 AND STARTED_AT &gt;= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+            UNION
+            SELECT USER_ID FROM DIABETES_HEALTH.RISK_ASSESSMENTS
+            WHERE DEL_FLAG = 0 AND ASSESSED_AT &gt;= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+            UNION
+            SELECT USER_ID FROM DIABETES_PLAN.HEALTH_PLANS
+            WHERE DEL_FLAG = 0 AND GENERATED_AT &gt;= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        ) active_users
+    </select>
+
+    <select id="countUsersByGender" resultType="map">
+        SELECT GENDER AS `key`, COUNT(1) AS `value`
+        FROM USERS
+        WHERE IS_DELETED = 0
+        GROUP BY GENDER
+        ORDER BY GENDER
+    </select>
+
+    <select id="countUsersByAgeGroup" resultType="map">
+        SELECT
+            CASE
+                WHEN BIRTH_DATE IS NULL THEN 'unknown'
+                WHEN TIMESTAMPDIFF(YEAR, BIRTH_DATE, CURDATE()) &lt; 18 THEN 'under_18'
+                WHEN TIMESTAMPDIFF(YEAR, BIRTH_DATE, CURDATE()) BETWEEN 18 AND 29 THEN '18_29'
+                WHEN TIMESTAMPDIFF(YEAR, BIRTH_DATE, CURDATE()) BETWEEN 30 AND 44 THEN '30_44'
+                WHEN TIMESTAMPDIFF(YEAR, BIRTH_DATE, CURDATE()) BETWEEN 45 AND 59 THEN '45_59'
+                ELSE '60_plus'
+            END AS `key`,
+            COUNT(1) AS `value`
+        FROM USERS
+        WHERE IS_DELETED = 0
+        GROUP BY `key`
+        ORDER BY `key`
+    </select>
+
+    <select id="userRegistrationTrend" resultType="map">
+        SELECT DATE(CREATED_AT) AS `date`, COUNT(1) AS `value`
+        FROM USERS
+        WHERE IS_DELETED = 0
+          AND CREATED_AT &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+        GROUP BY DATE(CREATED_AT)
+        ORDER BY `date`
+    </select>
+
+    <select id="countHealthRecords" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_HEALTH.HEALTH_RECORDS WHERE DEL_FLAG = 0
+    </select>
+
+    <select id="countRiskAssessments" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_HEALTH.RISK_ASSESSMENTS WHERE DEL_FLAG = 0
+    </select>
+
+    <select id="countByDiabetesType" resultType="map">
+        SELECT DIABETES_TYPE AS `key`, COUNT(1) AS `value`
+        FROM DIABETES_HEALTH.HEALTH_RECORDS
+        WHERE DEL_FLAG = 0
+        GROUP BY DIABETES_TYPE
+        ORDER BY DIABETES_TYPE
+    </select>
+
+    <select id="countByRiskLevel" resultType="map">
+        SELECT RISK_LEVEL AS `key`, COUNT(1) AS `value`
+        FROM DIABETES_HEALTH.RISK_ASSESSMENTS
+        WHERE DEL_FLAG = 0 AND GENERATION_STATUS = 2
+        GROUP BY RISK_LEVEL
+        ORDER BY RISK_LEVEL
+    </select>
+
+    <select id="countCheckins" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_CHECKIN.CHECKIN_RECORDS WHERE DEL_FLAG = 0
+    </select>
+
+    <select id="countCheckinsSince" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_CHECKIN.CHECKIN_RECORDS
+        WHERE DEL_FLAG = 0 AND CHECKIN_DATE &gt;= #{since}
+    </select>
+
+    <select id="countCheckinsByType" resultType="map">
+        SELECT CHECKIN_TYPE AS `key`, COUNT(1) AS `value`
+        FROM DIABETES_CHECKIN.CHECKIN_RECORDS
+        WHERE DEL_FLAG = 0
+        GROUP BY CHECKIN_TYPE
+        ORDER BY CHECKIN_TYPE
+    </select>
+
+    <select id="dailyCheckinTrend" resultType="map">
+        SELECT CHECKIN_DATE AS `date`, COUNT(1) AS `value`
+        FROM DIABETES_CHECKIN.CHECKIN_RECORDS
+        WHERE DEL_FLAG = 0
+          AND CHECKIN_DATE &gt;= DATE_SUB(CURDATE(), INTERVAL #{days} DAY)
+        GROUP BY CHECKIN_DATE
+        ORDER BY CHECKIN_DATE
+    </select>
+
+    <select id="countConsultationSessions" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_CONSULTATION.CONSULTATION_SESSIONS WHERE DEL_FLAG = 0
+    </select>
+
+    <select id="countActiveConsultationSessions" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_CONSULTATION.CONSULTATION_SESSIONS
+        WHERE DEL_FLAG = 0 AND STATUS = 1
+    </select>
+
+    <select id="countConsultationMessages" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_CONSULTATION.CONSULTATION_MESSAGES WHERE DEL_FLAG = 0
+    </select>
+
+    <select id="avgConsultationRating" resultType="java.lang.Double">
+        SELECT AVG(RATING) FROM DIABETES_CONSULTATION.CONSULTATION_SESSIONS
+        WHERE DEL_FLAG = 0 AND RATING IS NOT NULL
+    </select>
+
+    <select id="countHealthPlans" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_PLAN.HEALTH_PLANS WHERE DEL_FLAG = 0
+    </select>
+
+    <select id="countUsersWithPlans" resultType="int">
+        SELECT COUNT(DISTINCT USER_ID) FROM DIABETES_PLAN.HEALTH_PLANS WHERE DEL_FLAG = 0
+    </select>
+
+    <select id="countArticles" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_ARTICLE.ARTICLES WHERE DEL_FLAG = 0
+    </select>
+
+    <select id="countPublishedArticles" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_ARTICLE.ARTICLES WHERE DEL_FLAG = 0 AND STATUS = 3
+    </select>
+
+    <select id="countArticleReads" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_ARTICLE.ARTICLE_USER_READS WHERE DEL_FLAG = 0
+    </select>
+
+    <select id="countVideos" resultType="int">
+        SELECT COUNT(1) FROM DIABETES_RESOURCES.VIDEOS WHERE IS_DELETED = 0
+    </select>
+
+    <select id="countUserMessages" resultType="int">
+        SELECT COUNT(1) FROM USER_MESSAGES
+    </select>
+
+    <select id="countUnreadUserMessages" resultType="int">
+        SELECT COUNT(1) FROM USER_MESSAGES WHERE IS_READ = 0
+    </select>
+
+    <select id="countUserMessagesByType" resultType="map">
+        SELECT MESSAGE_TYPE AS `key`, COUNT(1) AS `value`
+        FROM USER_MESSAGES
+        GROUP BY MESSAGE_TYPE
+        ORDER BY `value` DESC
+    </select>
+
+    <select id="countUsersForList" resultType="int">
+        SELECT COUNT(1) FROM USERS WHERE IS_DELETED = 0
+    </select>
+
+    <select id="listUsersWithStats" resultType="map">
+        SELECT
+            u.USER_ID AS user_id,
+            u.USERNAME AS username,
+            u.NICKNAME AS nickname,
+            u.PHONE AS phone,
+            u.GENDER AS gender,
+            u.POINTS AS points,
+            u.CREATED_AT AS created_at,
+            (SELECT COUNT(1) FROM DIABETES_HEALTH.HEALTH_RECORDS hr
+             WHERE hr.USER_ID = u.USER_ID AND hr.DEL_FLAG = 0) AS health_record_count,
+            (SELECT COUNT(1) FROM DIABETES_HEALTH.RISK_ASSESSMENTS ra
+             WHERE ra.USER_ID = u.USER_ID AND ra.DEL_FLAG = 0) AS risk_assessment_count,
+            (SELECT COUNT(1) FROM DIABETES_CHECKIN.CHECKIN_RECORDS cr
+             WHERE cr.USER_ID = u.USER_ID AND cr.DEL_FLAG = 0) AS checkin_count,
+            (SELECT COUNT(1) FROM DIABETES_CONSULTATION.CONSULTATION_SESSIONS cs
+             WHERE cs.USER_ID = u.USER_ID AND cs.DEL_FLAG = 0) AS consultation_count,
+            (SELECT COUNT(1) FROM DIABETES_PLAN.HEALTH_PLANS hp
+             WHERE hp.USER_ID = u.USER_ID AND hp.DEL_FLAG = 0) AS plan_count,
+            (SELECT COUNT(1) FROM DIABETES_ARTICLE.ARTICLE_USER_READS ar
+             WHERE ar.USER_ID = u.USER_ID AND ar.DEL_FLAG = 0) AS article_read_count
+        FROM USERS u
+        WHERE u.IS_DELETED = 0
+        ORDER BY u.CREATED_AT DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+</mapper>

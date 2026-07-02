@@ -12,7 +12,7 @@
     </div>
 
     <div class="auth-tip">
-      请使用管理员账号登录。默认账号：<strong>admin</strong> / <strong>123456</strong>
+      请使用管理员账号登录（账号由系统管理员分配）
     </div>
 
     <el-form
@@ -49,26 +49,22 @@
         登 录
       </el-button>
     </el-form>
-
-    <div class="auth-footer">
-      <a :href="userPortalUrl" target="_blank" rel="noopener">返回用户端</a>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import { login, saveTokens, clearTokens } from '@/api/auth'
-import { USER_PORTAL_URL, APP_NAME } from '@/config'
+import { isLoggedIn, isAdmin } from '@/utils/auth'
+import { APP_NAME } from '@/config'
 
 const router = useRouter()
 const route = useRoute()
 const formRef = ref()
 const loading = ref(false)
-const userPortalUrl = USER_PORTAL_URL
 
 const form = reactive({
   username: '',
@@ -80,6 +76,28 @@ const rules = {
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
+function resolveRedirect(raw) {
+  if (typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') && raw !== '/login') {
+    return raw
+  }
+  return '/home'
+}
+
+async function goHome(redirectPath) {
+  const target = resolveRedirect(redirectPath)
+  try {
+    await router.replace(target)
+  } catch {
+    window.location.assign(target)
+  }
+}
+
+onMounted(() => {
+  if (isLoggedIn() && isAdmin()) {
+    goHome(route.query.redirect)
+  }
+})
+
 async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
@@ -90,7 +108,7 @@ async function handleSubmit() {
       username: form.username.trim(),
       password: form.password,
     })
-    const role = data.role || data.user?.role
+    const role = data?.role
     if (role !== 'admin') {
       clearTokens()
       ElMessage.error('该账号无管理权限，请使用管理员账号登录')
@@ -98,8 +116,7 @@ async function handleSubmit() {
     }
     saveTokens(data)
     ElMessage.success('登录成功')
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/home'
-    router.push(redirect)
+    await goHome(route.query.redirect)
   } catch (err) {
     ElMessage.error(err.message || '登录失败')
   } finally {

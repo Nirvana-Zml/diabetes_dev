@@ -112,6 +112,32 @@
         </div>
       </section>
 
+      <!-- 手机端今日进度 -->
+      <div v-if="isMobile" class="mobile-today-progress">
+        <div class="mobile-today-progress__info">
+          <div class="mobile-today-progress__ring">
+            <svg viewBox="0 0 40 40" aria-hidden="true">
+              <circle cx="20" cy="20" r="16" fill="none" stroke="#ccfbf1" stroke-width="4" />
+              <circle
+                cx="20" cy="20" r="16" fill="none" stroke="#0d9488" stroke-width="4"
+                stroke-linecap="round"
+                :stroke-dasharray="mobileRingCircumference"
+                :stroke-dashoffset="mobileRingOffset"
+                transform="rotate(-90 20 20)"
+              />
+            </svg>
+            <span>{{ todayProgress }}%</span>
+          </div>
+          <div class="mobile-today-progress__text">
+            <strong>今日打卡进度</strong>
+            <span>{{ todayTasksSummary.done }}/{{ todayTasksSummary.total }} 项任务已完成</span>
+          </div>
+        </div>
+        <div class="mobile-today-progress__bar">
+          <div class="mobile-today-progress__fill" :style="{ width: `${todayProgress}%` }" />
+        </div>
+      </div>
+
       <!-- 手机端快捷入口 -->
       <nav class="mobile-checkin-nav" aria-label="打卡相关功能">
         <button type="button" class="mobile-nav-chip mobile-nav-chip--analysis" @click="$router.push('/checkin-analysis')">
@@ -760,6 +786,9 @@ const todayTasksSummary = computed(() => {
 const progressRingOffset = computed(() => {
   return progressCircumference * (1 - todayProgress.value / 100)
 })
+
+const mobileRingCircumference = 2 * Math.PI * 16
+const mobileRingOffset = computed(() => mobileRingCircumference * (1 - todayProgress.value / 100))
 
 const foodCaloriePercent = computed(() =>
   Math.min(100, Math.round((foodDailyTotalCalories.value / 1800) * 100)),
@@ -2245,19 +2274,112 @@ async function submitGlucose() {
 
 @media (max-width: 768px) {
   .checkin-page--mobile-ref {
-    padding: 16px 16px 24px;
+    padding: 12px 16px calc(80px + env(safe-area-inset-bottom));
     overflow-x: hidden;
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
+    background: linear-gradient(180deg, #ecfdf5 0%, var(--warm-50) 120px, var(--warm-50) 100%);
+  }
+
+  .checkin-page--mobile-ref .stat-card:hover {
+    transform: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
   }
 
   .checkin-page--mobile-ref .reminder-banner-wrap {
-    margin-bottom: 12px;
+    margin: 0 0 12px;
+    padding: 0;
+    max-width: none;
+  }
+
+  .checkin-page--mobile-ref .reminder-banner {
+    border-radius: 14px;
+    border: 1px solid #fde68a;
+    box-shadow: 0 2px 12px rgba(245, 158, 11, 0.1);
   }
 
   .checkin-page--mobile-ref .reminder-banner__body {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .checkin-page--mobile-ref .reminder-banner__body .el-button {
+    align-self: flex-start;
+    border-radius: 999px;
+    padding: 8px 16px;
+  }
+
+  /* 今日进度条 */
+  .mobile-today-progress {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    background: #fff;
+    border-radius: 18px;
+    border: 1px solid var(--ck-border);
+    box-shadow: 0 4px 20px rgba(13, 148, 136, 0.08);
+  }
+
+  .mobile-today-progress__info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .mobile-today-progress__ring {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+
+  .mobile-today-progress__ring svg {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobile-today-progress__ring span {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--health-700);
+  }
+
+  .mobile-today-progress__text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .mobile-today-progress__text strong {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--warm-800);
+  }
+
+  .mobile-today-progress__text span {
+    font-size: 12px;
+    color: var(--warm-500);
+  }
+
+  .mobile-today-progress__bar {
+    height: 8px;
+    border-radius: 999px;
+    background: #ecfdf5;
+    overflow: hidden;
+  }
+
+  .mobile-today-progress__fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--health-400), var(--health-600));
+    transition: width 0.4s ease;
   }
 
   /* 统计：三列网格 */
@@ -2275,6 +2397,8 @@ async function submitGlucose() {
     position: relative;
     overflow: hidden;
     min-width: 0;
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06);
   }
 
   .checkin-page--mobile-ref .stat-card--mobile-ref:active {
@@ -2428,10 +2552,24 @@ async function submitGlucose() {
     flex-direction: column;
     gap: 0;
     order: 1;
-    padding: 0;
-    background: transparent;
-    border: none;
-    box-shadow: none;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid var(--ck-border);
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(13, 148, 136, 0.08);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .checkin-page--mobile-ref .checkin-workspace.panel-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 16px;
+    right: 16px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: linear-gradient(90deg, var(--health-400), var(--health-600));
   }
 
   .checkin-page--mobile-ref .main-layout {
@@ -2453,10 +2591,10 @@ async function submitGlucose() {
   }
 
   .checkin-page--mobile-ref .date-section--embedded {
-    background: #fff;
-    border-radius: 16px;
-    padding: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.04);
+    background: var(--warm-50);
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: none;
     border: 1px solid var(--ck-border);
     margin-bottom: 16px;
     gap: 8px;
@@ -2607,6 +2745,7 @@ async function submitGlucose() {
 
   .checkin-page--mobile-ref .category-nav-btn.active,
   .checkin-page--mobile-ref .meal-chip.active {
+    background: linear-gradient(135deg, var(--health-500), var(--health-600));
     color: #fff;
     box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
   }
@@ -2677,6 +2816,46 @@ async function submitGlucose() {
     padding: 10px;
     font-size: 13px;
     border-radius: 12px;
+  }
+
+  .checkin-page--mobile-ref .mode-switch button.active {
+    background: linear-gradient(135deg, var(--health-500), var(--health-600));
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.2);
+  }
+
+  .checkin-page--mobile-ref .submit-btn {
+    height: 48px;
+    border-radius: 12px;
+    font-size: 15px;
+    background: linear-gradient(135deg, var(--health-500), var(--health-600));
+    border: none;
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
+  }
+
+  .checkin-page--mobile-ref .calorie-progress-bar {
+    height: 10px;
+    border-radius: 999px;
+    background: #ecfdf5;
+  }
+
+  .checkin-page--mobile-ref .calorie-progress-fill {
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--health-400), var(--health-600));
+  }
+
+  .checkin-page--mobile-ref .records-empty {
+    padding: 32px 16px;
+    background: var(--warm-50);
+    border-radius: 14px;
+    border: 1px dashed var(--ck-border);
+  }
+
+  .checkin-page--mobile-ref .records-empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #ecfdf5, #ccfbf1);
   }
 
   /* 食物：双列卡片 */
@@ -2906,7 +3085,7 @@ async function submitGlucose() {
 
 @media (max-width: 480px) {
   .checkin-page--mobile-ref {
-    padding: 12px 12px 16px;
+    padding: 12px 12px calc(76px + env(safe-area-inset-bottom));
   }
 
   .checkin-page--mobile-ref .stats-grid--mobile {

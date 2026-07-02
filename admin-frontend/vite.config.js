@@ -17,7 +17,7 @@ export default defineConfig({
     port: 5174,
     host: true,
     proxy: {
-      '^/api/v1/(auth|user)(/|$)': {
+      '^/api/v1/(auth|user|admin/stats)(/|$)': {
         target: userServiceTarget,
         changeOrigin: true,
         timeout: 60000,

@@ -102,37 +102,47 @@
                 </svg>
               </button>
             </div>
-            <div class="doctor-grid">
-              <div
-                v-for="doc in doctors"
-                :key="doc.doctor_id"
-                class="doctor-card card-lift"
-                :class="{ 'doctor-card--online': doc.status === 'online' }"
-                @click="startConsult(doc)"
-              >
-                <div class="doctor-avatar-wrap">
-                  <el-avatar :size="80" :src="doc.avatar_url" :class="{ 'avatar-offline': doc.status === 'offline' }" />
-                  <span class="status-dot" :class="`status-dot--${doc.status}`">
-                    <span v-if="doc.status === 'online'" class="pulse-ring" />
-                  </span>
-                </div>
-                <h3 class="doc-name">{{ doc.name }}</h3>
-                <p class="doc-title">{{ doc.title }} · {{ doc.department }}</p>
-                <div class="doc-rating">
-                  <svg viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  <span class="rating-value">{{ doc.rating }}</span>
-                  <span class="rating-count">· {{ doc.consultation_count }}咨询</span>
-                </div>
-                <button
-                  type="button"
-                  class="consult-btn"
-                  :class="consultBtnClass(doc.status)"
-                  @click.stop="startConsult(doc)"
+            <div
+              class="auto-scroll-strip auto-scroll-strip--doctors"
+              :class="{ 'auto-scroll-strip--paused': doctorScrollPaused }"
+              :style="{ '--scroll-duration': `${Math.max(doctors.length * 6, 24)}s` }"
+              @mouseenter="doctorScrollPaused = true"
+              @mouseleave="doctorScrollPaused = false"
+              @touchstart.passive="doctorScrollPaused = true"
+              @touchend.passive="doctorScrollPaused = false"
+            >
+              <div class="auto-scroll-strip__track">
+                <div
+                  v-for="(doc, index) in loopedDoctors"
+                  :key="`${doc.doctor_id}-${index}`"
+                  class="doctor-card card-lift"
+                  :class="{ 'doctor-card--online': doc.status === 'online' }"
+                  @click="startConsult(doc)"
                 >
-                  {{ consultBtnText(doc.status) }}
-                </button>
+                  <div class="doctor-avatar-wrap">
+                    <el-avatar :size="80" :src="doc.avatar_url" :class="{ 'avatar-offline': doc.status === 'offline' }" />
+                    <span class="status-dot" :class="`status-dot--${doc.status}`">
+                      <span v-if="doc.status === 'online'" class="pulse-ring" />
+                    </span>
+                  </div>
+                  <h3 class="doc-name">{{ doc.name }}</h3>
+                  <p class="doc-title">{{ doc.title }} · {{ doc.department }}</p>
+                  <div class="doc-rating">
+                    <svg viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    <span class="rating-value">{{ doc.rating }}</span>
+                    <span class="rating-count">· {{ doc.consultation_count }}咨询</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="consult-btn"
+                    :class="consultBtnClass(doc.status)"
+                    @click.stop="startConsult(doc)"
+                  >
+                    {{ consultBtnText(doc.status) }}
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -151,40 +161,50 @@
                 </svg>
               </button>
             </div>
-            <div class="article-grid">
-              <article
-                v-for="art in articles"
-                :key="art.article_id"
-                class="article-card card-lift"
-                @click="openArticle(art)"
-              >
-                <div class="article-card__inner">
-                  <div class="article-thumb">
-                    <img :src="art.cover_image" :alt="art.title" />
-                  </div>
-                  <div class="article-body">
-                    <div>
-                      <h3 class="article-title">{{ art.title }}</h3>
-                      <p class="article-summary">{{ art.summary }}</p>
+            <div
+              class="auto-scroll-strip auto-scroll-strip--articles"
+              :class="{ 'auto-scroll-strip--paused': articleScrollPaused }"
+              :style="{ '--scroll-duration': `${Math.max(articles.length * 7, 28)}s` }"
+              @mouseenter="articleScrollPaused = true"
+              @mouseleave="articleScrollPaused = false"
+              @touchstart.passive="articleScrollPaused = true"
+              @touchend.passive="articleScrollPaused = false"
+            >
+              <div class="auto-scroll-strip__track">
+                <article
+                  v-for="(art, index) in loopedArticles"
+                  :key="`${art.article_id}-${index}`"
+                  class="article-card card-lift"
+                  @click="openArticle(art)"
+                >
+                  <div class="article-card__inner">
+                    <div class="article-thumb">
+                      <img :src="art.cover_image" :alt="art.title" />
                     </div>
-                    <div class="article-meta">
-                      <span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {{ art.view_count.toLocaleString() }}
-                      </span>
-                      <span v-if="art.published_at">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {{ formatRelative(art.published_at) }}
-                      </span>
+                    <div class="article-body">
+                      <div>
+                        <h3 class="article-title">{{ art.title }}</h3>
+                        <p class="article-summary">{{ art.summary }}</p>
+                      </div>
+                      <div class="article-meta">
+                        <span>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          {{ art.view_count.toLocaleString() }}
+                        </span>
+                        <span v-if="art.published_at">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {{ formatRelative(art.published_at) }}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </article>
+                </article>
+              </div>
             </div>
           </section>
 
@@ -230,6 +250,18 @@ const articles = ref([])
 const bannerHeight = ref('220px')
 const playerVisible = ref(false)
 const playingVideo = ref(null)
+const doctorScrollPaused = ref(false)
+const articleScrollPaused = ref(false)
+
+const loopedDoctors = computed(() => {
+  const list = doctors.value
+  return list.length ? [...list, ...list] : []
+})
+
+const loopedArticles = computed(() => {
+  const list = articles.value
+  return list.length ? [...list, ...list] : []
+})
 
 const quickEntries = computed(() => {
   const ps = userStore.profile?.privacy_settings || {}
@@ -310,7 +342,7 @@ onMounted(async () => {
     articles.value = articlesResult.value
   }
   if (doctorsResult.status === 'fulfilled') {
-    doctors.value = doctorsResult.value.slice(0, 4)
+    doctors.value = doctorsResult.value
   }
 })
 
@@ -766,14 +798,77 @@ function openVideo(video) {
   color: var(--health-600);
 }
 
-/* Doctors — 4 columns */
-.doctor-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
+/* Auto scroll strips — 医师团队 / 知识科普 */
+.auto-scroll-strip {
+  --strip-gap: 20px;
+  --scroll-duration: 32s;
+  overflow: hidden;
+  margin-left: calc(-1 * var(--edge-padding));
+  margin-right: calc(-1 * var(--edge-padding));
+  padding-left: var(--edge-padding);
+  padding-right: var(--edge-padding);
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 12px,
+    #000 calc(100% - 12px),
+    transparent
+  );
+}
+
+.auto-scroll-strip__track {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--strip-gap);
+  width: max-content;
+  animation: auto-scroll-x var(--scroll-duration) linear infinite;
+  will-change: transform;
+}
+
+.auto-scroll-strip--paused .auto-scroll-strip__track {
+  animation-play-state: paused;
+}
+
+@keyframes auto-scroll-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - var(--strip-gap) / 2));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-scroll-strip {
+    overflow-x: auto;
+    mask-image: none;
+    scrollbar-width: none;
+  }
+
+  .auto-scroll-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .auto-scroll-strip__track {
+    animation: none;
+  }
+}
+
+.auto-scroll-strip--doctors .doctor-card {
+  flex: 0 0 280px;
+  width: 280px;
+}
+
+.auto-scroll-strip--articles .article-card {
+  flex: 0 0 480px;
+  width: 480px;
 }
 
 .doctor-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 20px;
   border-radius: 20px;
   border: 1px solid rgba(231, 229, 228, 0.8);
@@ -867,6 +962,8 @@ function openVideo(video) {
   margin: 4px 0 0;
   font-size: 13px;
   color: var(--warm-400);
+  line-height: 1.45;
+  min-height: calc(1.45em * 2);
 }
 
 .doc-rating {
@@ -896,7 +993,7 @@ function openVideo(video) {
 
 .consult-btn {
   width: 100%;
-  margin-top: 16px;
+  margin-top: auto;
   padding: 10px 0;
   border: none;
   border-radius: 12px;
@@ -904,6 +1001,7 @@ function openVideo(video) {
   font-weight: 600;
   cursor: pointer;
   transition: box-shadow 0.2s ease, background 0.2s ease;
+  box-sizing: border-box;
 }
 
 .consult-btn--primary {
@@ -929,13 +1027,6 @@ function openVideo(video) {
 .consult-btn--busy:hover,
 .consult-btn--muted:hover {
   background: var(--warm-200);
-}
-
-/* Articles — 2 columns */
-.article-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
 }
 
 .article-card {
@@ -1033,8 +1124,7 @@ function openVideo(video) {
 /* Responsive */
 @media (max-width: 1024px) {
   .quick-grid,
-  .video-grid,
-  .doctor-grid {
+  .video-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1100,9 +1190,7 @@ function openVideo(video) {
 
   /* 横向滚动卡片条 */
   .quick-grid,
-  .video-grid,
-  .doctor-grid,
-  .article-grid {
+  .video-grid {
     display: flex;
     flex-wrap: nowrap;
     gap: 12px;
@@ -1119,10 +1207,19 @@ function openVideo(video) {
   }
 
   .quick-grid::-webkit-scrollbar,
-  .video-grid::-webkit-scrollbar,
-  .doctor-grid::-webkit-scrollbar,
-  .article-grid::-webkit-scrollbar {
+  .video-grid::-webkit-scrollbar {
     display: none;
+  }
+
+  .auto-scroll-strip {
+    --strip-gap: 12px;
+  }
+
+  .auto-scroll-strip--doctors .doctor-card {
+    flex: 0 0 132px;
+    width: 132px;
+    padding: 14px 10px;
+    border-radius: 16px;
   }
 
   /* 快捷服务 */
@@ -1194,14 +1291,6 @@ function openVideo(video) {
   }
 
   /* 医师团队 */
-  .doctor-card {
-    flex: 0 0 132px;
-    width: 132px;
-    padding: 14px 10px;
-    border-radius: 16px;
-    scroll-snap-align: start;
-  }
-
   .doctor-avatar-wrap {
     margin-bottom: 8px;
   }
@@ -1227,6 +1316,8 @@ function openVideo(video) {
 
   .doc-title {
     font-size: 11px;
+    line-height: 1.4;
+    min-height: calc(1.4em * 2);
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -1251,18 +1342,20 @@ function openVideo(video) {
   }
 
   .consult-btn {
-    margin-top: 10px;
     padding: 8px 0;
     font-size: 12px;
     border-radius: 10px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* 知识科普 */
-  .article-card {
+  .auto-scroll-strip--articles .article-card {
     flex: 0 0 248px;
     width: 248px;
     border-radius: 16px;
-    scroll-snap-align: start;
   }
 
   .article-card__inner {
@@ -1315,12 +1408,12 @@ function openVideo(video) {
     width: 128px;
   }
 
-  .doctor-card {
+  .auto-scroll-strip--doctors .doctor-card {
     flex: 0 0 124px;
     width: 124px;
   }
 
-  .article-card {
+  .auto-scroll-strip--articles .article-card {
     flex: 0 0 232px;
     width: 232px;
   }

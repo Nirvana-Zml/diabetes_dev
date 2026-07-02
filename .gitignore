@@ -62,6 +62,7 @@ docker/minio/data/
 docker/redis/data/
 docker/milvus/data/
 docker/maven/repository/*
+docker/node/
 !docker/maven/repository/.gitkeep
 
 # =========================

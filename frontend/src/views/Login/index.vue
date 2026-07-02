@@ -1,9 +1,16 @@
 <template>
   <div class="auth-page">
+    <div class="auth-page__accent" aria-hidden="true" />
+
     <div class="auth-header">
       <AuthLogo />
       <h1 class="auth-title">{{ APP_NAME }}</h1>
       <p class="auth-subtitle">登录账号，开启智能健康管理</p>
+      <div class="auth-features" aria-hidden="true">
+        <span class="auth-feature-tag">风险评估</span>
+        <span class="auth-feature-tag">智能打卡</span>
+        <span class="auth-feature-tag">AI 问诊</span>
+      </div>
     </div>
 
     <el-form
@@ -20,6 +27,7 @@
           placeholder="请输入用户名"
           maxlength="50"
           clearable
+          :prefix-icon="User"
         />
       </el-form-item>
 
@@ -30,6 +38,7 @@
           placeholder="请输入密码"
           show-password
           clearable
+          :prefix-icon="Lock"
           @keyup.enter="handleSubmit"
         />
       </el-form-item>
@@ -55,6 +64,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { User, Lock } from '@element-plus/icons-vue'
 import AuthLogo from '@/components/AuthLogo.vue'
 import { login, saveTokens, clearTokens } from '@/api/auth.js'
 import { ADMIN_PORTAL_URL, APP_NAME } from '@/config'

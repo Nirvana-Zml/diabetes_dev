@@ -238,8 +238,6 @@ services:
 
       - ARTICLE_SERVICE_HOST=article-service
 
-      - AUDIT_SERVICE_HOST=audit-service
-
     depends_on:
 
       user-service:
@@ -267,10 +265,6 @@ services:
         condition: service_started
 
       article-service:
-
-        condition: service_started
-
-      audit-service:
 
         condition: service_started
 
@@ -609,32 +603,6 @@ services:
         condition: service_started
 
       milvus:
-
-        condition: service_healthy
-
-    restart: unless-stopped
-
-
-
-  audit-service:
-
-    build:
-
-      context: ./backend
-
-      dockerfile: Dockerfile
-
-      args:
-
-        SERVICE: audit-service
-
-    container_name: diabetes-audit-service
-
-    environment: *backend-env
-
-    depends_on:
-
-      mysql:
 
         condition: service_healthy
 

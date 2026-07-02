@@ -1,9 +1,18 @@
 <template>
   <div class="auth-page">
-    <router-link to="/login" class="auth-back">← 返回登录</router-link>
+    <div class="auth-page__accent" aria-hidden="true" />
 
-    <div class="auth-header">
-      <AuthLogo />
+    <nav class="auth-nav">
+      <router-link to="/login" class="auth-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        返回登录
+      </router-link>
+    </nav>
+
+    <div class="auth-header auth-header--compact">
+      <AuthLogo size="sm" />
       <h1 class="auth-title">创建账号</h1>
       <p class="auth-subtitle">注册后即可使用风险评估、打卡与 AI 问诊</p>
     </div>
@@ -22,6 +31,7 @@
           placeholder="3-50 个字符，用于登录"
           maxlength="50"
           clearable
+          :prefix-icon="User"
         />
       </el-form-item>
 
@@ -31,6 +41,8 @@
           placeholder="11 位手机号"
           maxlength="11"
           clearable
+          inputmode="numeric"
+          :prefix-icon="Iphone"
         />
       </el-form-item>
 
@@ -41,6 +53,7 @@
           placeholder="6-32 个字符"
           show-password
           clearable
+          :prefix-icon="Lock"
         />
       </el-form-item>
 
@@ -51,6 +64,7 @@
           placeholder="再次输入密码"
           show-password
           clearable
+          :prefix-icon="Lock"
           @keyup.enter="handleSubmit"
         />
       </el-form-item>
@@ -71,6 +85,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { User, Lock, Iphone } from '@element-plus/icons-vue'
 import AuthLogo from '@/components/AuthLogo.vue'
 import { register } from '@/api/auth.js'
 

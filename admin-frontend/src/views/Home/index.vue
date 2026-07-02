@@ -7,13 +7,22 @@
           <p>{{ APP_NAME }} · 内容运营</p>
         </div>
         <div class="header-actions">
-          <el-button @click="goUserPortal">用户端门户</el-button>
           <el-button type="danger" plain @click="handleLogout">退出登录</el-button>
         </div>
       </div>
     </header>
 
     <main class="admin-main">
+      <section v-loading="statsLoading" class="overview-section">
+        <h2 class="section-heading">数据概览</h2>
+        <div class="overview-grid">
+          <div v-for="card in overviewCards" :key="card.label" class="overview-card">
+            <span>{{ card.label }}</span>
+            <strong>{{ card.value }}</strong>
+          </div>
+        </div>
+      </section>
+
       <h2 class="section-heading">功能模块</h2>
       <div class="module-grid">
         <div
@@ -37,15 +46,26 @@
 </template>
 
 <script setup>
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { Document, VideoCamera, ArrowRight } from '@element-plus/icons-vue'
+import { Document, VideoCamera, DataAnalysis, ArrowRight } from '@element-plus/icons-vue'
 import { clearTokens } from '@/api/auth'
-import { USER_PORTAL_URL, APP_NAME } from '@/config'
+import { getStatsOverview } from '@/api/stats'
+import { APP_NAME } from '@/config'
 
 const router = useRouter()
+const statsLoading = ref(false)
+const overview = ref(null)
 
 const modules = [
+  {
+    title: '数据统计',
+    desc: '用户注册、打卡、问诊、健康档案与内容阅读等多维度运营分析',
+    path: '/statistics',
+    icon: DataAnalysis,
+    color: 'linear-gradient(135deg, #f59e0b, #d97706)',
+  },
   {
     title: '资讯管理',
     desc: '创建、编辑、审核健康资讯，支持 AI 辅助生成初稿',
@@ -62,8 +82,33 @@ const modules = [
   },
 ]
 
-function goUserPortal() {
-  window.open(USER_PORTAL_URL, '_blank')
+const overviewCards = computed(() => {
+  const o = overview.value
+  if (!o) {
+    return [
+      { label: '注册用户', value: '-' },
+      { label: '近 7 日活跃', value: '-' },
+      { label: '打卡总数', value: '-' },
+      { label: '问诊会话', value: '-' },
+    ]
+  }
+  return [
+    { label: '注册用户', value: o.users?.total ?? 0 },
+    { label: '近 7 日活跃', value: o.users?.active_week ?? 0 },
+    { label: '打卡总数', value: o.checkin?.total ?? 0 },
+    { label: '问诊会话', value: o.consultation?.total_sessions ?? 0 },
+  ]
+})
+
+async function loadOverview() {
+  statsLoading.value = true
+  try {
+    overview.value = await getStatsOverview()
+  } catch {
+    overview.value = null
+  } finally {
+    statsLoading.value = false
+  }
 }
 
 async function handleLogout() {
@@ -71,6 +116,8 @@ async function handleLogout() {
   clearTokens()
   router.push('/login')
 }
+
+onMounted(loadOverview)
 </script>
 
 <style scoped>
@@ -110,10 +157,35 @@ async function handleLogout() {
   margin: 0 auto;
   padding: 32px var(--edge-padding) 64px;
 }
+.overview-section {
+  margin-bottom: 32px;
+}
 .section-heading {
   margin: 0 0 20px;
   font-size: 18px;
   color: var(--warm-700);
+}
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.overview-card {
+  background: #fff;
+  border: 1px solid var(--warm-100);
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.overview-card span {
+  font-size: 13px;
+  color: var(--warm-400);
+}
+.overview-card strong {
+  font-size: 30px;
+  color: var(--warm-800);
 }
 .module-grid {
   display: grid;

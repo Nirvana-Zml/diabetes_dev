@@ -20,7 +20,6 @@
         <module>consultation-service</module>
         <module>plan-service</module>
         <module>article-service</module>
-        <module>audit-service</module>
     </modules>
 
     <properties>

@@ -512,6 +512,10 @@ body {
     font-size: 13px;
   }
 
+  .bell-btn {
+    margin-left: 0;
+  }
+
   .page-toolbar {
     margin-bottom: 16px;
   }
@@ -563,4 +567,37 @@ body {
     width: 18px;
     height: 18px;
   }
+}
+
+/* 消息通知 — 桌面 Popover */
+.message-popover-panel {
+  padding: 0 !important;
+  border-radius: 14px !important;
+  border: 1px solid var(--warm-200, #e7e5e4) !important;
+  box-shadow:
+    0 4px 6px -1px rgba(15, 23, 42, 0.06),
+    0 16px 32px -8px rgba(13, 148, 136, 0.14) !important;
+  overflow: hidden;
+}
+
+.message-popover-panel .el-popper__arrow::before {
+  border-color: var(--warm-200, #e7e5e4) !important;
+}
+
+/* 消息通知 — 手机底部抽屉 */
+.message-sheet.el-drawer.btt {
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.12);
+}
+
+.message-sheet .el-drawer__body {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.message-sheet .el-drawer__footer {
+  display: none;
 }

@@ -1,15 +1,27 @@
 <template>
   <div class="auth-page">
-    <router-link to="/login" class="auth-back">← 返回登录</router-link>
+    <div class="auth-page__accent" aria-hidden="true" />
+
+    <nav class="auth-nav">
+      <router-link to="/login" class="auth-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        返回登录
+      </router-link>
+    </nav>
 
     <div class="auth-header auth-header--compact">
       <AuthLogo size="sm" />
       <h1 class="auth-title">重置密码</h1>
-      <p class="auth-subtitle">验证身份后设置新密码</p>
+      <p class="auth-subtitle">通过注册邮箱验证身份后设置新密码</p>
     </div>
 
     <div class="auth-tip">
-      验证码将发送至您注册时绑定的手机号或邮箱。若未绑定，请联系管理员处理。
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>验证码将发送至您注册时绑定的邮箱，请注意查收。</span>
     </div>
 
     <el-form
@@ -20,21 +32,14 @@
       label-position="top"
       @submit.prevent="handleSubmit"
     >
-      <el-form-item label="验证方式" prop="verifyType">
-        <el-radio-group v-model="form.verifyType" @change="onVerifyTypeChange">
-          <el-radio value="phone">手机号</el-radio>
-          <el-radio value="email">邮箱</el-radio>
-        </el-radio-group>
-      </el-form-item>
-
-      <el-form-item
-        :label="form.verifyType === 'phone' ? '手机号' : '邮箱'"
-        prop="account"
-      >
+      <el-form-item label="邮箱" prop="account">
         <el-input
           v-model="form.account"
-          :placeholder="form.verifyType === 'phone' ? '请输入注册手机号' : '请输入注册邮箱'"
+          placeholder="请输入注册邮箱"
           clearable
+          inputmode="email"
+          autocomplete="email"
+          :prefix-icon="Message"
         />
       </el-form-item>
 
@@ -45,6 +50,8 @@
             placeholder="6 位验证码"
             maxlength="6"
             clearable
+            inputmode="numeric"
+            :prefix-icon="Key"
           />
           <el-button
             :disabled="countdown > 0"
@@ -63,6 +70,7 @@
           placeholder="6-32 个字符"
           show-password
           clearable
+          :prefix-icon="Lock"
         />
       </el-form-item>
 
@@ -73,6 +81,7 @@
           placeholder="再次输入新密码"
           show-password
           clearable
+          :prefix-icon="Lock"
         />
       </el-form-item>
 
@@ -92,6 +101,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Message, Key, Lock } from '@element-plus/icons-vue'
 import AuthLogo from '@/components/AuthLogo.vue'
 import { resetPassword, sendVerifyCode } from '@/api/auth.js'
 
@@ -103,7 +113,6 @@ const countdown = ref(0)
 let countdownTimer = null
 
 const form = reactive({
-  verifyType: 'phone',
   account: '',
   code: '',
   newPassword: '',
@@ -112,12 +121,10 @@ const form = reactive({
 
 const validateAccount = (_rule, value, callback) => {
   if (!value) {
-    callback(new Error(form.verifyType === 'phone' ? '请输入手机号' : '请输入邮箱'))
+    callback(new Error('请输入邮箱'))
     return
   }
-  if (form.verifyType === 'phone' && !/^1[3-9]\d{9}$/.test(value)) {
-    callback(new Error('请输入正确的手机号'))
-  } else if (form.verifyType === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
     callback(new Error('请输入正确的邮箱'))
   } else {
     callback()
@@ -149,11 +156,6 @@ const rules = {
   ],
 }
 
-function onVerifyTypeChange() {
-  form.account = ''
-  formRef.value?.clearValidate('account')
-}
-
 function startCountdown() {
   countdown.value = 60
   countdownTimer = setInterval(() => {
@@ -172,10 +174,10 @@ async function handleSendCode() {
   try {
     await sendVerifyCode({
       account: form.account.trim(),
-      type: form.verifyType,
+      type: 'email',
       purpose: 'reset_password',
     })
-    ElMessage.success(form.verifyType === 'email' ? '验证码已发送，请查收邮件' : '验证码已发送')
+    ElMessage.success('验证码已发送，请查收邮件')
     startCountdown()
   } catch (err) {
     ElMessage.error(err.message || '发送失败，请稍后重试')
