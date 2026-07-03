@@ -68,11 +68,12 @@ beforeEach(() => {
     chunks.forEach((chunk) => onChunk(chunk))
     onEnd()
   })
-  mocks.fetchBackendSSE.mockImplementation(async (_url, onEvent) => {
-    onEvent({ event: 'stage_calorie', data: { daily_calories: 1600 } })
-    onEvent({ event: 'stage_diet', data: { content: { breakfast: '燕麦' } } })
-    onEvent({ event: 'stage_medication', data: { content: '按医嘱' } })
-    onEvent({ event: 'complete', data: { plan_id: 'p1' } })
+  mocks.fetchBackendSSE.mockImplementation(async (_url, onEventOrOptions) => {
+    const onEvent = typeof onEventOrOptions === 'function'
+      ? onEventOrOptions
+      : onEventOrOptions.onEvent
+    onEvent({ event: 'message', data: { type: 'text', content: '你好', conversationId: 'c1' } })
+    onEvent({ event: 'message_end', data: { type: 'end', conversationId: 'c1' } })
   })
 })
 
@@ -136,7 +137,12 @@ describe('remaining frontend api modules', () => {
     await expect(api.getGlucoseRecords('2026-06-30')).resolves.toEqual([])
     await expect(api.getTodayStatus()).resolves.toMatchObject({ today_points: 10 })
     await expect(api.getCheckinStats()).resolves.toMatchObject({ total_checkins: 45 })
-    await expect(api.getAchievements()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'ach_0' })]))
+    await expect(api.getAchievements()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ id: 'first_checkin' })]))
+    await expect(api.getAchievementWall()).resolves.toMatchObject({
+      total: 12,
+      unlockedCount: expect.any(Number),
+      achievements: expect.any(Array),
+    })
   })
 
   it('covers consultation api response mapping', async () => {
@@ -269,7 +275,7 @@ describe('remaining frontend api modules', () => {
     expect(home.normalizeVideo({ id: 'v2', duration: '01:02:03' })).toMatchObject({ duration: '1:02:03' })
     await expect(home.getHomeContent()).resolves.toMatchObject({ banners: expect.any(Array), videos: expect.any(Array) })
     await expect(home.getVideos({ keyword: '视频' })).resolves.toMatchObject({ total: 1 })
-    await expect(home.getRecommend()).resolves.toEqual(expect.any(Array))
+    await expect(home.getHomeArticles(4)).resolves.toEqual(expect.any(Array))
     await expect(home.getDoctors({ department: '内分泌科', status: 1, keyword: '李' })).resolves.toHaveLength(1)
 
     await expect(risk.assessRisk({ height: 170, weight: 80, fasting_glucose: 6.5 })).resolves.toMatchObject({ risk_score: expect.any(Number) })
@@ -292,6 +298,9 @@ describe('remaining frontend api modules', () => {
     await expect(user.bindEmail({ email: 'a@b.com' })).resolves.toMatchObject({ email: 'a@b.com' })
     await expect(user.bindPhone({ phone: '13800000000' })).resolves.toMatchObject({ phone: '13800000000' })
     await expect(user.getUserOverview()).resolves.toMatchObject({ user_id: expect.any(String) })
+    await expect(user.updateUserProfile({ gender: 'female' })).resolves.toMatchObject({ gender: 'female' })
+    await expect(user.acknowledgeHealthIntervention('plan-1')).resolves.toEqual({ success: true })
+    await expect(user.getHealthTrendSummary(14, { force: true })).resolves.toMatchObject({ summary: expect.any(String) })
   })
 
   it('covers dify and plan api modules', async () => {
@@ -359,11 +368,88 @@ describe('remaining frontend api modules', () => {
     await expect(plan.togglePlanFavorite('p-null-object', false)).resolves.toEqual({ favorited: true })
   })
 
-  it('covers home recommend request when mock mode is disabled', async () => {
+  it('covers home articles request when mock mode is disabled', async () => {
     vi.stubEnv('VITE_USE_MOCK', 'false')
     vi.resetModules()
     const home = await import('../home')
 
-    await expect(home.getRecommend()).resolves.toEqual(expect.any(Array))
+    await expect(home.getHomeArticles()).resolves.toEqual(expect.any(Array))
+  })
+
+  it('covers checkin normalizers and achievement wall without mock overrides', async () => {
+    const checkin = await import('../checkin')
+
+    mocks.get.mockResolvedValueOnce(null)
+    await expect(checkin.getFoodCategories()).resolves.toEqual([])
+
+    mocks.get.mockResolvedValueOnce({ achievements: [{ id: 'ach_1', name: '首次打卡', unlocked: true, unlockedAt: '2026-06-01' }] })
+    await expect(checkin.getAchievements()).resolves.toEqual([
+      expect.objectContaining({ id: 'ach_1', unlocked: true, unlocked_at: '2026-06-01' }),
+    ])
+
+    mocks.get.mockImplementation(async (url) => {
+      if (url === '/checkin/achievements') {
+        return [{ id: 'ach_raw', name: '原始数组', unlocked: false }]
+      }
+      if (url === '/checkin/stats') {
+        return { totalCheckins: 10, completionRate: 0.5, streakDays: 2, totalPoints: 100 }
+      }
+      return {}
+    })
+    await expect(checkin.getAchievementWall()).resolves.toMatchObject({
+      total: 12,
+      achievements: expect.any(Array),
+    })
+  })
+
+  it('builds achievement wall from live stats when mock mode is disabled', async () => {
+    vi.stubEnv('VITE_USE_MOCK', 'false')
+    vi.resetModules()
+    const checkin = await import('../checkin')
+
+    mocks.get.mockImplementation(async (url) => {
+      if (url === '/checkin/achievements') {
+        return { achievements: [{ id: 'ach_live', name: '线上成就', unlocked: true }] }
+      }
+      if (url === '/checkin/stats') {
+        return { totalCheckins: 3, completionRate: 0.25, streakDays: 1, totalPoints: 30 }
+      }
+      return {}
+    })
+
+    await expect(checkin.getAchievementWall()).resolves.toMatchObject({
+      total: 12,
+      achievements: expect.any(Array),
+    })
+  })
+
+  it('covers dify medium risk and non-mock log placeholder path', async () => {
+    vi.stubEnv('VITE_USE_MOCK', 'false')
+    vi.resetModules()
+    const dify = await import('../dify')
+
+    await expect(dify.difyRiskAssess({
+      height: 170,
+      weight: 60,
+      fasting_glucose: 6.2,
+      family_history: false,
+      is_pregnant: false,
+    })).resolves.toMatchObject({
+      risk_level: 'medium',
+      bmi_level: 'normal',
+      glucose_level: 'prediabetes',
+    })
+  })
+
+  it('covers plan history list fallback shape', async () => {
+    const plan = await import('../plan')
+    mocks.get.mockResolvedValueOnce({
+      list: [{ planId: 'p-list', version: 2 }],
+      total: 1,
+    })
+    await expect(plan.getPlanHistory({ page: 2, size: 5 })).resolves.toMatchObject({
+      total: 1,
+      list: [expect.objectContaining({ plan_id: 'p-list' })],
+    })
   })
 })

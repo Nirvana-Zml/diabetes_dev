@@ -76,13 +76,37 @@ class RiskAssessmentControllerTest {
 
     @Test
     void detail_notFound() {
-        when(riskAssessmentService.getDetail("ra_999")).thenReturn(null);
+        when(riskAssessmentService.getDetail("missing")).thenReturn(null);
 
-        BusinessException exception = assertThrows(BusinessException.class,
-                () -> controller.detail("ra_999"));
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> controller.detail("missing"));
 
-        assertEquals(404, exception.getCode());
-        assertEquals("评估记录不存在", exception.getMessage());
-        verify(riskAssessmentService).getDetail("ra_999");
+        assertEquals(404, ex.getCode());
+        assertEquals("评估记录不存在", ex.getMessage());
+    }
+
+    @Test
+    void assess_businessExceptionNotifies() {
+        RiskAssessRequest request = new RiskAssessRequest();
+        BusinessException ex = new BusinessException(502, "dify down");
+        when(riskAssessmentService.assess("user1", request)).thenThrow(ex);
+
+        BusinessException thrown = assertThrows(BusinessException.class,
+                () -> controller.assess("user1", request));
+
+        assertEquals(502, thrown.getCode());
+        verify(riskAssessmentService).notifyAssessmentFailed("user1", "dify down");
+    }
+
+    @Test
+    void assess_runtimeExceptionNotifies() {
+        RiskAssessRequest request = new RiskAssessRequest();
+        when(riskAssessmentService.assess("user1", request)).thenThrow(new RuntimeException("boom"));
+
+        RuntimeException thrown = assertThrows(RuntimeException.class,
+                () -> controller.assess("user1", request));
+
+        assertEquals("boom", thrown.getMessage());
+        verify(riskAssessmentService).notifyAssessmentFailed("user1", "boom");
     }
 }

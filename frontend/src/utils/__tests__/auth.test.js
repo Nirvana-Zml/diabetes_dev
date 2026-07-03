@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { isLoggedIn, isPublicRoute, redirectToLogin, saveUserRole } from '../auth'
+import {
+  isLoggedIn,
+  isPublicRoute,
+  redirectToLogin,
+  saveUserRole,
+  resolvePostLoginRedirect,
+  isAuthPath,
+} from '../auth'
 
 describe('auth utils', () => {
   beforeEach(() => {
@@ -32,5 +39,21 @@ describe('auth utils', () => {
       query: { redirect: '/user-center' },
     })
     expect(redirectToLogin()).toEqual({ path: '/login', query: undefined })
+  })
+
+  it('resolves safe post-login redirect', () => {
+    expect(resolvePostLoginRedirect('/user-center')).toBe('/user-center')
+    expect(resolvePostLoginRedirect('/consultation/chat?doctor_id=d1')).toBe('/consultation/chat?doctor_id=d1')
+    expect(resolvePostLoginRedirect(undefined)).toBe('/home')
+    expect(resolvePostLoginRedirect('https://evil.com')).toBe('/home')
+    expect(resolvePostLoginRedirect('//evil.com')).toBe('/home')
+  })
+
+  it('detects auth paths', () => {
+    expect(isAuthPath('/login')).toBe(true)
+    expect(isAuthPath('/login?redirect=/home')).toBe(true)
+    expect(isAuthPath('/register')).toBe(true)
+    expect(isAuthPath('/home')).toBe(false)
+    expect(isAuthPath('/consultation')).toBe(false)
   })
 })

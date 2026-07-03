@@ -30,3 +30,19 @@ export function redirectToLogin(redirectPath) {
 }
 
 export const LOGIN_REQUIRED_MESSAGE = '请先登录或注册'
+
+const AUTH_PATHS = ['/login', '/register', '/forgot-password']
+
+/** 登录成功后回跳地址（仅允许站内相对路径） */
+export function resolvePostLoginRedirect(raw) {
+  if (typeof raw !== 'string' || !raw.startsWith('/') || raw.startsWith('//')) {
+    return '/home'
+  }
+  return raw
+}
+
+export function isAuthPath(path) {
+  if (!path) return false
+  const base = String(path).split('?')[0]
+  return AUTH_PATHS.includes(base)
+}

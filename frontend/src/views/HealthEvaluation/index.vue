@@ -1,13 +1,13 @@
 <template>
   <SiteLayout>
 
-    <div class="he-page">
-      <div class="he-page-header animate-fade-in">
+    <div class="he-page" :class="{ 'he-page--mobile': isMobile }">
+      <div v-if="!isMobile" class="he-page-header animate-fade-in">
         <h1 class="he-page-title">糖尿病风险预测</h1>
         <p class="he-page-desc">基于多维度健康数据，科学评估您的糖尿病患病风险，提供个性化健康建议</p>
       </div>
 
-      <div class="he-tabs animate-fade-in">
+      <div class="he-tabs animate-fade-in" :class="{ 'he-tabs--mobile': isMobile }">
         <button
           type="button"
           class="he-tab"
@@ -100,8 +100,29 @@
         </div>
 
         <template v-if="!showResult">
-          <!-- 步骤条 -->
-          <div class="section-card he-steps-card animate-fade-in">
+          <!-- 手机端：简化进度条，便于老年用户理解当前位置 -->
+          <div v-if="isMobile" class="section-card he-mobile-progress animate-fade-in">
+            <div class="he-mobile-progress__top">
+              <span class="he-mobile-progress__label">第 {{ currentStep + 1 }} 步，共 {{ QUESTIONNAIRE_STEPS.length }} 步</span>
+              <span class="he-mobile-progress__percent">{{ stepProgressPercent }}%</span>
+            </div>
+            <div class="he-mobile-progress__track" role="progressbar" :aria-valuenow="currentStep + 1" :aria-valuemin="1" :aria-valuemax="QUESTIONNAIRE_STEPS.length">
+              <div class="he-mobile-progress__fill" :style="{ width: `${stepProgressPercent}%` }" />
+            </div>
+            <h2 class="he-mobile-progress__title">{{ QUESTIONNAIRE_STEPS[currentStep].title }}</h2>
+            <p class="he-mobile-progress__desc">{{ QUESTIONNAIRE_STEPS[currentStep].desc }}</p>
+            <div class="he-mobile-progress__dots" aria-hidden="true">
+              <span
+                v-for="(_, i) in QUESTIONNAIRE_STEPS"
+                :key="i"
+                class="he-mobile-progress__dot"
+                :class="{ active: i === currentStep, completed: i < currentStep }"
+              />
+            </div>
+          </div>
+
+          <!-- 桌面端：完整步骤条 -->
+          <div v-else class="section-card he-steps-card animate-fade-in">
             <div class="he-steps">
               <div
                 v-for="(s, i) in QUESTIONNAIRE_STEPS"
@@ -128,8 +149,8 @@
           </div>
 
           <!-- 表单内容 -->
-          <div class="section-card he-form-card animate-fade-in">
-            <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="step-form">
+          <div class="section-card he-form-card animate-fade-in" :class="{ 'he-form-card--mobile': isMobile }">
+            <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="step-form" :class="{ 'step-form--mobile': isMobile }">
               <!-- Step 0: 基本信息提示 -->
               <div v-show="currentStep === 0" class="step-panel">
                 <div class="he-info-banner">
@@ -172,50 +193,51 @@
 
               <!-- Step 1: 体征指标 -->
               <div v-show="currentStep === 1" class="step-panel">
-                <el-row :gutter="16">
-                  <el-col :span="12">
+                <p v-if="isMobile" class="he-step-hint">请填写最近一次测量数据，不确定的可参考体检报告</p>
+                <el-row :gutter="isMobile ? 0 : 16">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="身高 (cm)" prop="height">
-                      <el-input-number v-model="form.height" :min="100" :max="250" :step="0.5" style="width:100%" />
+                      <el-input-number v-model="form.height" :min="100" :max="250" :step="0.5" :size="isMobile ? 'large' : 'default'" style="width:100%" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="体重 (kg)" prop="weight">
-                      <el-input-number v-model="form.weight" :min="30" :max="300" :step="0.1" style="width:100%" />
+                      <el-input-number v-model="form.weight" :min="30" :max="300" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="空腹血糖 (mmol/L)" prop="fasting_glucose">
-                      <el-input-number v-model="form.fasting_glucose" :min="2" :max="30" :step="0.1" style="width:100%" />
+                      <el-input-number v-model="form.fasting_glucose" :min="2" :max="30" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="餐后2h血糖 (mmol/L)">
-                      <el-input-number v-model="form.postprandial_glucose" :min="2" :max="30" :step="0.1" style="width:100%" />
+                      <el-input-number v-model="form.postprandial_glucose" :min="2" :max="30" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="随机血糖 (mmol/L)">
-                      <el-input-number v-model="form.random_glucose" :min="2" :max="30" :step="0.1" style="width:100%" />
+                      <el-input-number v-model="form.random_glucose" :min="2" :max="30" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="糖化血红蛋白 HbA1c (%)">
-                      <el-input-number v-model="form.hba1c" :min="4" :max="15" :step="0.1" style="width:100%" />
+                      <el-input-number v-model="form.hba1c" :min="4" :max="15" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="收缩压 (mmHg)" prop="systolic_bp">
-                      <el-input-number v-model="form.systolic_bp" :min="60" :max="250" style="width:100%" />
+                      <el-input-number v-model="form.systolic_bp" :min="60" :max="250" :size="isMobile ? 'large' : 'default'" style="width:100%" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="舒张压 (mmHg)" prop="diastolic_bp">
-                      <el-input-number v-model="form.diastolic_bp" :min="30" :max="150" style="width:100%" />
+                      <el-input-number v-model="form.diastolic_bp" :min="30" :max="150" :size="isMobile ? 'large' : 'default'" style="width:100%" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="数据来源">
-                      <el-select v-model="form.test_source" style="width:100%">
+                      <el-select v-model="form.test_source" :size="isMobile ? 'large' : 'default'" style="width:100%">
                         <el-option v-for="o in TEST_SOURCE_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
@@ -225,38 +247,39 @@
 
               <!-- Step 2: 生活方式 -->
               <div v-show="currentStep === 2" class="step-panel">
-                <el-row :gutter="16">
-                  <el-col :span="12">
+                <p v-if="isMobile" class="he-step-hint">请选择最符合您日常情况的选项</p>
+                <el-row :gutter="isMobile ? 0 : 16">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="吸烟状况">
-                      <el-select v-model="form.smoking" style="width:100%">
+                      <el-select v-model="form.smoking" :size="isMobile ? 'large' : 'default'" style="width:100%">
                         <el-option v-for="o in SMOKING_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="饮酒状况">
-                      <el-select v-model="form.alcohol" style="width:100%">
+                      <el-select v-model="form.alcohol" :size="isMobile ? 'large' : 'default'" style="width:100%">
                         <el-option v-for="o in ALCOHOL_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="运动频率">
-                      <el-select v-model="form.exercise_freq" style="width:100%">
+                      <el-select v-model="form.exercise_freq" :size="isMobile ? 'large' : 'default'" style="width:100%">
                         <el-option v-for="o in EXERCISE_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="饮食习惯">
-                      <el-select v-model="form.diet_type" style="width:100%">
+                      <el-select v-model="form.diet_type" :size="isMobile ? 'large' : 'default'" style="width:100%">
                         <el-option v-for="o in DIET_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="是否有糖尿病家族史" prop="family_history">
-                      <el-radio-group v-model="form.family_history">
+                      <el-radio-group v-model="form.family_history" class="he-radio-cards">
                         <el-radio :value="true">有</el-radio>
                         <el-radio :value="false">无</el-radio>
                       </el-radio-group>
@@ -267,30 +290,30 @@
 
               <!-- Step 3: 糖尿病状态 -->
               <div v-show="currentStep === 3" class="step-panel">
-                <el-row :gutter="16">
-                  <el-col :span="12">
+                <el-row :gutter="isMobile ? 0 : 16">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="糖尿病分型">
-                      <el-select v-model="form.diabetes_type" style="width:100%">
+                      <el-select v-model="form.diabetes_type" :size="isMobile ? 'large' : 'default'" style="width:100%">
                         <el-option v-for="o in DIABETES_TYPE_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="确诊日期">
-                      <el-date-picker v-model="form.diagnosed_date" type="date" value-format="YYYY-MM-DD" style="width:100%" placeholder="如已确诊请填写" />
+                      <el-date-picker v-model="form.diagnosed_date" type="date" value-format="YYYY-MM-DD" :size="isMobile ? 'large' : 'default'" style="width:100%" placeholder="如已确诊请填写" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="是否使用胰岛素">
-                      <el-radio-group v-model="form.is_insulin_taken">
+                      <el-radio-group v-model="form.is_insulin_taken" class="he-radio-cards">
                         <el-radio :value="true">是</el-radio>
                         <el-radio :value="false">否</el-radio>
                       </el-radio-group>
                     </el-form-item>
                   </el-col>
-                  <el-col v-if="showPregnantOption" :span="12">
+                  <el-col v-if="showPregnantOption" :span="isMobile ? 24 : 12">
                     <el-form-item label="是否处于妊娠期">
-                      <el-radio-group v-model="form.is_pregnant">
+                      <el-radio-group v-model="form.is_pregnant" class="he-radio-cards">
                         <el-radio :value="true">是</el-radio>
                         <el-radio :value="false">否</el-radio>
                       </el-radio-group>
@@ -429,8 +452,15 @@
               </div>
             </el-form>
 
-            <div class="he-step-actions">
-              <el-button v-if="currentStep > 0" size="large" class="he-btn-secondary" @click="currentStep--">上一步</el-button>
+            <div class="he-step-actions" :class="{ 'he-step-actions--sticky': isMobile }">
+              <el-button
+                v-if="currentStep > 0"
+                :size="isMobile ? 'large' : 'large'"
+                class="he-btn-secondary"
+                @click="currentStep--"
+              >
+                上一步
+              </el-button>
               <el-button
                 v-if="currentStep < QUESTIONNAIRE_STEPS.length - 1"
                 type="primary"
@@ -439,7 +469,7 @@
                 @click="nextStep"
               >
                 下一步
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg v-if="!isMobile" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </el-button>
@@ -454,6 +484,7 @@
                 提交评估
               </el-button>
             </div>
+            <div v-if="isMobile && !showResult" class="he-step-actions-spacer" aria-hidden="true" />
           </div>
         </template>
 
@@ -570,7 +601,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
@@ -580,6 +611,7 @@ import { getUserProfile } from '@/api/user'
 import { getHealthRecord } from '@/api/healthRecord'
 import { useUserStore } from '@/stores/user'
 import { useMessageCenter } from '@/composables/useMessageCenter'
+import { useIsMobile } from '@/composables/useBreakpoints'
 import {
   QUESTIONNAIRE_STEPS,
   DIABETES_TYPE_OPTIONS,
@@ -597,10 +629,12 @@ import {
   emptyMedication,
   calcAge,
   genderLabel,
+  normalizeDietType,
 } from './constants'
 
 const RISK_PENDING_MAX_MS = 130000
 
+const isMobile = useIsMobile()
 const userStore = useUserStore()
 const activeTab = ref('assess')
 const formRef = ref()
@@ -614,6 +648,9 @@ const gaugeRef = ref()
 const radarRef = ref()
 const userProfile = ref(null)
 const currentStep = ref(0)
+
+let gaugeChart = null
+let radarChart = null
 
 const hasUnreadHistory = computed(() => unreadAssessmentIds.value.length > 0)
 
@@ -693,6 +730,10 @@ const form = reactive(createDefaultForm())
 
 const userAge = computed(() => calcAge(userProfile.value?.birth_date))
 
+const stepProgressPercent = computed(() =>
+  Math.round(((currentStep.value + 1) / QUESTIONNAIRE_STEPS.length) * 100),
+)
+
 const showPregnantOption = computed(() => {
   const g = userProfile.value?.gender
   if (g === 2 || g === 'female') return true
@@ -715,6 +756,21 @@ onMounted(async () => {
   syncPendingFromStorage()
   await Promise.all([loadHealthRecord(), loadHistory()])
 })
+
+onBeforeUnmount(() => {
+  disposeCharts()
+})
+
+watch(
+  [showResult, activeTab, () => result.value?.assessment_id],
+  ([show, tab]) => {
+    if (show && tab === 'assess' && result.value) {
+      scheduleRenderCharts()
+    } else {
+      disposeCharts()
+    }
+  },
+)
 
 async function loadProfile() {
   try {
@@ -745,7 +801,7 @@ async function loadHealthRecord() {
       smoking: record.smoking ?? 0,
       alcohol: record.alcohol ?? 0,
       exercise_freq: record.exercise_freq ?? 1,
-      diet_type: record.diet_type || 'balanced',
+      diet_type: normalizeDietType(record.diet_type),
       test_source: record.test_source ?? 1,
       family_histories: (record.family_histories || []).map((f) => ({ ...f })),
       medical_histories: (record.medical_histories || []).map((m) => ({ ...m })),
@@ -757,12 +813,16 @@ async function loadHealthRecord() {
 }
 
 async function loadHistory() {
-  const data = await getRiskHistory()
-  historyList.value = data.list
-  if (assessPending.value && data.list.length > 0) {
-    const latestId = data.list[0]?.assessment_id
+  try {
+    const data = await getRiskHistory()
+    historyList.value = data.list
+  } catch {
+    historyList.value = []
+  }
+  if (assessPending.value && historyList.value.length > 0) {
+    const latestId = historyList.value[0]?.assessment_id
     const pendingAt = Number(localStorage.getItem(riskStorageKey('pending_at')) || 0)
-    const latestAt = data.list[0]?.assessed_at ? new Date(data.list[0].assessed_at).getTime() : 0
+    const latestAt = historyList.value[0]?.assessed_at ? new Date(historyList.value[0].assessed_at).getTime() : 0
     if (latestId && pendingAt && latestAt >= pendingAt - 5000) {
       clearAssessPending()
       addUnreadAssessment(latestId)
@@ -877,26 +937,62 @@ function resetQuestionnaire() {
   currentStep.value = 0
 }
 
+function disposeCharts() {
+  gaugeChart?.dispose()
+  radarChart?.dispose()
+  gaugeChart = null
+  radarChart = null
+}
+
+function ensureChart(el, current) {
+  if (current && current.getDom?.() === el) return current
+  current?.dispose()
+  return echarts.init(el)
+}
+
+/** 0~1 小数权重归一化到 0~100，与后端 MedicalCalculator 刻度对齐 */
+function radarFactorValues(factors) {
+  const raw = factors.map((f) => Number(f.weight) || 0)
+  const usePercentScale = raw.some((w) => w > 0) && raw.every((w) => w <= 1)
+  const values = usePercentScale ? raw.map((w) => w * 100) : raw
+  const max = Math.max(...values, 30)
+  return {
+    indicator: factors.map((f, i) => ({ name: f.name, max })),
+    values,
+  }
+}
+
+async function scheduleRenderCharts() {
+  await nextTick()
+  await new Promise((resolve) => requestAnimationFrame(resolve))
+  renderCharts()
+}
+
 function renderCharts() {
   if (!result.value || !gaugeRef.value) return
-  const gauge = echarts.init(gaugeRef.value)
-  gauge.setOption({
+
+  gaugeChart = ensureChart(gaugeRef.value, gaugeChart)
+  gaugeChart.setOption({
     series: [{
       type: 'gauge',
       min: 0,
       max: 100,
-      detail: { formatter: '{value}分', fontSize: 18 },
+      detail: { formatter: '{value}分', fontSize: isMobile.value ? 22 : 18 },
       data: [{ value: result.value.risk_score, name: '风险分值' }],
       axisLine: { lineStyle: { color: [[0.4, '#67c23a'], [0.7, '#e6a23c'], [1, '#f56c6c']] } },
     }],
   })
+
   if (radarRef.value && result.value.factors?.length) {
-    const radar = echarts.init(radarRef.value)
-    const maxW = Math.max(...result.value.factors.map((f) => Number(f.weight) || 0), 30)
-    radar.setOption({
-      radar: { indicator: result.value.factors.map((f) => ({ name: f.name, max: maxW })) },
-      series: [{ type: 'radar', data: [{ value: result.value.factors.map((f) => Number(f.weight) || 0), name: '风险因素' }] }],
+    const { indicator, values } = radarFactorValues(result.value.factors)
+    radarChart = ensureChart(radarRef.value, radarChart)
+    radarChart.setOption({
+      radar: { indicator },
+      series: [{ type: 'radar', data: [{ value: values, name: '风险因素' }] }],
     })
+  } else {
+    radarChart?.dispose()
+    radarChart = null
   }
 }
 
@@ -909,8 +1005,6 @@ async function viewHistory(row) {
   result.value = detail
   showResult.value = true
   activeTab.value = 'assess'
-  await nextTick()
-  renderCharts()
 }
 </script>
 
@@ -958,6 +1052,10 @@ async function viewHistory(row) {
   display: flex;
   border-bottom: 1px solid var(--he-border);
   margin-bottom: 32px;
+}
+.he-tabs--mobile {
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--he-border);
 }
 .he-tab {
   position: relative;
@@ -1495,5 +1593,410 @@ async function viewHistory(row) {
   .he-steps-card,
   .he-report-card { padding: 20px; }
   .he-metrics-grid { grid-template-columns: 1fr; }
+}
+
+/* ── 手机端 / 老年友好样式 ── */
+.he-page--mobile {
+  --he-text: #1c1917;
+  --he-text-secondary: #44403c;
+  --he-text-muted: #57534e;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.he-page--mobile .animate-fade-in {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+/* 标签页：等宽、大触控区 */
+.he-tabs--mobile .he-tab {
+  flex: 1;
+  text-align: center;
+  padding: 18px 12px;
+  font-size: 17px;
+  font-weight: 600;
+  min-height: 52px;
+}
+.he-tabs--mobile .he-tab-dot {
+  top: 10px;
+  right: calc(50% - 36px);
+  width: 10px;
+  height: 10px;
+}
+.he-tabs--mobile .he-tab-indicator {
+  height: 4px;
+}
+
+/* 手机端进度条 */
+.he-mobile-progress {
+  padding: 20px 18px;
+  border-left: 4px solid var(--he-primary);
+}
+.he-mobile-progress__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.he-mobile-progress__label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--he-text-secondary);
+}
+.he-mobile-progress__percent {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--he-primary);
+  font-variant-numeric: tabular-nums;
+}
+.he-mobile-progress__track {
+  height: 10px;
+  background: #e7e5e4;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.he-mobile-progress__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--he-primary-light), var(--he-primary));
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+.he-mobile-progress__title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--he-text);
+  line-height: 1.35;
+}
+.he-mobile-progress__desc {
+  margin: 0 0 14px;
+  font-size: 16px;
+  color: var(--he-text-secondary);
+  line-height: 1.6;
+}
+.he-mobile-progress__dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.he-mobile-progress__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d6d3d1;
+  transition: background 0.2s, transform 0.2s;
+}
+.he-mobile-progress__dot.active {
+  background: var(--he-primary);
+  transform: scale(1.3);
+}
+.he-mobile-progress__dot.completed {
+  background: #99f6e4;
+}
+
+.he-step-hint {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--he-text-secondary);
+  background: #fafaf9;
+  border-radius: 12px;
+  border-left: 3px solid var(--he-primary-light);
+}
+
+/* 用户概览卡片 */
+.he-page--mobile .he-user-card {
+  padding: 18px;
+}
+.he-page--mobile .he-user-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+.he-page--mobile .he-user-items {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+.he-page--mobile .he-user-item {
+  padding: 14px 16px;
+  background: var(--he-primary-bg);
+  border-radius: 14px;
+  gap: 14px;
+}
+.he-page--mobile .he-user-icon {
+  width: 44px;
+  height: 44px;
+}
+.he-page--mobile .he-user-label {
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--he-text-muted);
+}
+.he-page--mobile .he-user-value {
+  font-size: 20px;
+}
+.he-page--mobile .he-user-tip {
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+.he-page--mobile .he-user-tip svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 表单：大字号、大触控区 */
+.he-form-card--mobile {
+  padding: 18px 16px 0;
+  margin-bottom: 0;
+}
+.he-page--mobile .step-form--mobile {
+  min-height: auto;
+}
+.he-page--mobile .step-form--mobile :deep(.el-form-item) {
+  margin-bottom: 22px;
+}
+.he-page--mobile .step-form--mobile :deep(.el-col) {
+  max-width: 100%;
+  flex: 0 0 100%;
+}
+.he-page--mobile .step-form--mobile :deep(.el-form-item__label) {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--he-text);
+  line-height: 1.5;
+  padding-bottom: 8px;
+}
+.he-page--mobile .step-form--mobile :deep(.el-input-number),
+.he-page--mobile .step-form--mobile :deep(.el-select),
+.he-page--mobile .step-form--mobile :deep(.el-date-editor) {
+  width: 100%;
+}
+.he-page--mobile .step-form--mobile :deep(.el-input-number .el-input__inner),
+.he-page--mobile .step-form--mobile :deep(.el-select .el-select__wrapper),
+.he-page--mobile .step-form--mobile :deep(.el-input__inner),
+.he-page--mobile .step-form--mobile :deep(.el-textarea__inner) {
+  font-size: 17px;
+  min-height: 48px;
+}
+.he-page--mobile .step-form--mobile :deep(.el-input-number__decrease),
+.he-page--mobile .step-form--mobile :deep(.el-input-number__increase) {
+  width: 44px;
+  font-size: 18px;
+}
+
+/* 单选卡片式按钮，便于点击 */
+.he-page--mobile .he-radio-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.he-page--mobile .he-radio-cards :deep(.el-radio) {
+  display: flex;
+  align-items: center;
+  height: auto;
+  min-height: 52px;
+  margin-right: 0;
+  padding: 14px 18px;
+  border: 2px solid var(--he-border);
+  border-radius: 14px;
+  background: #fff;
+  transition: border-color 0.2s, background 0.2s;
+}
+.he-page--mobile .he-radio-cards :deep(.el-radio.is-checked) {
+  border-color: var(--he-primary);
+  background: var(--he-primary-bg);
+}
+.he-page--mobile .he-radio-cards :deep(.el-radio__label) {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--he-text);
+  padding-left: 10px;
+}
+.he-page--mobile .he-radio-cards :deep(.el-radio__inner) {
+  width: 22px;
+  height: 22px;
+  border-width: 2px;
+}
+.he-page--mobile .he-radio-cards :deep(.el-radio__inner::after) {
+  width: 10px;
+  height: 10px;
+}
+
+/* 信息表格 */
+.he-page--mobile .he-info-banner {
+  font-size: 16px;
+  padding: 16px;
+  border-radius: 14px;
+}
+.he-page--mobile .he-info-label,
+.he-page--mobile .he-info-value {
+  padding: 16px 18px;
+  font-size: 16px;
+}
+.he-page--mobile .he-info-label {
+  font-weight: 600;
+  color: var(--he-text);
+}
+.he-page--mobile .he-info-value {
+  color: var(--he-text-secondary);
+}
+.he-page--mobile .he-footnote {
+  font-size: 15px;
+  line-height: 1.65;
+  flex-wrap: wrap;
+}
+
+/* 列表卡片 */
+.he-page--mobile .list-title {
+  font-size: 18px;
+}
+.he-page--mobile .list-toolbar {
+  margin-bottom: 18px;
+}
+.he-page--mobile .list-toolbar :deep(.el-button) {
+  font-size: 16px;
+  min-height: 44px;
+}
+.he-page--mobile .list-item-card {
+  padding: 16px;
+  border-radius: 14px;
+  margin-bottom: 14px;
+}
+.he-page--mobile .list-item-card :deep(.el-button) {
+  font-size: 16px;
+  min-height: 44px;
+  margin-top: 4px;
+}
+
+/* 底部固定操作栏 */
+.he-step-actions--sticky {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--bottom-nav-height, 64px) + env(safe-area-inset-bottom, 0));
+  z-index: 20;
+  flex-direction: column-reverse;
+  gap: 10px;
+  margin-top: 0;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid var(--he-border);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(8px);
+}
+.he-step-actions--sticky .he-btn-primary,
+.he-step-actions--sticky .he-btn-secondary {
+  width: 100%;
+  min-height: 52px !important;
+  font-size: 17px !important;
+  border-radius: 14px !important;
+  justify-content: center;
+}
+.he-step-actions-spacer {
+  height: calc(120px + var(--bottom-nav-height, 64px));
+}
+
+/* 新报告横幅 */
+.he-page--mobile .he-new-report-banner {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  padding: 18px;
+}
+.he-page--mobile .he-new-report-banner__title {
+  font-size: 17px;
+}
+.he-page--mobile .he-new-report-banner__meta {
+  font-size: 15px;
+}
+.he-page--mobile .he-new-report-banner :deep(.el-button) {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+}
+
+/* 评估报告 */
+.he-page--mobile .he-report-card {
+  padding: 18px 16px;
+}
+.he-page--mobile .he-report-title {
+  font-size: 22px;
+}
+.he-page--mobile .he-report-sub {
+  font-size: 15px;
+}
+.he-page--mobile .he-risk-level {
+  font-size: 28px;
+}
+.he-page--mobile .he-risk-score {
+  font-size: 20px;
+}
+.he-page--mobile .he-risk-summary {
+  font-size: 16px;
+  line-height: 1.75;
+}
+.he-page--mobile .he-metric-label {
+  font-size: 14px;
+}
+.he-page--mobile .he-metric-value {
+  font-size: 18px;
+}
+.he-page--mobile .he-sub-title {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+.he-page--mobile .he-factor-name {
+  font-size: 17px;
+}
+.he-page--mobile .he-factor-desc {
+  font-size: 16px;
+  line-height: 1.65;
+}
+.he-page--mobile .he-factor-level {
+  font-size: 14px;
+  padding: 4px 12px;
+}
+.he-page--mobile .he-suggestion-list li {
+  font-size: 16px;
+  line-height: 1.7;
+  padding: 14px 16px 14px 38px;
+}
+.he-page--mobile .he-report-actions :deep(.el-button) {
+  width: 100%;
+  min-height: 52px;
+  font-size: 17px;
+}
+
+/* 历史记录 */
+.he-page--mobile .he-history-item {
+  padding: 18px 16px;
+  min-height: 72px;
+  border-radius: 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--he-border-light);
+}
+.he-page--mobile .he-history-time {
+  font-size: 16px;
+}
+.he-page--mobile .he-history-level {
+  font-size: 14px;
+  padding: 6px 14px;
+}
+.he-page--mobile .he-history-score {
+  font-size: 16px;
+}
+.he-page--mobile .he-empty {
+  padding: 48px 20px;
+}
+.he-page--mobile .he-empty p {
+  font-size: 17px;
 }
 </style>

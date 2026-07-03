@@ -67,7 +67,7 @@ public class AuthService {
     }
 
     @Transactional
-    public void register(RegisterRequest request) {
+    public String register(RegisterRequest request) {
         String username = request.username().trim();
         if (userMapper.countByUsername(username) > 0) {
             throw new BusinessException(400, "用户名已存在");
@@ -85,6 +85,7 @@ public class AuthService {
         user.setGender(0);
         user.setDeleted(false);
         userMapper.insert(user);
+        return user.getUserId();
     }
 
     public void sendVerifyCode(String account, String type, String purpose) {
@@ -122,7 +123,7 @@ public class AuthService {
     }
 
     @Transactional
-    public void resetPassword(String account, String code, String newPassword) {
+    public String resetPassword(String account, String code, String newPassword) {
         if (!StringUtils.hasText(newPassword) || newPassword.length() < 6 || newPassword.length() > 32) {
             throw new BusinessException(400, "密码长度应为 6-32 位");
         }
@@ -143,6 +144,7 @@ public class AuthService {
 
         userMapper.updatePassword(user.getUserId(), passwordEncoder.encode(newPassword));
         verifyCodeService.remove(key);
+        return user.getUserId();
     }
 
     private String buildEmailText(String code, String purpose) {

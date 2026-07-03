@@ -1,6 +1,7 @@
 package com.diabetes.user.controller;
 
 import com.diabetes.common.api.ApiResponse;
+import com.diabetes.common.client.AuditServiceClient;
 import com.diabetes.user.config.JwtAuthInterceptor;
 import com.diabetes.user.dto.*;
 import com.diabetes.user.service.DataExportService;
@@ -10,6 +11,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * 个人中心管理（设计说明书 3.6）
@@ -21,11 +25,14 @@ public class ProfileController {
 
     private final UserProfileService userProfileService;
     private final DataExportService dataExportService;
+    private final AuditServiceClient auditServiceClient;
 
     public ProfileController(UserProfileService userProfileService,
-                             DataExportService dataExportService) {
+                             DataExportService dataExportService,
+                             AuditServiceClient auditServiceClient) {
         this.userProfileService = userProfileService;
         this.dataExportService = dataExportService;
+        this.auditServiceClient = auditServiceClient;
     }
 
     /** 个人中心概览：头像、昵称、积分等 */
@@ -59,7 +66,17 @@ public class ProfileController {
     @PutMapping("/password")
     public ApiResponse<Void> changePassword(HttpServletRequest request,
                                            @Valid @RequestBody ChangePasswordRequest body) {
-        userProfileService.changePassword(currentUserId(request), body);
+        String userId = currentUserId(request);
+        userProfileService.changePassword(userId, body);
+        auditServiceClient.log(
+                userId,
+                "user.password.change",
+                userId,
+                Map.of(),
+                resolveClientIp(request),
+                request.getHeader("User-Agent"),
+                1
+        );
         return ApiResponse.ok("密码修改成功", null);
     }
 
@@ -88,7 +105,21 @@ public class ProfileController {
     @PostMapping("/export")
     public ApiResponse<ExportTaskResponse> exportData(HttpServletRequest request,
                                                       @Valid @RequestBody ExportDataRequest body) {
-        ExportTaskResponse task = dataExportService.submitExport(currentUserId(request), body);
+        String userId = currentUserId(request);
+        ExportTaskResponse task = dataExportService.submitExport(userId, body);
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("types", body.types());
+        detail.put("format", body.format());
+        detail.put("taskId", task.task_id());
+        auditServiceClient.log(
+                userId,
+                "data.export",
+                task.task_id(),
+                detail,
+                resolveClientIp(request),
+                request.getHeader("User-Agent"),
+                1
+        );
         return ApiResponse.ok("导出成功", task);
     }
 
@@ -105,5 +136,17 @@ public class ProfileController {
             throw new com.diabetes.common.exception.BusinessException(401, "未登录或 Token 无效");
         }
         return userId.toString();
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        return request.getRemoteAddr();
     }
 }

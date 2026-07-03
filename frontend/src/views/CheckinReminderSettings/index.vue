@@ -6,28 +6,38 @@
         <p class="intro-text">
           在指定时段检查当日是否已完成对应类型打卡；若未完成，将通过应用内消息或浏览器通知提醒您。
         </p>
-        <div class="notify-status">
-          <span>全局打卡提醒</span>
-          <el-tag :type="checkinNotify ? 'success' : 'info'" size="small">
-            {{ checkinNotify ? '已开启' : '已关闭' }}
-          </el-tag>
-          <button type="button" class="text-link" @click="router.push({ path: '/user-center', query: { section: 'checkin-notify' } })">
-            去修改
-          </button>
+        <div class="status-list">
+          <div class="status-row">
+            <span class="status-label">全局打卡提醒</span>
+            <div class="status-actions">
+              <span class="status-badge" :class="checkinNotify ? 'is-on' : 'is-off'">
+                {{ checkinNotify ? '已开启' : '已关闭' }}
+              </span>
+              <button
+                type="button"
+                class="text-link"
+                @click="router.push({ path: '/user-center', query: { section: 'checkin-notify' } })"
+              >
+                去修改
+              </button>
+            </div>
+          </div>
+          <div v-if="notificationSupported" class="status-row">
+            <span class="status-label">浏览器通知</span>
+            <div class="status-actions">
+              <span class="status-badge" :class="browserBadgeClass">{{ browserNotifyLabel }}</span>
+              <button
+                v-if="browserNotifyLabel !== '已授权'"
+                type="button"
+                class="text-link"
+                @click="enableBrowserNotify"
+              >
+                开启
+              </button>
+            </div>
+          </div>
+          <p v-else class="hint-muted">当前环境不支持浏览器系统通知（如微信内置浏览器）</p>
         </div>
-        <div v-if="notificationSupported" class="browser-notify-row">
-          <span>浏览器通知</span>
-          <el-tag :type="browserNotifyTag" size="small">{{ browserNotifyLabel }}</el-tag>
-          <el-button
-            v-if="browserNotifyLabel !== '已授权'"
-            type="primary"
-            link
-            @click="enableBrowserNotify"
-          >
-            开启
-          </el-button>
-        </div>
-        <p v-else class="hint-muted">当前环境不支持浏览器系统通知（如微信内置浏览器）</p>
       </div>
 
       <div class="type-switcher-wrap">
@@ -52,40 +62,50 @@
         class="section-card type-panel"
       >
         <div class="type-head">
-          <span>启用{{ t.label }}提醒</span>
+          <div class="type-head__text">
+            <span class="type-head__title">启用{{ t.label }}提醒</span>
+            <span class="type-head__desc">到达设定时间后检查当日是否已打卡</span>
+          </div>
           <el-switch v-model="typeEnabled[t.type]" />
         </div>
 
-        <div
-          v-for="(slot, idx) in rulesByType[t.type]"
-          :key="`${t.type}-${idx}`"
-          class="time-slot-card"
-        >
-          <label class="time-slot-label">提醒时段 {{ idx + 1 }}</label>
-          <div class="time-row">
-            <el-time-picker
-              v-model="slot.remind_time"
-              format="HH:mm"
-              value-format="HH:mm"
-              placeholder="选择时间"
-              :clearable="false"
-              editable
-              class="time-picker"
-            />
-            <el-button
-              type="danger"
-              link
-              :disabled="rulesByType[t.type].length <= 1"
-              @click="removeSlot(t.type, idx)"
-            >
-              删除
-            </el-button>
+        <div class="time-slot-list">
+          <div
+            v-for="(slot, idx) in rulesByType[t.type]"
+            :key="`${t.type}-${idx}`"
+            class="time-slot-card"
+          >
+            <div class="time-slot-header">
+              <span class="time-slot-index">{{ idx + 1 }}</span>
+              <span class="time-slot-label">提醒时段 {{ idx + 1 }}</span>
+            </div>
+            <div class="time-row">
+              <el-time-picker
+                v-model="slot.remind_time"
+                format="HH:mm"
+                value-format="HH:mm"
+                placeholder="选择时间"
+                :clearable="false"
+                editable
+                class="time-picker"
+              />
+              <button
+                type="button"
+                class="delete-btn"
+                :disabled="rulesByType[t.type].length <= 1"
+                :title="rulesByType[t.type].length <= 1 ? '至少保留一个时段' : '删除此时段'"
+                @click="removeSlot(t.type, idx)"
+              >
+                <el-icon><Delete /></el-icon>
+              </button>
+            </div>
           </div>
         </div>
 
-        <el-button type="primary" link class="add-slot-btn" @click="addSlot(t.type)">
-          <el-icon><Plus /></el-icon> 添加时段
-        </el-button>
+        <button type="button" class="add-slot-btn" @click="addSlot(t.type)">
+          <el-icon><Plus /></el-icon>
+          <span>添加时段</span>
+        </button>
       </div>
 
       <div class="footer-spacer" />
@@ -102,7 +122,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Delete } from '@element-plus/icons-vue'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
 import { getUserProfile } from '@/api/user'
 import {
@@ -146,11 +166,11 @@ const browserNotifyLabel = computed(() => {
   if (p === 'denied') return '已拒绝'
   return '未授权'
 })
-const browserNotifyTag = computed(() => {
+const browserBadgeClass = computed(() => {
   const label = browserNotifyLabel.value
-  if (label === '已授权') return 'success'
-  if (label === '已拒绝') return 'danger'
-  return 'info'
+  if (label === '已授权') return 'is-on'
+  if (label === '已拒绝') return 'is-denied'
+  return 'is-off'
 })
 
 onMounted(loadAll)
@@ -277,38 +297,104 @@ async function handleSave() {
 }
 
 .intro-card {
+  position: relative;
   margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.intro-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--health-400), var(--health-600));
 }
 
 .intro-text {
-  margin: 0 0 12px;
+  margin: 0 0 14px;
   color: #64748b;
-  line-height: 1.6;
+  line-height: 1.65;
   font-size: 14px;
 }
 
-.notify-status,
-.browser-notify-row {
+.status-list {
+  border-top: 1px solid #f5f5f4;
+  padding-top: 4px;
+}
+
+.status-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 13px;
-  margin-top: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.status-row + .status-row {
+  border-top: 1px solid #f5f5f4;
+}
+
+.status-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #44403c;
+  flex-shrink: 0;
+}
+
+.status-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.status-badge.is-on {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.status-badge.is-off {
+  background: #f5f5f4;
+  color: #78716c;
+}
+
+.status-badge.is-denied {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .text-link {
   background: none;
   border: none;
-  color: #0d9488;
+  color: var(--health-600);
   cursor: pointer;
   font-size: 13px;
+  font-weight: 500;
   padding: 0;
-  margin-left: auto;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.text-link:hover {
+  color: var(--health-700);
 }
 
 .hint-muted {
   margin: 8px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #f5f5f4;
   font-size: 12px;
   color: #94a3b8;
   line-height: 1.5;
@@ -334,7 +420,7 @@ async function handleSave() {
 
 .type-switcher-btn {
   flex: 0 0 auto;
-  padding: 8px 18px;
+  padding: 9px 20px;
   border-radius: 999px;
   border: 1px solid #e7e5e4;
   background: #fff;
@@ -342,13 +428,20 @@ async function handleSave() {
   font-weight: 600;
   color: #78716c;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.type-switcher-btn:hover:not(.active) {
+  border-color: #d6d3d1;
+  color: #57534e;
 }
 
 .type-switcher-btn.active {
   background: var(--health-600);
   border-color: var(--health-600);
   color: #fff;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
 }
 
 .type-panel {
@@ -359,44 +452,143 @@ async function handleSave() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
   margin-bottom: 16px;
+  border-bottom: 1px solid #f5f5f4;
+}
+
+.type-head__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.type-head__title {
   font-weight: 600;
   font-size: 15px;
   color: #292524;
 }
 
+.type-head__desc {
+  font-size: 12px;
+  color: #a8a29e;
+  line-height: 1.4;
+}
+
+.time-slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .time-slot-card {
   background: #fafaf9;
-  border: 1px solid #f5f5f4;
-  border-radius: 12px;
+  border: 1px solid #f0eeec;
+  border-radius: 14px;
   padding: 12px 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.time-slot-card:hover {
+  border-color: #e7e5e4;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.time-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
-.time-slot-label {
-  display: block;
+.time-slot-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: #f0fdfa;
+  color: var(--health-600);
   font-size: 12px;
-  color: #a8a29e;
-  margin-bottom: 8px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.time-slot-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #78716c;
 }
 
 .time-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .time-picker {
-  flex: 1;
-  min-width: 0;
+  width: 148px;
+  flex: 0 0 auto;
 }
 
 .time-picker :deep(.el-input__wrapper) {
-  width: 100%;
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px #e7e5e4 inset;
+  background: #fff;
+}
+
+.time-picker :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px var(--health-500) inset;
+}
+
+.delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #a8a29e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.delete-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .add-slot-btn {
-  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 14px;
+  border: 1px dashed #d6d3d1;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--health-600);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-slot-btn:hover {
+  border-color: var(--health-500);
+  background: #f0fdfa;
+  color: var(--health-700);
 }
 
 .footer-spacer {
@@ -423,16 +615,16 @@ async function handleSave() {
     font-size: 13px;
   }
 
-  .notify-status,
-  .browser-notify-row {
-    font-size: 12px;
-    gap: 6px;
+  .status-row {
+    padding: 10px 0;
   }
 
-  .text-link {
-    margin-left: 0;
-    width: 100%;
-    text-align: right;
+  .status-label {
+    font-size: 13px;
+  }
+
+  .status-actions {
+    gap: 8px;
   }
 
   .type-switcher {
@@ -445,9 +637,14 @@ async function handleSave() {
     font-size: 13px;
   }
 
-  .type-head {
+  .type-head__title {
     font-size: 14px;
-    margin-bottom: 12px;
+  }
+
+  .time-picker {
+    flex: 1;
+    width: auto;
+    min-width: 0;
   }
 
   .footer-spacer {

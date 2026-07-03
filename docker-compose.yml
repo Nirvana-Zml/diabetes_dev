@@ -238,6 +238,8 @@ services:
 
       - ARTICLE_SERVICE_HOST=article-service
 
+      - AUDIT_SERVICE_HOST=audit-service
+
     depends_on:
 
       user-service:
@@ -265,6 +267,10 @@ services:
         condition: service_started
 
       article-service:
+
+        condition: service_started
+
+      audit-service:
 
         condition: service_started
 
@@ -328,6 +334,16 @@ services:
 
       - DIFY_PLAN_API_KEY=${DIFY_PLAN_API_KEY:-app-fHORDdQjVq9GVtLcyD9WaL3g}
 
+      - DIFY_HEALTH_TREND_API_KEY=${DIFY_HEALTH_TREND_API_KEY:-app-2aWyzKF49e9qp1WDuGSsUmlE}
+
+      - DIFY_HEALTH_TREND_RESPONSE_MODE=${DIFY_HEALTH_TREND_RESPONSE_MODE:-blocking}
+
+      - INTERVENTION_COOLDOWN_HOURS=${INTERVENTION_COOLDOWN_HOURS:-4}
+
+      - INTERVENTION_DAILY_ALERT_MAX=${INTERVENTION_DAILY_ALERT_MAX:-2}
+
+      - INTERVENTION_SCHEDULER_CRON=${INTERVENTION_SCHEDULER_CRON:-0 0 8 * * ?}
+
       - DIFY_ARTICLE_RECOMMEND_API_KEY=${DIFY_ARTICLE_RECOMMEND_API_KEY:-app-Af1Iv6Y51WrahbDXQMBDUy7f}
 
       - DIFY_ARTICLE_DRAFT_API_KEY=${DIFY_ARTICLE_DRAFT_API_KEY:-app-zBXmLq9LXjrF8UtuL9d8PhiS}
@@ -383,6 +399,18 @@ services:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
 
       - MILVUS_DIMENSION=${MILVUS_DIMENSION:-384}
+
+      - KINGBASE_HOST=kingbase
+
+      - KINGBASE_PORT=54321
+
+      - KINGBASE_USER=system
+
+      - KINGBASE_PASSWORD=${KINGBASE_PASSWORD:-12345678ab}
+
+      - AUDIT_SERVICE_HOST=audit-service
+
+      - AUDIT_SERVICE_PORT=8088
 
     depends_on:
 
@@ -603,6 +631,96 @@ services:
         condition: service_started
 
       milvus:
+
+        condition: service_healthy
+
+    restart: unless-stopped
+
+
+
+  kingbase:
+
+    image: kingbase_v009r001c010b0004_single_x86:v1
+
+    container_name: diabetes-kingbase
+
+    ports:
+
+      - "54321:54321"
+
+    environment:
+
+      - TZ=Asia/Shanghai
+
+      - USER_DATA=data
+
+      - DB_MODE=mysql
+
+      - DB_USER=system
+
+      - DB_PASSWORD=${KINGBASE_PASSWORD:-12345678ab}
+
+      - ENCODING=UTF-8
+
+      - NEED_START=yes
+
+    volumes:
+
+      - ./docker/kingbase/data:/home/kingbase/data
+
+      - ./db/kingbase_audit_init.sql:/docker-entrypoint-initdb.d/kingbase_audit_init.sql:ro
+
+    privileged: true
+
+    healthcheck:
+
+      test: ["CMD-SHELL", "/home/kingbase/install/kingbase/bin/ksql -U system -d kingbase -c 'SELECT 1' || exit 1"]
+
+      interval: 15s
+
+      timeout: 10s
+
+      retries: 12
+
+      start_period: 60s
+
+    restart: unless-stopped
+
+
+
+  audit-service:
+
+    build:
+
+      context: ./backend
+
+      dockerfile: Dockerfile
+
+      args:
+
+        SERVICE: audit-service
+
+    container_name: diabetes-audit-service
+
+    environment:
+
+      - TZ=Asia/Shanghai
+
+      - JWT_SECRET=${JWT_SECRET}
+
+      - DIFY_INTERNAL_KEY=${DIFY_INTERNAL_KEY}
+
+      - KINGBASE_HOST=kingbase
+
+      - KINGBASE_PORT=54321
+
+      - KINGBASE_USER=system
+
+      - KINGBASE_PASSWORD=${KINGBASE_PASSWORD:-12345678ab}
+
+    depends_on:
+
+      kingbase:
 
         condition: service_healthy
 

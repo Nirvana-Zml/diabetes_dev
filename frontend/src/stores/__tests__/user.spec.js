@@ -29,6 +29,9 @@ describe('user store', () => {
     expect(store.points).toBe(0)
     expect(store.streakDays).toBe(0)
 
+    store.profile = { username: 'login_user' }
+    expect(store.nickname).toBe('login_user')
+
     await store.fetchProfile()
     expect(mocks.getUserProfile).not.toHaveBeenCalled()
 

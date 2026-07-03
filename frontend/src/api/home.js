@@ -69,8 +69,12 @@ function formatDuration(raw) {
   return text
 }
 
+function resolveBannerId(item) {
+  return item.banner_id ?? item.bannerId ?? item.id ?? ''
+}
+
 function normalizeBanner(item) {
-  const id = item.banner_id ?? item.bannerId ?? item.id ?? ''
+  const id = resolveBannerId(item)
   return {
     id,
     title: item.title ?? '',
@@ -122,6 +126,10 @@ export async function getHomeArticles(size = 4) {
 }
 
 /** GET /api/v2/ai-doctors — 医师列表（首页预览与咨询页共用） */
+function resolveDoctorRawList(data) {
+  return Array.isArray(data) ? data : data?.doctors || data?.list || []
+}
+
 export async function getDoctors(params = {}) {
   const data = await getV2('/ai-doctors', {
     params: {
@@ -131,6 +139,20 @@ export async function getDoctors(params = {}) {
     },
     mockFn: async () => mockDoctors,
   })
-  const raw = Array.isArray(data) ? data : data?.doctors || data?.list || []
+  const raw = resolveDoctorRawList(data)
   return filterDoctors(raw.map(normalizeDoctor), params)
+}
+
+/** @internal 供单元测试覆盖轮播图归一化分支 */
+export function normalizeBannerForTest(item) {
+  return normalizeBanner(item)
+}
+
+/** @internal 供单元测试覆盖字段回退分支 */
+export function resolveBannerIdForTest(item) {
+  return resolveBannerId(item)
+}
+
+export function resolveDoctorRawListForTest(data) {
+  return resolveDoctorRawList(data)
 }

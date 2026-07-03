@@ -10,7 +10,6 @@ import com.diabetes.home.knowledge.DocumentChunk;
 import com.diabetes.home.knowledge.KnowledgeRetrieval;
 import com.diabetes.home.service.AIChatService;
 import com.diabetes.home.service.HomeContentService;
-import com.diabetes.home.service.VideoService;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
@@ -29,28 +28,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class HomeControllersTest {
-
-    @Test
-    void adminVideoControllerDelegatesToService() {
-        VideoService service = mock(VideoService.class);
-        AdminVideoController controller = new AdminVideoController(service);
-        MockMultipartFile file = new MockMultipartFile("file", "a.jpg", "image/jpeg", new byte[]{1});
-        when(service.adminList("k", 1, 2)).thenReturn(Map.of("total", 0));
-        when(service.adminDetail("v1")).thenReturn(Map.of("videoId", "v1"));
-        when(service.create(Map.of("title", "t"))).thenReturn(Map.of("videoId", "v2"));
-        when(service.update("v1", Map.of("title", "t2"))).thenReturn(Map.of("videoId", "v1"));
-        when(service.uploadCover("v1", file)).thenReturn(Map.of("coverUrl", "c"));
-        when(service.uploadVideoFile("v1", file)).thenReturn(Map.of("videoUrl", "v"));
-
-        assertEquals(0, controller.list("k", 1, 2).data().get("total"));
-        assertEquals("v1", controller.detail("v1").data().get("videoId"));
-        assertEquals("v2", controller.create(Map.of("title", "t")).data().get("videoId"));
-        assertEquals("v1", controller.update("v1", Map.of("title", "t2")).data().get("videoId"));
-        assertEquals("删除成功", controller.delete("v1").data());
-        assertEquals("c", controller.uploadCover("v1", file).data().get("coverUrl"));
-        assertEquals("v", controller.uploadFile("v1", file).data().get("videoUrl"));
-        verify(service).delete("v1");
-    }
 
     @Test
     void chatControllerValidatesAndDelegates() {

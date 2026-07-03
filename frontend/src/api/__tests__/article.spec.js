@@ -96,7 +96,7 @@ describe('article api', () => {
     get.mockImplementation(async (_url, options) => options.mockFn())
     post.mockImplementation(async (_url, _payload, options) => options.mockFn())
 
-    await expect(getRecommendArticles()).resolves.toMatchObject({
+    await expect(getRecommendArticles({ strategy: 'personalized' })).resolves.toMatchObject({
       list: [
         { article_id: 'a1', rec_reason: '与您的饮食管理兴趣高度相关' },
         { article_id: 'a2', rec_reason: undefined },

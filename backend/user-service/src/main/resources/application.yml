@@ -43,12 +43,25 @@ jwt:
 
 # Dify 工作流调用内部接口时携带的密钥（Header: X-Dify-Key）
 dify:
+  base-url: ${DIFY_BASE_URL:http://host.docker.internal:58080}
+  timeout-seconds: ${DIFY_TIMEOUT_SECONDS:120}
   internal-key: ${DIFY_INTERNAL_KEY:LoginAuth2026}
+  workflows:
+    health-trend:
+      api-key: ${DIFY_HEALTH_TREND_API_KEY:app-2aWyzKF49e9qp1WDuGSsUmlE}
+      response-mode: ${DIFY_HEALTH_TREND_RESPONSE_MODE:blocking}
 
 dify-internal:
   key: ${DIFY_INTERNAL_KEY:LoginAuth2026}
 
+intervention:
+  cooldown-hours: ${INTERVENTION_COOLDOWN_HOURS:4}
+  daily-alert-max: ${INTERVENTION_DAILY_ALERT_MAX:2}
+  scheduler-cron: ${INTERVENTION_SCHEDULER_CRON:0 0 8 * * ?}
+
 services:
+  audit:
+    base-url: http://${AUDIT_SERVICE_HOST:localhost}:${AUDIT_SERVICE_PORT:8088}
   health:
     base-url: http://${HEALTH_SERVICE_HOST:localhost}:${HEALTH_SERVICE_PORT:8083}
   checkin:

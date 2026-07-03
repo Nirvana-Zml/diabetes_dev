@@ -27,6 +27,7 @@ describe('form logic test interfaces', () => {
     expect(validateConfirmPassword('abcdef', '123456')).toBeInstanceOf(Error)
     expect(validateConfirmPassword('abcdef', 'abcdef')).toBeUndefined()
     expect(validateEmail('bad')).toBeInstanceOf(Error)
+    expect(validateEmail('')).toBeInstanceOf(Error)
     expect(validateEmail('new@example.com')).toBeUndefined()
   })
 
@@ -61,6 +62,7 @@ describe('form logic test interfaces', () => {
     })
     expect(shouldSendPhoneCode('123')).toBe(false)
     expect(shouldSendPhoneCode('13800000000')).toBe(true)
+    expect(shouldSendPhoneCode('')).toBe(false)
   })
 
   it('drives AI chat state through the exported test interface', async () => {
@@ -73,6 +75,27 @@ describe('form logic test interfaces', () => {
     await expect(sendChatMessage(state, chatQA)).resolves.toBe(false)
     state.query = '血糖怎么控制'
     await expect(sendChatMessage(state, chatQA)).resolves.toBe(true)
+
+    state.streaming = true
+    state.query = '重复发送'
+    await expect(sendChatMessage(state, chatQA)).resolves.toBe(false)
+    state.streaming = false
+
+    const stringChunkChat = vi.fn(async (_question, options) => {
+      options.onChunk('直接文本')
+      options.onEnd({})
+    })
+    state.query = '字符串分片'
+    await expect(sendChatMessage(state, stringChunkChat)).resolves.toBe(true)
+    expect(state.conversationId).toBe('c1')
+
+    const objectChunkChat = vi.fn(async (_question, options) => {
+      options.onChunk({})
+      options.onEnd({})
+    })
+    state.query = '对象分片'
+    await expect(sendChatMessage(state, objectChunkChat)).resolves.toBe(true)
+    expect(state.messages.at(-1).content).toBe('')
 
     expect(chatQA).toHaveBeenCalled()
     expect(state.messages).toEqual(expect.arrayContaining([

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.audit.mapper.AuditArchivedLogMapper">
+
+    <insert id="insert">
+        INSERT INTO AUDIT_ARCHIVED_LOGS (
+            ARCHIVE_ID, ORIGINAL_LOG_ID, USER_ID, ACTION, RESOURCE, DETAIL,
+            IP_ADDRESS, USER_AGENT, RESULT, CREATED_AT, ARCHIVED_AT, ARCHIVED_BY, ARCHIVE_REASON
+        ) VALUES (
+            #{archiveId}, #{originalLogId}, #{userId}, #{action}, #{resource}, CAST(#{detail} AS JSON),
+            #{ipAddress}, #{userAgent}, #{result}, #{createdAt}, #{archivedAt}, #{archivedBy}, #{archiveReason}
+        )
+    </insert>
+
+    <insert id="insertBatch">
+        INSERT INTO AUDIT_ARCHIVED_LOGS (
+            ARCHIVE_ID, ORIGINAL_LOG_ID, USER_ID, ACTION, RESOURCE, DETAIL,
+            IP_ADDRESS, USER_AGENT, RESULT, CREATED_AT, ARCHIVED_AT, ARCHIVED_BY, ARCHIVE_REASON
+        ) VALUES
+        <foreach collection="logs" item="log" separator=",">
+            (
+                #{log.archiveId}, #{log.originalLogId}, #{log.userId}, #{log.action}, #{log.resource},
+                CAST(#{log.detail} AS JSON), #{log.ipAddress}, #{log.userAgent}, #{log.result},
+                #{log.createdAt}, #{log.archivedAt}, #{log.archivedBy}, #{log.archiveReason}
+            )
+        </foreach>
+    </insert>
+
+</mapper>

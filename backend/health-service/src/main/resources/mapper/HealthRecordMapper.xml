@@ -21,9 +21,10 @@
 
     <select id="findByUserId" resultType="com.diabetes.health.entity.HealthRecord">
         SELECT RECORD_ID AS recordId, USER_ID AS userId, HEIGHT AS height, WEIGHT AS weight,
-               BMI AS bmi, FASTING_GLUCOSE AS fastingGlucose, SYSTOLIC_BP AS systolicBp,
-               DIASTOLIC_BP AS diastolicBp, HAS_DIABETES_FAMILY AS hasDiabetesFamily,
-               SMOKING AS smoking, DEL_FLAG AS delFlag, RECORDED_AT AS recordedAt
+               BMI AS bmi, FASTING_GLUCOSE AS fastingGlucose,
+               POSTPRANDIAL_GLUCOSE AS postprandialGlucose,
+               SYSTOLIC_BP AS systolicBp, DIASTOLIC_BP AS diastolicBp,
+               RECORDED_AT AS recordedAt
         FROM HEALTH_RECORDS
         WHERE USER_ID = #{userId} AND DEL_FLAG = 0
         ORDER BY RECORDED_AT DESC

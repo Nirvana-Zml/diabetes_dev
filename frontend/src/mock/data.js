@@ -209,11 +209,38 @@ export const mockHealthPlan = {
 }
 
 export const mockAchievements = [
-  { id: 'ach_1', name: '初来乍到', desc: '完成首次打卡', unlocked: true, badge_url: '' },
-  { id: 'ach_2', name: '连续打卡达人', desc: '连续打卡7天', unlocked: true, badge_url: '' },
-  { id: 'ach_3', name: '运动健将', desc: '累计运动打卡30次', unlocked: false, badge_url: '' },
-  { id: 'ach_4', name: '控糖先锋', desc: '血糖监测打卡30次', unlocked: false, badge_url: '' },
+  { id: 'first_checkin', name: '初来乍到', unlocked: true, unlocked_at: '2024-01-05', badge_url: '' },
+  { id: 'streak_7', name: '坚持不懈', unlocked: true, unlocked_at: '2024-01-12', badge_url: '' },
+  { id: 'exercise_master', name: '运动达人', unlocked: true, unlocked_at: '2024-01-18', badge_url: '' },
+  { id: 'food_expert', name: '饮食专家', unlocked: true, unlocked_at: '2024-01-20', badge_url: '' },
+  { id: 'glucose_guard', name: '血糖卫士', unlocked: true, unlocked_at: '2024-01-22', badge_url: '' },
+  { id: 'early_bird', name: '早起鸟', unlocked: true, unlocked_at: '2024-01-25', badge_url: '' },
+  { id: 'century', name: '百日坚持', unlocked: false, badge_url: '' },
+  { id: 'medication_streak', name: '药不能停', unlocked: false, badge_url: '' },
+  { id: 'calorie_master', name: '热量掌控者', unlocked: false, badge_url: '' },
+  { id: 'all_rounder', name: '全能健将', unlocked: false, badge_url: '' },
+  { id: 'night_diner', name: '深夜食堂', unlocked: false, badge_url: '' },
+  { id: 'perfect_day', name: '完美一周', unlocked: false, badge_url: '' },
+  // 后端兼容字段
+  { name: '首次打卡', unlocked: true, badge_url: '' },
+  { name: '连续打卡达人', unlocked: true, badge_url: '' },
 ]
+
+/** mock 模式下成就墙进度统计 */
+export const mockAchievementStats = {
+  total_checkins: 156,
+  streak_days: 12,
+  exercise_count: 30,
+  food_count: 100,
+  medication_count: 32,
+  glucose_count: 45,
+  medication_streak: 18,
+  glucose_streak: 7,
+  early_bird_streak: 7,
+  calorie_streak: 4,
+  dinner_count: 13,
+  perfect_days: 0,
+}
 
 export const mockTodayCheckins = [
   { checkin_type: 'diet', checkin_date: '2026-06-24', points_earned: 10 },

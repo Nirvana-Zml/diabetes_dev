@@ -48,7 +48,7 @@ class CheckinModuleServicesTest {
     void foodCheckin_supportsPresetAndCustomRecords() {
         CheckinDietDetailMapper detailMapper = mock(CheckinDietDetailMapper.class);
         FoodCheckinService service = new FoodCheckinService(writer, detailMapper, presetMapper, minio);
-        when(writer.createRecord(anyString(), eq(CheckinConstants.TYPE_DIET), any())).thenReturn("chk_food");
+        when(writer.createRecord(anyString(), eq(CheckinConstants.TYPE_DIET), any(), any())).thenReturn("chk_food");
         when(presetMapper.findFoodPresetById("food_1")).thenReturn(foodPreset("food_1", "cat_1", "米饭", "1.16", "0.95"));
         when(presetMapper.findFoodPresetById("food_2")).thenReturn(foodPreset("food_2", "cat_1", "米饭", "1.16", null), null);
         when(presetMapper.findCategoryNameById("cat_1")).thenReturn("主食");
@@ -89,6 +89,30 @@ class CheckinModuleServicesTest {
         assertNotNull(listed.get("recordTime"));
         record.setRecordTime(null);
         assertNull(service.listRecords("u1", "2024-01-01").get(0).get("recordTime"));
+    }
+
+    @Test
+    void foodCheckin_parsesRecordTimeFormats() {
+        CheckinDietDetailMapper detailMapper = mock(CheckinDietDetailMapper.class);
+        FoodCheckinService service = new FoodCheckinService(writer, detailMapper, presetMapper, minio);
+        when(writer.createRecord(anyString(), eq(CheckinConstants.TYPE_DIET), any(), any())).thenReturn("chk_food");
+        when(presetMapper.findFoodPresetById("food_1")).thenReturn(foodPreset("food_1", "cat_1", "米饭", "1.16", "0.95"));
+        when(presetMapper.findCategoryNameById("cat_1")).thenReturn("主食");
+
+        service.createCheckin("u1", mutate(foodPresetRequest(), r -> r.setRecordTime("08:00")));
+        service.createCheckin("u1", mutate(foodPresetRequest(), r -> r.setRecordTime("2024-01-01T09:30:00")));
+        service.createCheckin("u1", mutate(foodPresetRequest(), r -> r.setRecordTime("09:30:00")));
+        service.createCheckin("u1", mutate(foodPresetRequest(), r -> r.setRecordTime("bad-time")));
+        service.createCheckin("u1", mutate(foodPresetRequest(), r -> r.setRecordTime(" ")));
+
+        ArgumentCaptor<LocalDateTime> timeCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(writer, times(5)).createRecord(eq("u1"), eq(CheckinConstants.TYPE_DIET),
+                eq(LocalDate.of(2024, 1, 1)), timeCaptor.capture());
+        assertEquals(LocalDateTime.parse("2024-01-01T08:00:00"), timeCaptor.getAllValues().get(0));
+        assertEquals(LocalDateTime.parse("2024-01-01T09:30:00"), timeCaptor.getAllValues().get(1));
+        assertEquals(LocalDateTime.parse("2024-01-01T09:30:00"), timeCaptor.getAllValues().get(2));
+        assertNotNull(timeCaptor.getAllValues().get(3));
+        assertNotNull(timeCaptor.getAllValues().get(4));
     }
 
     @Test
@@ -204,7 +228,8 @@ class CheckinModuleServicesTest {
         CheckinRecordMapper recordMapper = mock(CheckinRecordMapper.class);
         CheckinGlucoseDetailMapper detailMapper = mock(CheckinGlucoseDetailMapper.class);
         CheckinService checkinService = mock(CheckinService.class);
-        GlucoseCheckinService service = new GlucoseCheckinService(recordMapper, detailMapper, checkinService);
+        com.diabetes.common.client.UserServiceClient userServiceClient = mock(com.diabetes.common.client.UserServiceClient.class);
+        GlucoseCheckinService service = new GlucoseCheckinService(recordMapper, detailMapper, checkinService, userServiceClient, "test-key");
         when(checkinService.calculateStreakForDate("u1", LocalDate.of(2024, 1, 1))).thenReturn(3);
 
         Map<String, Object> created = service.createCheckin("u1", glucoseRequest(null, null, new BigDecimal("6.2")));
@@ -313,12 +338,17 @@ class CheckinModuleServicesTest {
         CheckinRecordWriter service = new CheckinRecordWriter(recordMapper, checkinService);
 
         String id = service.createRecord("u1", 1, LocalDate.of(2024, 1, 1));
+        String explicit = service.createRecord("u1", 1, LocalDate.of(2024, 1, 1),
+                LocalDateTime.of(2024, 1, 1, 9, 0));
+        String defaulted = service.createRecord("u1", 1, LocalDate.of(2024, 1, 1), null);
 
         assertTrue(id.startsWith("chk_"));
+        assertTrue(explicit.startsWith("chk_"));
+        assertTrue(defaulted.startsWith("chk_"));
         ArgumentCaptor<CheckinRecord> captor = ArgumentCaptor.forClass(CheckinRecord.class);
-        verify(recordMapper).insert(captor.capture());
+        verify(recordMapper, times(3)).insert(captor.capture());
         assertEquals(0, captor.getValue().getPointsEarned());
-        verify(checkinService).invalidateUserCache("u1", LocalDate.of(2024, 1, 1));
+        verify(checkinService, times(3)).invalidateUserCache("u1", LocalDate.of(2024, 1, 1));
     }
 
     private static FoodCheckinRequest foodPresetRequest() {

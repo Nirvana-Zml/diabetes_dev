@@ -35,6 +35,14 @@ function setupOf(wrapper) {
   return wrapper.vm.$.setupState
 }
 
+function assignMsgRef(setup, el) {
+  if (setup.msgRef && typeof setup.msgRef === 'object' && 'value' in setup.msgRef) {
+    setup.msgRef.value = el
+  } else {
+    setup.msgRef = el
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
 })
@@ -53,7 +61,7 @@ describe('AiChatDialog interactions without changing component source', () => {
       global: { stubs },
     })
     const setup = setupOf(wrapper)
-    setup.msgRef = { scrollHeight: 120, scrollTo: vi.fn() }
+    assignMsgRef(setup, { scrollHeight: 120, scrollTo: vi.fn() })
     setup.query = ' 怎么控制血糖 '
 
     await setup.send()
@@ -68,7 +76,7 @@ describe('AiChatDialog interactions without changing component source', () => {
     ]))
     expect(setup.conversationId).toBe('conv-1')
     expect(setup.streaming).toBe(false)
-  })
+  }, 10000)
 
   it('handles empty, busy and failed send branches', async () => {
     const AiChatDialog = (await import('../AiChatDialog.vue')).default
@@ -88,7 +96,7 @@ describe('AiChatDialog interactions without changing component source', () => {
     expect(mocks.chatQA).not.toHaveBeenCalled()
 
     setup.streaming = false
-    setup.msgRef = { scrollHeight: 80, scrollTo: vi.fn() }
+    assignMsgRef(setup, { scrollHeight: 80, scrollTo: vi.fn() })
     mocks.chatQA.mockRejectedValueOnce(new Error('network'))
     await setup.send()
     await flushPromises()

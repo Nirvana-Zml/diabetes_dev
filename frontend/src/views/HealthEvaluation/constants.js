@@ -34,9 +34,15 @@ export const DIET_OPTIONS = [
   { value: 'balanced', label: '均衡饮食' },
   { value: 'high_sugar', label: '高糖饮食' },
   { value: 'high_fat', label: '高脂饮食' },
-  { value: 'high-sugar', label: '高糖饮食' },
-  { value: 'high-fat', label: '高脂饮食' },
 ]
+
+/** 将 high-sugar / high-fat 等历史值统一为表单使用的下划线写法 */
+export function normalizeDietType(value) {
+  if (!value) return 'balanced'
+  if (value === 'high-sugar') return 'high_sugar'
+  if (value === 'high-fat') return 'high_fat'
+  return value
+}
 
 export const TEST_SOURCE_OPTIONS = [
   { value: 1, label: '自测' },

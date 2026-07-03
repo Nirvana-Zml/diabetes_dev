@@ -38,6 +38,30 @@ public class HealthServiceClient {
                 + page + "&size=" + size, difyKey);
     }
 
+    @SuppressWarnings("unchecked")
+    public java.util.List<Map<String, Object>> getHealthHistory(String userId, String difyKey, int limit) {
+        try {
+            String body = restClient.get()
+                    .uri("/api/v1/internal/health/user/{userId}/history?limit={limit}", userId, limit)
+                    .header("X-Dify-Key", difyKey == null ? "" : difyKey)
+                    .retrieve()
+                    .body(String.class);
+            JsonNode root = objectMapper.readTree(body);
+            int code = root.path("code").asInt(200);
+            if (code != 200) {
+                return java.util.List.of();
+            }
+            JsonNode data = root.path("data");
+            if (data.isArray()) {
+                return objectMapper.convertValue(data, java.util.List.class);
+            }
+            return java.util.List.of();
+        } catch (Exception e) {
+            log.warn("health-service history 调用异常 userId={} error={}", userId, e.getMessage());
+            return java.util.List.of();
+        }
+    }
+
     private Map<String, Object> fetchInternal(String path, String difyKey) {
         try {
             String body = restClient.get()

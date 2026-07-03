@@ -13,6 +13,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -216,6 +217,75 @@ class ServiceClientTest {
                 .getLatestPlan("ok", "key").isEmpty());
         assertTrue(new PlanServiceClient("http://127.0.0.1:1", objectMapper)
                 .getPlanHistory("ok", "key", 1, 10).isEmpty());
+    }
+
+    @Test
+    @DisplayName("UserServiceClient 创建消息和触发干预")
+    void shouldPostUserServiceInternalApis() throws Exception {
+        AtomicReference<String> lastPath = new AtomicReference<>();
+        startServer(exchange -> {
+            lastPath.set(exchange.getRequestURI().getPath());
+            respond(exchange, 200, "{\"ok\":true}");
+        });
+        UserServiceClient client = new UserServiceClient(baseUrl(), objectMapper);
+        Map<String, Object> messageBody = Map.of("userId", "u_001", "title", "test");
+        Map<String, Object> evaluateBody = Map.of("userId", "u_001", "trigger", "manual");
+
+        client.createMessage("dify-key", messageBody);
+        assertTrue(lastPath.get().endsWith("/messages"));
+
+        client.evaluateIntervention("dify-key", evaluateBody);
+        assertTrue(lastPath.get().endsWith("/interventions/evaluate"));
+
+        UserServiceClient deadClient = new UserServiceClient("http://127.0.0.1:1", objectMapper);
+        assertDoesNotThrow(() -> deadClient.createMessage("key", messageBody));
+        assertDoesNotThrow(() -> deadClient.evaluateIntervention(null, evaluateBody));
+    }
+
+    @Test
+    @DisplayName("HealthServiceClient 获取健康历史")
+    void shouldFetchHealthHistory() throws Exception {
+        startServer(exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            if (path.contains("/user/ok/history")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":[{\"id\":\"h1\"}]}");
+            } else if (path.contains("/user/bad-code/history")) {
+                respond(exchange, 200, "{\"code\":500,\"message\":\"bad\"}");
+            } else if (path.contains("/user/object-data/history")) {
+                respond(exchange, 200, "{\"code\":200,\"data\":{\"id\":\"h2\"}}");
+            } else {
+                respond(exchange, 200, "{}");
+            }
+        });
+        HealthServiceClient client = new HealthServiceClient(baseUrl(), objectMapper);
+
+        assertEquals("h1", client.getHealthHistory("ok", null, 5).get(0).get("id"));
+        assertTrue(client.getHealthHistory("bad-code", "key", 5).isEmpty());
+        assertTrue(client.getHealthHistory("object-data", "key", 5).isEmpty());
+        assertTrue(new HealthServiceClient("http://127.0.0.1:1", objectMapper)
+                .getHealthHistory("ok", "key", 5).isEmpty());
+    }
+
+    @Test
+    @DisplayName("CheckinServiceClient 应用系统提醒调整")
+    void shouldApplySystemReminderAdjust() throws Exception {
+        AtomicReference<String> capturedBody = new AtomicReference<>();
+        startServer(exchange -> {
+            if (exchange.getRequestURI().getPath().endsWith("/reminders/system-adjust")) {
+                capturedBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+                respond(exchange, 200, "{\"ok\":true}");
+            } else {
+                respond(exchange, 404, "{}");
+            }
+        });
+        CheckinServiceClient client = new CheckinServiceClient(baseUrl(), objectMapper);
+        Map<String, Object> body = Map.of("userId", "u_001", "delta", 30);
+
+        client.applySystemReminderAdjust("dify-key", body);
+        assertTrue(capturedBody.get().contains("u_001"));
+
+        assertDoesNotThrow(() -> new CheckinServiceClient("http://127.0.0.1:1", objectMapper)
+                .applySystemReminderAdjust(null, body));
     }
 
     private void startServer(ExchangeHandler handler) throws IOException {

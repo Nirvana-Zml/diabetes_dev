@@ -23,12 +23,16 @@ public class CheckinRecordWriter {
      * 创建打卡主记录（食物/用药/运动模块不写入积分与连续天数）
      */
     public String createRecord(String userId, int checkinType, LocalDate checkinDate) {
+        return createRecord(userId, checkinType, checkinDate, LocalDateTime.now());
+    }
+
+    public String createRecord(String userId, int checkinType, LocalDate checkinDate, LocalDateTime recordTime) {
         CheckinRecord record = new CheckinRecord();
         record.setCheckinId(IdGenerator.nextId("chk_"));
         record.setUserId(userId);
         record.setCheckinType(checkinType);
         record.setCheckinDate(checkinDate);
-        record.setRecordTime(LocalDateTime.now());
+        record.setRecordTime(recordTime != null ? recordTime : LocalDateTime.now());
         record.setPointsEarned(0);
         record.setStreakDays(0);
         checkinRecordMapper.insert(record);

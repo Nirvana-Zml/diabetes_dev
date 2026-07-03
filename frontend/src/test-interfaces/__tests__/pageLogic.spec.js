@@ -30,6 +30,9 @@ describe('page logic test interfaces', () => {
     expect(syncFavoriteInHistory([{ plan_id: 'p1', is_favorite: 0 }], 'p1', true)).toEqual([
       { plan_id: 'p1', is_favorite: 1 },
     ])
+    expect(syncFavoriteInHistory([{ plan_id: 'p2', is_favorite: 1 }], 'p1', false)).toEqual([
+      { plan_id: 'p2', is_favorite: 1 },
+    ])
 
     expect(giLabel('low')).toBe('低')
     expect(giLabel('medium')).toBe('中')
@@ -48,6 +51,11 @@ describe('page logic test interfaces', () => {
     })).toEqual([
       expect.objectContaining({ key: 'breakfast', label: '早餐', totalCalories: 180 }),
       expect.objectContaining({ key: 'supper', label: 'supper', totalCalories: 120 }),
+    ])
+    expect(buildMealEntries({
+      lunch: { foods: [{ name: '沙拉' }] },
+    })).toEqual([
+      expect.objectContaining({ key: 'lunch', label: '午餐', time: '午餐' }),
     ])
   })
 
@@ -73,10 +81,14 @@ describe('page logic test interfaces', () => {
   it('covers checkin calculation and status helpers', () => {
     expect(calcGrams(200, 2, 1.1)).toBeCloseTo(220)
     expect(calcGrams(100, 1, 2)).toBe(100)
+    expect(calcGrams(150, 2)).toBe(150)
     expect(calcFoodCalories({ input_amount: 100, input_unit: 1, calories_per_gram: 1.2 })).toBe(120)
     expect(calcFoodCalories({ input_amount: 200, input_unit: 2, ml_to_g_ratio: 1, calories_per_gram: 0.5 })).toBe(100)
+    expect(calcFoodCalories({ input_amount: 100, calories_per_gram: 1.2 })).toBe(120)
+    expect(calcFoodCalories({ input_amount: 100, input_unit: 1 })).toBe(0)
     expect(calcExCalories(5, 30)).toBe(150)
     expect(calcExCalories(null, 30)).toBe(0)
+    expect(calcExCalories(4)).toBe(0)
     expect(formatFoodAmount({ input_unit: 2, input_amount: 200, grams: 210 })).toContain('210g')
     expect(formatFoodAmount({ input_unit: 1, input_amount: 80 })).toBe('80g')
     expect(glucoseStatusLabel('elevated')).toBe('偏高')

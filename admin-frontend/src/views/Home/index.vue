@@ -48,8 +48,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
-import { Document, VideoCamera, DataAnalysis, ArrowRight } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Document, VideoCamera, DataAnalysis, ArrowRight, Notebook } from '@element-plus/icons-vue'
 import { clearTokens } from '@/api/auth'
 import { getStatsOverview } from '@/api/stats'
 import { APP_NAME } from '@/config'
@@ -80,6 +80,13 @@ const modules = [
     icon: VideoCamera,
     color: 'linear-gradient(135deg, #6366f1, #4f46e5)',
   },
+  {
+    title: '审计日志',
+    desc: '查看用户与管理员操作留痕，支持概览统计、筛选、详情与导出',
+    path: '/audit-logs',
+    icon: Notebook,
+    color: 'linear-gradient(135deg, #ef4444, #dc2626)',
+  },
 ]
 
 const overviewCards = computed(() => {
@@ -104,8 +111,9 @@ async function loadOverview() {
   statsLoading.value = true
   try {
     overview.value = await getStatsOverview()
-  } catch {
+  } catch (err) {
     overview.value = null
+    ElMessage.error(err?.message || '统计数据加载失败')
   } finally {
     statsLoading.value = false
   }

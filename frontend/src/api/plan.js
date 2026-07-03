@@ -58,13 +58,15 @@ export async function generatePlan(options = {}) {
       throw new Error(payload.message || '方案生成失败')
     }
     if (stage === 'calorie') {
-      onStage?.({ stage: 'calorie', daily_calories: payload.daily_calories ?? payload.dailyCalories })
+      const dailyCalories = payload.daily_calories ?? payload.dailyCalories
+      if (onStage) onStage({ stage: 'calorie', daily_calories: dailyCalories })
     } else if (stage === 'complete') {
-      onStage?.({ stage: 'complete', plan_id: payload.plan_id ?? payload.planId })
+      const planId = payload.plan_id ?? payload.planId
+      if (onStage) onStage({ stage: 'complete', plan_id: planId })
     } else if (stage === 'medication') {
-      onStage?.({ stage: 'medication', content: payload.content })
+      if (onStage) onStage({ stage: 'medication', content: payload.content })
     } else if (stage) {
-      onStage?.({ stage, content: payload.content || payload })
+      if (onStage) onStage({ stage, content: payload.content || payload })
     }
   })
 }
@@ -80,6 +82,10 @@ export function getPlanDetail(id) {
 }
 
 /** GET /api/plan/history */
+function resolvePlanHistoryList(data = {}) {
+  return data.plans ?? data.list ?? []
+}
+
 export async function getPlanHistory(params = {}) {
   const data = await get('/plan/history', {
     params: { page: params.page || 1, size: params.size || 10 },
@@ -91,7 +97,7 @@ export async function getPlanHistory(params = {}) {
       total: 2,
     }),
   })
-  const plans = (data.plans || data.list || []).map((p) => toSnakeCase(p))
+  const plans = resolvePlanHistoryList(data).map((p) => toSnakeCase(p))
   return { list: plans, total: data.total ?? plans.length }
 }
 
@@ -116,4 +122,9 @@ export function togglePlanFavorite(id, currentlyFavorited = false) {
     }
     return { favorited }
   })
+}
+
+/** @internal 供单元测试覆盖历史列表字段回退 */
+export function resolvePlanHistoryListForTest(data) {
+  return resolvePlanHistoryList(data)
 }

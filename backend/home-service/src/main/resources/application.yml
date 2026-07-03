@@ -55,6 +55,10 @@ knowledge:
       openai-api-key: ${EMBEDDING_API_KEY:ollama}
       openai-model: ${EMBEDDING_MODEL:qwen3-embedding:0.6b}
 
+services:
+  audit:
+    base-url: http://${AUDIT_SERVICE_HOST:localhost}:${AUDIT_SERVICE_PORT:8088}
+
 management:
   endpoints:
     web:

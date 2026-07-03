@@ -68,15 +68,33 @@ const loading = ref(true)
 const markingAll = ref(false)
 const messages = messageList
 
-function formatTime(value) {
-  if (!value) return ''
+function parseDateTime(value) {
+  if (!value) return null
+  if (Array.isArray(value)) {
+    const [year, month, day, hour = 0, minute = 0, second = 0] = value
+    if (typeof year === 'number' && typeof month === 'number' && typeof day === 'number') {
+      return new Date(year, month - 1, day, hour, minute, second)
+    }
+  }
   const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return String(value)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function formatTime(value) {
+  const d = parseDateTime(value)
+  if (!d) return ''
   const diff = Date.now() - d.getTime()
   if (diff < 60_000) return '刚刚'
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`
-  return d.toLocaleDateString('zh-CN')
+  return d.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 function actionLabel(msg) {
@@ -281,8 +299,8 @@ onMounted(async () => {
 }
 
 .message-popover--mobile .message-item {
-  flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   padding: 14px;
   margin-bottom: 10px;
   border: 1px solid var(--msg-border);
@@ -368,12 +386,10 @@ onMounted(async () => {
 }
 
 .message-popover--mobile .action-btn {
-  align-self: stretch;
-  text-align: center;
-  padding: 10px 14px;
+  padding: 8px 14px;
   font-size: 13px;
   border-radius: 10px;
-  min-height: 40px;
+  min-height: 36px;
 }
 
 .action-btn:hover {

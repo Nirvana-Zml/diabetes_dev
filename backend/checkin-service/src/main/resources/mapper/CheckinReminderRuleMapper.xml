@@ -5,10 +5,13 @@
 
     <select id="findByUserId" resultType="com.diabetes.checkin.entity.CheckinReminderRule">
         SELECT RULE_ID AS ruleId, USER_ID AS userId, CHECKIN_TYPE AS checkinType,
-               REMIND_TIME AS remindTime, ENABLED AS enabled, SORT_ORDER AS sortOrder,
+               REMIND_TIME AS remindTime, ENABLED AS enabled,
+               RULE_SOURCE AS ruleSource, INTERVENTION_ID AS interventionId,
+               EXPIRES_AT AS expiresAt, SORT_ORDER AS sortOrder,
                CREATED_AT AS createdAt, UPDATED_AT AS updatedAt
         FROM CHECKIN_REMINDER_RULES
         WHERE USER_ID = #{userId}
+          AND (RULE_SOURCE = 'user' OR EXPIRES_AT IS NULL OR EXPIRES_AT > NOW())
         ORDER BY CHECKIN_TYPE, SORT_ORDER, REMIND_TIME
     </select>
 
@@ -16,11 +19,40 @@
         DELETE FROM CHECKIN_REMINDER_RULES WHERE USER_ID = #{userId}
     </delete>
 
+    <delete id="deleteByUserIdAndSource">
+        DELETE FROM CHECKIN_REMINDER_RULES
+        WHERE USER_ID = #{userId} AND RULE_SOURCE = #{ruleSource}
+    </delete>
+
+    <delete id="deleteExpiredSystemRules">
+        DELETE FROM CHECKIN_REMINDER_RULES
+        WHERE USER_ID = #{userId}
+          AND RULE_SOURCE = 'system'
+          AND EXPIRES_AT IS NOT NULL
+          AND EXPIRES_AT &lt;= #{now}
+    </delete>
+
+    <select id="findUserRule" resultType="com.diabetes.checkin.entity.CheckinReminderRule">
+        SELECT RULE_ID AS ruleId, USER_ID AS userId, CHECKIN_TYPE AS checkinType,
+               REMIND_TIME AS remindTime, ENABLED AS enabled,
+               RULE_SOURCE AS ruleSource, INTERVENTION_ID AS interventionId,
+               EXPIRES_AT AS expiresAt, SORT_ORDER AS sortOrder,
+               CREATED_AT AS createdAt, UPDATED_AT AS updatedAt
+        FROM CHECKIN_REMINDER_RULES
+        WHERE USER_ID = #{userId}
+          AND CHECKIN_TYPE = #{checkinType}
+          AND REMIND_TIME = #{remindTime}
+          AND RULE_SOURCE = 'user'
+        LIMIT 1
+    </select>
+
     <insert id="insert">
         INSERT INTO CHECKIN_REMINDER_RULES (
-            RULE_ID, USER_ID, CHECKIN_TYPE, REMIND_TIME, ENABLED, SORT_ORDER, CREATED_AT, UPDATED_AT
+            RULE_ID, USER_ID, CHECKIN_TYPE, REMIND_TIME, ENABLED,
+            RULE_SOURCE, INTERVENTION_ID, EXPIRES_AT, SORT_ORDER, CREATED_AT, UPDATED_AT
         ) VALUES (
-            #{ruleId}, #{userId}, #{checkinType}, #{remindTime}, #{enabled}, #{sortOrder}, NOW(), NOW()
+            #{ruleId}, #{userId}, #{checkinType}, #{remindTime}, #{enabled},
+            #{ruleSource}, #{interventionId}, #{expiresAt}, #{sortOrder}, NOW(), NOW()
         )
     </insert>
 </mapper>

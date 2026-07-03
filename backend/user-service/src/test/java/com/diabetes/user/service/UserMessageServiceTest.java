@@ -362,6 +362,135 @@ class UserMessageServiceTest {
         assertTrue(service.isMessageNotifyEnabled("u_1"));
     }
 
+    @Test
+    void createMessage_routesHealthAlert() {
+        stubHealthAlertEnabled("u_1");
+        CreateMessageRequest request = new CreateMessageRequest(
+                "u_1", "health_alert", "completed", "健康提醒", "Summary", "ivp_1",
+                "/user-center", Map.of("section", "health-alert"), Map.of("severity", "warning"));
+        when(userMessageMapper.findByUserTypeBiz("u_1", "health_alert", "ivp_1")).thenReturn(null);
+        when(userMessageMapper.findById(anyString())).thenReturn(message("msg_1", "u_1"));
+
+        UserMessageResponse created = service.createMessage(request);
+
+        assertNotNull(created);
+        verify(userMessageMapper).insert(any(UserMessage.class));
+    }
+
+    @Test
+    void createHealthAlertMessage_updatesExisting() {
+        stubHealthAlertEnabled("u_1");
+        CreateMessageRequest request = request("u_1", "health_alert", "completed", "ivp_1");
+        UserMessage existing = message("msg_old", "u_1");
+        when(userMessageMapper.findByUserTypeBiz("u_1", "health_alert", "ivp_1")).thenReturn(existing);
+        when(userMessageMapper.findById("msg_old")).thenReturn(existing);
+
+        UserMessageResponse result = service.createHealthAlertMessage(request);
+
+        assertNotNull(result);
+        verify(userMessageMapper).updateByBiz(any(UserMessage.class));
+        verify(userMessageMapper, never()).insert(any());
+    }
+
+    @Test
+    void createHealthAlertMessage_returnsNullWhenNotifyDisabled() {
+        User user = new User();
+        user.setPrivacySettings("{\"health_alert_notify\":false}");
+        when(userMapper.findById("u_1")).thenReturn(user);
+
+        CreateMessageRequest request = request("u_1", "health_alert", "completed", "ivp_1");
+        assertNull(service.createHealthAlertMessage(request));
+        verifyNoInteractions(userMessageMapper);
+    }
+
+    @Test
+    void isHealthAlertNotifyEnabled_fallsBackToMessageAndConsultNotify() {
+        User user = new User();
+        user.setPrivacySettings("{\"message_notify\":false}");
+        when(userMapper.findById("u_1")).thenReturn(user);
+        assertFalse(service.isHealthAlertNotifyEnabled("u_1"));
+
+        user.setPrivacySettings("{\"consult_notify\":false}");
+        assertFalse(service.isHealthAlertNotifyEnabled("u_1"));
+
+        user.setPrivacySettings("{\"consult_notify\":true}");
+        assertTrue(service.isHealthAlertNotifyEnabled("u_1"));
+    }
+
+    @Test
+    void isHealthAlertNotifyEnabled_defaultsOnInvalidJson() {
+        User user = new User();
+        user.setPrivacySettings("{bad");
+        when(userMapper.findById("u_1")).thenReturn(user);
+        assertTrue(service.isHealthAlertNotifyEnabled("u_1"));
+    }
+
+    @Test
+    void isHealthAlertNotifyEnabled_defaultsWhenNoKnownKeys() {
+        User user = new User();
+        user.setPrivacySettings("{\"other\":true}");
+        when(userMapper.findById("u_1")).thenReturn(user);
+        assertTrue(service.isHealthAlertNotifyEnabled("u_1"));
+    }
+
+    @Test
+    void isHealthAlertNotifyEnabled_respectsExplicitHealthAlertFlag() {
+        User user = new User();
+        user.setPrivacySettings("{\"health_alert_notify\":true}");
+        when(userMapper.findById("u_1")).thenReturn(user);
+        assertTrue(service.isHealthAlertNotifyEnabled("u_1"));
+    }
+
+    @Test
+    void isHealthAlertNotifyEnabled_defaultsWhenUserMissing() {
+        when(userMapper.findById("u_x")).thenReturn(null);
+        assertTrue(service.isHealthAlertNotifyEnabled("u_x"));
+    }
+
+    @Test
+    void isHealthAlertNotifyEnabled_defaultsWhenPrivacyBlank() {
+        User user = new User();
+        user.setPrivacySettings("  ");
+        when(userMapper.findById("u_1")).thenReturn(user);
+        assertTrue(service.isHealthAlertNotifyEnabled("u_1"));
+    }
+
+    @Test
+    void isHealthAlertNotifyEnabled_defaultsWhenPrivacyNull() {
+        User user = new User();
+        user.setPrivacySettings(null);
+        when(userMapper.findById("u_1")).thenReturn(user);
+        assertTrue(service.isHealthAlertNotifyEnabled("u_1"));
+    }
+
+    @Test
+    void isHealthAlertNotifyEnabled_usesMessageNotifyWhenHealthAlertMissing() {
+        User user = new User();
+        user.setPrivacySettings("{\"message_notify\":true}");
+        when(userMapper.findById("u_1")).thenReturn(user);
+        assertTrue(service.isHealthAlertNotifyEnabled("u_1"));
+    }
+
+    @Test
+    void createHealthAlertMessage_generatesBizIdWhenMissing() {
+        stubHealthAlertEnabled("u_1");
+        CreateMessageRequest request = new CreateMessageRequest(
+                "u_1", "health_alert", "completed", "Title", "Summary", null,
+                "/user-center", null, null);
+        when(userMessageMapper.findByUserTypeBiz(eq("u_1"), eq("health_alert"), anyString())).thenReturn(null);
+        when(userMessageMapper.findById(anyString())).thenReturn(message("msg_1", "u_1"));
+
+        service.createHealthAlertMessage(request);
+
+        ArgumentCaptor<UserMessage> captor = ArgumentCaptor.forClass(UserMessage.class);
+        verify(userMessageMapper).insert(captor.capture());
+        assertTrue(captor.getValue().getBizId().startsWith("biz_"));
+    }
+
+    private void stubHealthAlertEnabled(String userId) {
+        when(userMapper.findById(userId)).thenReturn(null);
+    }
+
     private void stubNotifyEnabled(String userId) {
         when(userMapper.findById(userId)).thenReturn(null);
     }

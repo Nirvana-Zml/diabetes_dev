@@ -1,6 +1,11 @@
 package com.diabetes.user.service;
 
 import com.diabetes.user.mapper.AdminStatsMapper;
+import com.diabetes.user.mapper.AdminMapper;
+import com.diabetes.user.mapper.UserMapper;
+import com.diabetes.user.entity.Admin;
+import com.diabetes.user.entity.User;
+import com.diabetes.common.exception.BusinessException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -31,9 +36,15 @@ public class AdminStatsService {
             "checkin_analysis", "打卡分析");
 
     private final AdminStatsMapper adminStatsMapper;
+    private final UserMapper userMapper;
+    private final AdminMapper adminMapper;
 
-    public AdminStatsService(AdminStatsMapper adminStatsMapper) {
+    public AdminStatsService(AdminStatsMapper adminStatsMapper,
+                             UserMapper userMapper,
+                             AdminMapper adminMapper) {
         this.adminStatsMapper = adminStatsMapper;
+        this.userMapper = userMapper;
+        this.adminMapper = adminMapper;
     }
 
     public Map<String, Object> getOverview() {
@@ -71,6 +82,37 @@ public class AdminStatsService {
         result.put("page", safePage);
         result.put("size", safeSize);
         return result;
+    }
+
+    public Map<String, Object> getSubjectBrief(String subjectId) {
+        if (subjectId == null || subjectId.isBlank()) {
+            throw new BusinessException(400, "用户 ID 不能为空");
+        }
+        String trimmed = subjectId.trim();
+        Map<String, Object> brief = new LinkedHashMap<>();
+        brief.put("subject_id", trimmed);
+
+        User user = userMapper.findById(trimmed);
+        if (user != null) {
+            brief.put("role", "user");
+            brief.put("username", user.getUsername());
+            brief.put("nickname", user.getNickname());
+            brief.put("phone", user.getPhone());
+            brief.put("email", user.getEmail());
+            return brief;
+        }
+
+        Admin admin = adminMapper.findById(trimmed);
+        if (admin != null) {
+            brief.put("role", "admin");
+            brief.put("username", admin.getUsername());
+            brief.put("nickname", admin.getUsername());
+            brief.put("phone", null);
+            brief.put("email", null);
+            return brief;
+        }
+
+        throw new BusinessException(404, "用户不存在");
     }
 
     private Map<String, Object> buildUserOverview() {
@@ -154,7 +196,7 @@ public class AdminStatsService {
             Object value = row.get("value");
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("key", key);
-            item.put("label", labels.getOrDefault(key, String.valueOf(key)));
+            item.put("label", resolveDistributionLabel(key, labels));
             item.put("value", toInt(value));
             result.add(item);
         }
@@ -175,6 +217,13 @@ public class AdminStatsService {
             result.add(item);
         }
         return result;
+    }
+
+    private String resolveDistributionLabel(Object key, Map<Object, String> labels) {
+        if (key == null) {
+            return "未知";
+        }
+        return labels.getOrDefault(key, String.valueOf(key));
     }
 
     private void normalizeUserRow(Map<String, Object> row) {

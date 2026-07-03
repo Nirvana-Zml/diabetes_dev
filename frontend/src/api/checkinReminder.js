@@ -54,7 +54,7 @@ export function getReminderDefaults() {
   return get('/checkin/reminders/defaults', {
     mockFn: async () => mockDefaults,
   }).then((data) => {
-    const rules = data?.rules || data || []
+    const rules = Array.isArray(data) ? data : (data?.rules ?? [])
     return rules.map(normalizeRule)
   })
 }

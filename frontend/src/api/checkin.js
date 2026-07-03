@@ -1,6 +1,8 @@
 import { get, post } from '@/utils/request'
 import { toSnakeCase, toCamelCase } from '@/utils/normalize'
-import { mockAchievements } from '@/mock/data'
+import { USE_MOCK } from '@/config'
+import { mockAchievements, mockAchievementStats } from '@/mock/data'
+import { buildAchievementWall } from '@/views/CheckinRecords/achievements/mergeAchievements'
 import dayjs from 'dayjs'
 
 const mockFoodCategories = [
@@ -203,18 +205,48 @@ export function getCheckinStats(params = {}) {
   }).then(toSnakeCase)
 }
 
+function normalizeApiAchievements(data) {
+  const list = data?.achievements || data || []
+  return list.map((a, i) => ({
+    id: a.id || `ach_${i}`,
+    name: a.name,
+    desc: a.desc,
+    unlocked: !!a.unlocked,
+    unlocked_at: a.unlocked_at || a.unlockedAt,
+    badge_url: a.badge_url || a.badgeUrl || '',
+  }))
+}
+
 /** GET /checkin/achievements */
 export function getAchievements() {
   return get('/checkin/achievements', {
     mockFn: async () => ({ achievements: mockAchievements }),
-  }).then((data) => {
-    const list = data?.achievements || data || []
-    return list.map((a, i) => ({
-      id: `ach_${i}`,
-      name: a.name,
-      desc: a.unlocked ? '已解锁' : '继续努力',
-      unlocked: !!a.unlocked,
-      badge_url: a.badge_url || a.badgeUrl || '',
-    }))
-  })
+  }).then((data) => normalizeApiAchievements(data))
+}
+
+/** 成就墙：合并目录、接口解锁与打卡统计 */
+export async function getAchievementWall() {
+  const [achRes, stats] = await Promise.all([
+    get('/checkin/achievements', {
+      mockFn: async () => ({ achievements: mockAchievements }),
+    }),
+    getCheckinStats(),
+  ])
+
+  const apiList = normalizeApiAchievements(achRes)
+  const mockOverrides = USE_MOCK
+    ? {
+        unlockDates: Object.fromEntries(
+          mockAchievements
+            .filter((a) => a.unlocked && a.unlocked_at)
+            .map((a) => [a.id, a.unlocked_at]),
+        ),
+      }
+    : {}
+
+  const mergedStats = USE_MOCK
+    ? { ...stats, ...mockAchievementStats }
+    : stats
+
+  return buildAchievementWall(apiList, mergedStats, mockOverrides)
 }

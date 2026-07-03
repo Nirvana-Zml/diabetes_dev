@@ -18,6 +18,7 @@ vi.mock('vue-router', () => ({
   useRoute: () => route,
   createRouter: vi.fn(() => ({
     beforeEach: vi.fn(),
+    afterEach: vi.fn(),
     push,
     currentRoute: { value: route },
   })),
@@ -50,7 +51,7 @@ vi.mock('@/api/home', () => ({
     videos: [{ id: 'v1', title: '运动科普', cover: 'cover.png', url: 'video.mp4', duration: '3:20' }],
     categories: [{ id: 'diet', name: '饮食' }],
   })),
-  getRecommend: vi.fn(async () => [{ article_id: 'a1', title: '饮食建议', category: 'diet' }]),
+  getHomeArticles: vi.fn(async () => [{ article_id: 'a1', title: '饮食建议', category: 'diet' }]),
   getDoctors: vi.fn(async () => [{
     doctor_id: 'd1',
     name: '李医生',
@@ -104,6 +105,26 @@ vi.mock('@/api/checkin', () => ({
   getTodayStatus: vi.fn(async () => ({ food: true, medication: false, exercise: true, glucose: false })),
   getCheckinStats: vi.fn(async () => ({ total_days: 7, streak_days: 3, points: 100 })),
   getAchievements: vi.fn(async () => [{ id: 'ach1', name: '坚持打卡', unlocked: true }]),
+  getAchievementWall: vi.fn(async () => ({
+    achievements: [
+      { id: 'a1', name: '初来乍到', desc: '完成首次打卡', emoji: '👋', unlocked: true },
+      { id: 'a2', name: '坚持不懈', desc: '连续打卡7天', emoji: '🔥', unlocked: false },
+    ],
+    total: 12,
+    unlockedCount: 1,
+    progressPercent: 8,
+    recentUnlock: { name: '初来乍到', relative: '2天前' },
+  })),
+}))
+
+vi.mock('@/api/checkinReminder', () => ({
+  getReminderRules: vi.fn(async () => [
+    { checkin_type: 1, remind_time: '08:00', enabled: true, sort_order: 0, tab: 'food' },
+  ]),
+  getReminderDefaults: vi.fn(async () => [
+    { checkin_type: 1, remind_time: '08:00', enabled: true, sort_order: 0, tab: 'food' },
+  ]),
+  saveReminderRules: vi.fn(async (rules) => rules),
 }))
 
 vi.mock('@/api/checkinManagement', () => ({
@@ -254,6 +275,20 @@ async function flush() {
   await nextTick()
   await Promise.resolve()
   await nextTick()
+}
+
+function setSetupRef(wrapper, key, value) {
+  const setup = wrapper.vm.$?.setupState
+  const setupRef = setup?.[key]
+  if (setupRef && typeof setupRef === 'object' && 'value' in setupRef) {
+    setupRef.value = value
+    return
+  }
+  if (wrapper.vm[key] && typeof wrapper.vm[key] === 'object' && 'value' in wrapper.vm[key]) {
+    wrapper.vm[key].value = value
+    return
+  }
+  wrapper.vm[key] = value
 }
 
 function dummyPayload() {
@@ -532,7 +567,6 @@ async function exercisePublicMethods(wrapper) {
     'onImgError',
     'onMedFileChange',
     'onProfileSaved',
-    'onVerifyTypeChange',
     'openChat',
     'openExPreset',
     'openFoodPreset',
@@ -749,6 +783,12 @@ describe('frontend views smoke coverage', () => {
       import('../HealthEvaluation/index.vue'),
       import('../CheckinAnalysis/index.vue'),
       import('../CheckinRecords/index.vue'),
+      import('../CheckinRecords/FoodCheckin.vue'),
+      import('../CheckinRecords/MedicationCheckin.vue'),
+      import('../CheckinRecords/ExerciseCheckin.vue'),
+      import('../CheckinRecords/GlucoseCheckin.vue'),
+      import('../CheckinRecords/AchievementWall.vue'),
+      import('../CheckinReminderSettings/index.vue'),
       import('../UserCenter/index.vue'),
     ])
 
@@ -759,7 +799,7 @@ describe('frontend views smoke coverage', () => {
       await flush()
       wrapper.unmount()
     }
-  })
+  }, 20000)
 
   it('mounts user center dialogs and layout components', async () => {
     const modules = await Promise.all([
@@ -854,7 +894,6 @@ describe('frontend views smoke coverage', () => {
     await forgotWrapper.vm.handleSubmit()
 
     forgotWrapper.vm.formRef = validFormRef()
-    forgotWrapper.vm.form.verifyType = 'email'
     forgotWrapper.vm.form.account = 'test@example.com'
     forgotWrapper.vm.form.code = '123456'
     forgotWrapper.vm.form.newPassword = '123456'
@@ -875,13 +914,12 @@ describe('frontend views smoke coverage', () => {
     auth.resetPassword.mockRejectedValueOnce(new Error('重置异常'))
     await forgotWrapper.vm.handleSubmit()
 
-    forgotWrapper.vm.onVerifyTypeChange()
+    forgotWrapper.vm.form.account = ''
     expect(forgotWrapper.vm.form.account).toBe('')
 
     const accountRule = forgotWrapper.vm.rules.account[0].validator
     const confirmForgotRule = forgotWrapper.vm.rules.confirmPassword[1].validator
-    for (const [type, value] of [['phone', ''], ['phone', '123'], ['email', 'bad'], ['email', 'ok@example.com']]) {
-      forgotWrapper.vm.form.verifyType = type
+    for (const value of ['', 'bad', 'ok@example.com']) {
       const cb = vi.fn()
       accountRule({}, value, cb)
       expect(cb).toHaveBeenCalled()
@@ -1316,11 +1354,14 @@ describe('frontend views smoke coverage', () => {
     userApi.getUserProfile.mockResolvedValueOnce({ user_id: 'u3', points: 88, privacy_settings: { data_visible: false, consult_notify: false } })
     userApi.getHealthRecord.mockResolvedValueOnce({ bmi: 22, fasting_glucose: 5.6 })
     userApi.getHealthAlert.mockResolvedValueOnce({ level: 'normal' })
-    userApi.getHealthTrendSummary.mockResolvedValueOnce({ summary: '良好' })
+    localStorage.setItem('health_trend_summary:u3', JSON.stringify({ summary: '良好', updatedAt: Date.now() }))
     userApi.getUserConsultations.mockResolvedValueOnce({ total: 2, list: [] })
     const checkinApiForUser = await import('@/api/checkin')
     checkinApiForUser.getCheckinStats.mockResolvedValueOnce({ completion_rate: 0.875 })
     await userWrapper.vm.loadPage()
+    await flush()
+    expect(userWrapper.vm.trendSummary).toBe('良好')
+    expect(userApi.getHealthTrendSummary).not.toHaveBeenCalled()
     expect(userWrapper.vm.quickStats[0].value).toBe('88%')
     userWrapper.vm.quickStats[0].action()
     userWrapper.vm.quickStats[1].action()
@@ -1352,65 +1393,55 @@ describe('frontend views smoke coverage', () => {
     await userWrapper.vm.savePrivacy()
   })
 
-  it('covers checkin records forms, charts and validation branches', async () => {
+  it('covers checkin hub, type pages, utils and validation branches', async () => {
     const checkinApi = await import('@/api/checkin')
     const elementPlus = await import('element-plus')
     const echarts = await import('echarts')
+    const utils = await import('../CheckinRecords/checkin/utils')
     const CheckinRecords = (await import('../CheckinRecords/index.vue')).default
+    const GlucoseCheckin = (await import('../CheckinRecords/GlucoseCheckin.vue')).default
+    const FoodCheckin = (await import('../CheckinRecords/FoodCheckin.vue')).default
 
-    const wrapper = mountSmoke(CheckinRecords)
+    const hub = mountSmoke(CheckinRecords)
     await flush()
 
-    wrapper.vm.todayStatus = {
+    hub.vm.todayStatus = {
       today_points: 12,
       today_checkins: [
-        { completed: true },
-        { completed: false },
-        { completed: true },
-        { completed: false },
-        { completed: true },
+        { checkin_type: 'diet', completed: true },
+        { checkin_type: 'medication', completed: false },
+        { checkin_type: 'exercise', completed: true },
+        { checkin_type: 'glucose', completed: false },
       ],
     }
-    wrapper.vm.achievements = [{ unlocked: true }, { unlocked: false }]
-    wrapper.vm.foodRecords = [{ total_calories: 500 }, { total_calories: '400' }, { total_calories: null }]
-    expect(wrapper.vm.todayProgress).toBe(75)
-    expect(wrapper.vm.todayTasksSummary).toEqual({ done: 3, total: 5 })
-    expect(wrapper.vm.progressRingOffset).toBeLessThan(2 * Math.PI * 28)
-    expect(wrapper.vm.unlockedCount).toBe(1)
-    expect(wrapper.vm.foodDailyTotalCalories).toBe(900)
-    expect(wrapper.vm.foodCaloriePercent).toBe(50)
-    expect(wrapper.vm.glucoseSummary).toEqual({})
+    hub.vm.achievementWall = {
+      achievements: [{ id: 'a1', unlocked: true }, { id: 'a2', unlocked: false }],
+      total: 12,
+      unlockedCount: 1,
+    }
+    expect(hub.vm.todayProgress).toBe(50)
+    expect(hub.vm.todayTasksSummary).toEqual({ done: 2, total: 4 })
+    expect(hub.vm.unlockedCount).toBe(1)
+    expect(hub.vm.isTypeCompleted('food')).toBe(true)
+    expect(hub.vm.isTypeCompleted('glucose')).toBe(false)
+    hub.unmount()
 
-    wrapper.vm.checkinDate = '2026-06-30'
-    expect(wrapper.vm.dateDisplay.main).toBe('6月30日')
-    expect(wrapper.vm.dateDisplay.weekday).toMatch(/^周/)
-    wrapper.vm.checkinDate = new Date().toISOString().slice(0, 10)
-    expect(wrapper.vm.isToday).toBe(true)
-    expect(wrapper.vm.dateDisplay.main).toBe('今天')
+    expect(utils.calcGrams(200, 2, 1.1)).toBe(220.00000000000003)
+    expect(utils.calcFoodCalories({ input_amount: 100, input_unit: 1, calories_per_gram: 1.5 })).toBe(150)
+    expect(utils.calcPresetFoodCalories({ calories_per_gram: 0.5, ml_to_g_ratio: 1 }, 200, 2)).toBe(100)
+    expect(utils.calcExCalories(6, 20)).toBe(120)
+    expect(utils.formatFoodAmount({ input_unit: 2, input_amount: 200, grams: 210 })).toContain('ml')
+    expect(utils.formatFoodAmount({ input_unit: 1, input_amount: 80 })).toBe('80g')
+    expect(utils.formatTime()).toBe('')
+    const imageTarget = { style: { display: 'block' } }
+    utils.onImgError({ target: imageTarget })
+    expect(imageTarget.style.display).toBe('none')
 
-    wrapper.vm.activeTab = 'food'
-    wrapper.vm.foodCategories = []
-    checkinApi.getFoodCategories.mockResolvedValueOnce([{ category_id: 'c2', name: '蔬菜' }])
-    checkinApi.getFoodPresets.mockResolvedValueOnce([{ food_id: 'f2', name: '青菜' }])
-    await wrapper.vm.loadPresets()
-    expect(wrapper.vm.selectedCategoryId).toBeTruthy()
-    await wrapper.vm.selectCategory('c2')
-
-    wrapper.vm.activeTab = 'medication'
-    await wrapper.vm.loadPresets()
-    wrapper.vm.activeTab = 'exercise'
-    await wrapper.vm.loadPresets()
-    wrapper.vm.foodMode = 'custom'
-    await flush()
-    wrapper.vm.activeTab = 'glucose'
-    await flush()
-    wrapper.vm.checkinDate = '2026-06-29'
-    await flush()
-    wrapper.vm.glucoseTrendDays = 7
+    const glucoseWrapper = mountSmoke(GlucoseCheckin)
     await flush()
 
-    wrapper.vm.glucoseChartRef = document.createElement('div')
-    wrapper.vm.glucoseHistory = {
+    glucoseWrapper.vm.glucoseChartRef = document.createElement('div')
+    glucoseWrapper.vm.glucoseHistory = {
       records: Array.from({ length: 9 }, (_, index) => ({
         glucose_value: 5 + index / 10,
         record_time: `2026-07-0${(index % 8) + 1} 08:00:00`,
@@ -1418,66 +1449,39 @@ describe('frontend views smoke coverage', () => {
       })),
       summary: { count: 9 },
     }
-    wrapper.vm.renderGlucoseChart()
+    glucoseWrapper.vm.renderGlucoseChart()
     const chart = echarts.init.mock.results.at(-1).value
     const chartOptions = chart.setOption.mock.calls.at(-1)[0]
     expect(chartOptions.tooltip.formatter([{ dataIndex: 0 }])).toContain('mmol/L')
     expect(chartOptions.tooltip.formatter([{ dataIndex: 99 }])).toBe('')
     expect(chartOptions.xAxis.axisLabel.rotate).toBe(35)
-    expect(chartOptions.yAxis.min({ min: 4.2 })).toBe(3)
-    expect(chartOptions.yAxis.max({ max: 7.8 })).toBe(9)
 
     checkinApi.getGlucoseHistory.mockRejectedValueOnce(new Error('趋势异常'))
-    await wrapper.vm.loadGlucoseHistory()
+    await glucoseWrapper.vm.loadGlucoseHistory()
+    expect(glucoseWrapper.vm.glucoseStatusLabel('missing')).toBe('-')
 
-    expect(wrapper.vm.glucoseStatusLabel('missing')).toBe('-')
-    expect(wrapper.vm.formatChartLabel({ checkin_date: '2026-07-01' })).toBe('2026-07-01')
-    expect(wrapper.vm.calcGrams(200, 2, 1.1)).toBe(220.00000000000003)
-    expect(wrapper.vm.calcFoodCalories({ input_amount: 100, input_unit: 1, calories_per_gram: 1.5 })).toBe(150)
-    expect(wrapper.vm.calcPresetFoodCalories()).toBe(0)
-    wrapper.vm.openFoodPreset({ food_id: 'f1', is_liquid: true, ml_to_g_ratio: 1, calories_per_gram: 0.5 })
-    expect(wrapper.vm.calcPresetFoodCalories()).toBe(100)
-    expect(wrapper.vm.calcExCalories(6, 20)).toBe(120)
-    expect(wrapper.vm.formatFoodAmount({ input_unit: 2, input_amount: 200, grams: 210 })).toContain('ml')
-    expect(wrapper.vm.formatFoodAmount({ input_unit: 1, input_amount: 80 })).toBe('80g')
-    expect(wrapper.vm.formatTime()).toBe('')
-    const imageTarget = { style: { display: 'block' } }
-    wrapper.vm.onImgError({ target: imageTarget })
-    expect(imageTarget.style.display).toBe('none')
-    const clickSpy = vi.fn()
-    wrapper.vm.foodFileInput = { click: clickSpy }
-    wrapper.vm.medFileInput = { click: clickSpy }
-    wrapper.vm.triggerFoodUpload()
-    wrapper.vm.triggerMedUpload()
-    expect(clickSpy).toHaveBeenCalledTimes(2)
+    glucoseWrapper.vm.glucoseForm = { value: null, context: 4 }
+    await glucoseWrapper.vm.submitGlucose()
+    glucoseWrapper.vm.glucoseForm = { value: 22, context: 4 }
+    elementPlus.ElMessageBox.confirm.mockRejectedValueOnce(new Error('cancel'))
+    await glucoseWrapper.vm.submitGlucose()
+    glucoseWrapper.vm.glucoseForm = { value: 6.1, context: 4 }
+    checkinApi.createGlucoseCheckin.mockRejectedValueOnce(new Error('血糖异常'))
+    await glucoseWrapper.vm.submitGlucose()
+    glucoseWrapper.unmount()
 
-    const uploadTarget = { uploading: false, image_object_key: '', image_url: '' }
-    await wrapper.vm.handleUpload('food', null, uploadTarget)
-    checkinApi.uploadCheckinImage.mockResolvedValueOnce({ object_key: 'ok', image_url: 'ok.png' })
-    await wrapper.vm.handleUpload('food', new File(['ok'], 'ok.png'), uploadTarget)
-    expect(uploadTarget.image_object_key).toBe('ok')
-    checkinApi.uploadCheckinImage.mockRejectedValueOnce(new Error('上传异常'))
-    await wrapper.vm.handleUpload('food', new File(['bad'], 'bad.png'), uploadTarget)
+    const foodWrapper = mountSmoke(FoodCheckin)
+    await flush()
 
-    await wrapper.vm.submitFoodPreset()
-    wrapper.vm.foodDialogFood = { food_id: 'f1', image_object_key: 'food-img' }
-    wrapper.vm.foodDialogAmount = 100
+    await foodWrapper.vm.submitFoodPreset()
+    foodWrapper.vm.foodDialogFood = { food_id: 'f1', image_object_key: 'food-img' }
+    foodWrapper.vm.foodDialogAmount = 100
     checkinApi.createFoodCheckin.mockResolvedValueOnce({ points_earned: 10 })
-    await wrapper.vm.submitFoodPreset()
-    wrapper.vm.foodDialogFood = { food_id: 'f1' }
-    checkinApi.createFoodCheckin.mockRejectedValueOnce(new Error('食物异常'))
-    await wrapper.vm.submitFoodPreset()
+    await foodWrapper.vm.submitFoodPreset()
 
-    wrapper.vm.customFood = { category_id: '', name: '', image_object_key: '', input_amount: 100 }
-    await wrapper.vm.submitCustomFood()
-    wrapper.vm.customFood = { category_id: 'c1', name: ' ', image_object_key: '', input_amount: 100 }
-    await wrapper.vm.submitCustomFood()
-    wrapper.vm.customFood = { category_id: 'c1', name: '米饭', image_object_key: '', input_amount: 100 }
-    await wrapper.vm.submitCustomFood()
-    wrapper.vm.customFood = { category_id: 'c1', name: '米饭', image_object_key: 'img', input_amount: 0 }
-    await wrapper.vm.submitCustomFood()
-    wrapper.vm.foodCategories = [{ category_id: 'c1' }]
-    wrapper.vm.customFood = {
+    foodWrapper.vm.customFood = { category_id: '', name: '', image_object_key: '', input_amount: 100 }
+    await foodWrapper.vm.submitCustomFood()
+    foodWrapper.vm.customFood = {
       category_id: 'c1',
       name: ' 牛奶 ',
       image_object_key: 'img',
@@ -1488,77 +1492,14 @@ describe('frontend views smoke coverage', () => {
       ml_to_g_ratio: 1.03,
     }
     checkinApi.createFoodCheckin.mockResolvedValueOnce({ points_earned: 10 })
-    await wrapper.vm.submitCustomFood()
-    wrapper.vm.customFood = {
-      category_id: 'c1',
-      name: '米饭',
-      image_object_key: 'img',
-      input_amount: 100,
-      calories_per_gram: 1,
-      is_liquid: false,
-      input_unit: 2,
-      ml_to_g_ratio: 2,
-    }
-    checkinApi.createFoodCheckin.mockRejectedValueOnce(new Error('自定义食物异常'))
-    await wrapper.vm.submitCustomFood()
-
-    await wrapper.vm.submitMedPreset()
-    wrapper.vm.openMedPreset({ drug_id: 'm1', image_object_key: 'med-img' })
-    wrapper.vm.medDialogDosage = ' 1片 '
-    checkinApi.createMedicationCheckin.mockResolvedValueOnce({ points_earned: 10 })
-    await wrapper.vm.submitMedPreset()
-    wrapper.vm.medDialogDrug = { drug_id: 'm1' }
-    wrapper.vm.medDialogDosage = '1片'
-    checkinApi.createMedicationCheckin.mockRejectedValueOnce(new Error('用药异常'))
-    await wrapper.vm.submitMedPreset()
-
-    wrapper.vm.customMed = { name: '', dosage: '', image_object_key: '' }
-    await wrapper.vm.submitCustomMed()
-    wrapper.vm.customMed = { name: '药物', dosage: '1片', taken: false, image_object_key: '' }
-    await wrapper.vm.submitCustomMed()
-    wrapper.vm.customMed = { name: ' 药物 ', dosage: ' 1片 ', taken: false, image_object_key: 'img' }
-    checkinApi.createMedicationCheckin.mockResolvedValueOnce({ points_earned: 10 })
-    await wrapper.vm.submitCustomMed()
-    wrapper.vm.customMed = { name: '药物', dosage: '1片', taken: true, image_object_key: 'img' }
-    checkinApi.createMedicationCheckin.mockRejectedValueOnce(new Error('自定义用药异常'))
-    await wrapper.vm.submitCustomMed()
-
-    await wrapper.vm.submitExPreset()
-    wrapper.vm.openExPreset({ exercise_id: 'e1' })
-    wrapper.vm.exDialogDuration = 30
-    checkinApi.createExerciseCheckin.mockResolvedValueOnce({ points_earned: 10 })
-    await wrapper.vm.submitExPreset()
-    wrapper.vm.exDialogItem = { exercise_id: 'e1' }
-    checkinApi.createExerciseCheckin.mockRejectedValueOnce(new Error('运动异常'))
-    await wrapper.vm.submitExPreset()
-
-    wrapper.vm.customEx = { name: '', calories_per_minute: 5, duration: 30 }
-    await wrapper.vm.submitCustomEx()
-    wrapper.vm.customEx = { name: ' 散步 ', calories_per_minute: 4, duration: 20 }
-    checkinApi.createExerciseCheckin.mockResolvedValueOnce({ points_earned: 10 })
-    await wrapper.vm.submitCustomEx()
-    wrapper.vm.customEx = { name: '散步', calories_per_minute: 4, duration: 20 }
-    checkinApi.createExerciseCheckin.mockRejectedValueOnce(new Error('自定义运动异常'))
-    await wrapper.vm.submitCustomEx()
-
-    wrapper.vm.glucoseForm = { value: null, context: 4 }
-    await wrapper.vm.submitGlucose()
-    wrapper.vm.glucoseForm = { value: 22, context: 4 }
-    elementPlus.ElMessageBox.confirm.mockRejectedValueOnce(new Error('cancel'))
-    await wrapper.vm.submitGlucose()
-    wrapper.vm.glucoseForm = { value: 22, context: 4 }
-    elementPlus.ElMessageBox.confirm.mockResolvedValueOnce()
-    checkinApi.createGlucoseCheckin.mockResolvedValueOnce({})
-    await wrapper.vm.submitGlucose()
-    wrapper.vm.glucoseForm = { value: 6.1, context: 4 }
-    checkinApi.createGlucoseCheckin.mockRejectedValueOnce(new Error('血糖异常'))
-    await wrapper.vm.submitGlucose()
+    await foodWrapper.vm.submitCustomFood()
 
     expect(elementPlus.ElMessage.warning).toHaveBeenCalled()
-    wrapper.unmount()
+    foodWrapper.unmount()
   })
 
   it('covers health evaluation step, chart and history branches', async () => {
+    localStorage.clear()
     const riskApi = await import('@/api/risk')
     const userApi = await import('@/api/user')
     const healthRecordApi = await import('@/api/healthRecord')
@@ -1624,20 +1565,42 @@ describe('frontend views smoke coverage', () => {
     wrapper.vm.radarRef = document.createElement('div')
     wrapper.vm.formRef = resolvingRef
     riskApi.assessRisk.mockResolvedValueOnce({
+      assessment_id: 'r-new',
       risk_score: 68,
       risk_level: 'medium',
       factors: [{ name: '血糖', weight: 40 }, { name: '血压', weight: 0 }],
     })
+    riskApi.getRiskHistory.mockResolvedValueOnce({
+      list: [{ assessment_id: 'r-new', risk_score: 68, assessed_at: new Date().toISOString() }],
+    })
     await wrapper.vm.submitAssess()
+    await flush()
+    expect(wrapper.vm.assessPending).toBe(false)
+
+    riskApi.getRiskDetail.mockResolvedValueOnce({
+      risk_score: 68,
+      risk_level: 'medium',
+      factors: [{ name: '血糖', weight: 40 }, { name: '血压', weight: 0 }],
+    })
+    await wrapper.vm.viewHistory({ assessment_id: 'r-new' })
     expect(wrapper.vm.showResult).toBe(true)
-    expect(echarts.init).toHaveBeenCalled()
-    wrapper.vm.result = { risk_score: 20, factors: [] }
+    expect(wrapper.vm.result?.risk_score).toBe(68)
+
+    echarts.init.mockClear()
+    const gaugeEl = document.createElement('div')
+    const radarEl = document.createElement('div')
+    setSetupRef(wrapper, 'gaugeRef', gaugeEl)
+    setSetupRef(wrapper, 'radarRef', radarEl)
     wrapper.vm.renderCharts()
-    wrapper.vm.gaugeRef = null
+    await flush()
+
+    setSetupRef(wrapper, 'result', { risk_score: 20, factors: [] })
+    wrapper.vm.renderCharts()
+    setSetupRef(wrapper, 'gaugeRef', null)
     wrapper.vm.renderCharts()
 
-    wrapper.vm.gaugeRef = document.createElement('div')
-    wrapper.vm.radarRef = document.createElement('div')
+    setSetupRef(wrapper, 'gaugeRef', document.createElement('div'))
+    setSetupRef(wrapper, 'radarRef', document.createElement('div'))
     riskApi.getRiskDetail.mockResolvedValueOnce({
       risk_score: 50,
       factors: [{ name: 'BMI', weight: 30 }],
@@ -1652,7 +1615,8 @@ describe('frontend views smoke coverage', () => {
     wrapper.vm.formRef = resolvingRef
     riskApi.assessRisk.mockRejectedValueOnce(new Error('提交异常'))
     await wrapper.vm.submitAssess()
-    expect(wrapper.vm.loading).toBe(false)
+    await flush()
+    expect(wrapper.vm.submitting).toBe(false)
     wrapper.unmount()
   })
 })

@@ -131,7 +131,7 @@ public class PlanService {
                 JsonNode response = callDifyWorkflow(userId, payload);
                 assertWorkflowSucceeded(response);
                 Map<String, Object> parsed = parseDifyPlanResponse(response, defaultPlan);
-                if (parsed != null && hasRequiredPlanSections(parsed)) {
+                if (parsed != null) {
                     parsed.put("aiRaw", response.toString());
                     return parsed;
                 }
@@ -170,10 +170,6 @@ public class PlanService {
                     response.path("error").asText("工作流执行失败"));
             throw new BusinessException(502, "Dify 工作流状态=" + status + ": " + error);
         }
-    }
-
-    private boolean hasRequiredPlanSections(Map<String, Object> parsed) {
-        return parsed.containsKey("dietPlan") && parsed.containsKey("exercisePlan") && parsed.containsKey("restPlan");
     }
 
     private JsonNode callDifyWorkflow(String userId, Map<String, Object> payload) {

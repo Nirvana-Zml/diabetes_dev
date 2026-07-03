@@ -52,14 +52,32 @@ describe('chat api backend SSE mode', () => {
     await expect(chatQA('问题')).rejects.toThrow('问答失败')
   })
 
-  it('omits conversation id when starting a new backend chat', async () => {
+  it('throws when payload type is error', async () => {
     const { chatQA } = await import('../chat')
-    mocks.fetchBackendSSE.mockResolvedValue()
+    mocks.fetchBackendSSE.mockImplementation(async (_url, options) => {
+      options.onEvent({ event: 'message', data: { type: 'error', message: '服务异常' } })
+    })
 
-    await chatQA('新问题')
+    await expect(chatQA('问题')).rejects.toThrow('服务异常')
+  })
 
-    expect(mocks.fetchBackendSSE).toHaveBeenCalledWith('/chat/qa', expect.objectContaining({
-      body: { query: '新问题' },
-    }))
+  it('throws with default message when backend error payload is empty', async () => {
+    const { chatQA } = await import('../chat')
+    mocks.fetchBackendSSE.mockImplementation(async (_url, options) => {
+      options.onEvent({ event: 'error', data: {} })
+    })
+
+    await expect(chatQA('问题')).rejects.toThrow('问答服务失败')
+  })
+
+  it('handles end events emitted only through payload type', async () => {
+    const { chatQA } = await import('../chat')
+    const onEnd = vi.fn()
+    mocks.fetchBackendSSE.mockImplementation(async (_url, options) => {
+      options.onEvent({ event: 'done', data: { type: 'end', conversationId: 'c9' } })
+    })
+
+    await chatQA('结束', { onEnd })
+    expect(onEnd).toHaveBeenCalledWith({ type: 'end', conversation_id: 'c9', metadata: undefined })
   })
 })

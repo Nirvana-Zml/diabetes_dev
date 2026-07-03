@@ -1,0 +1,29 @@
+# 金仓 KingbaseES 单机版（审计库 DIABETES_AUDIT）
+# 启动: docker compose -f docker/kingbase/docker-compose.kingbase.yml up -d
+# 初始化表: docker exec -i diabetes-kingbase ksql -U system -d kingbase -f /docker-entrypoint-initdb.d/kingbase_audit_init.sql
+
+services:
+  kingbase:
+    image: kingbase_v009r001c010b0004_single_x86:v1
+    container_name: diabetes-kingbase
+    ports:
+      - "54321:54321"
+    environment:
+      - TZ=Asia/Shanghai
+      - USER_DATA=data
+      - DB_MODE=mysql
+      - DB_USER=system
+      - DB_PASSWORD=${KINGBASE_PASSWORD:-12345678ab}
+      - ENCODING=UTF-8
+      - NEED_START=yes
+    volumes:
+      - ./data:/home/kingbase/data
+      - ../../db/kingbase_audit_init.sql:/docker-entrypoint-initdb.d/kingbase_audit_init.sql:ro
+    privileged: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/home/kingbase/install/kingbase/bin/ksql -U system -d kingbase -c 'SELECT 1' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 60s

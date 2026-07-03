@@ -1,5 +1,4 @@
 import { get, post } from '@/utils/request'
-import { USE_MOCK } from '@/config'
 import {
   normalizeRiskResult,
   mapRiskRequest,
@@ -23,6 +22,10 @@ export function assessRisk(data) {
 }
 
 /** GET /api/risk/history */
+function resolveRiskRecords(raw = {}) {
+  return raw.records ?? raw.list ?? []
+}
+
 export async function getRiskHistory(params = {}) {
   const data = await get('/risk/history', {
     params: { page: params.page || 1, size: params.page_size || 10 },
@@ -31,8 +34,8 @@ export async function getRiskHistory(params = {}) {
       total: 1,
     }),
   })
-  const raw = USE_MOCK ? data : data
-  const records = raw.records || raw.list || []
+  const raw = data
+  const records = resolveRiskRecords(raw)
   return {
     list: records.map((r) => toSnakeCase(r)),
     total: raw.total ?? records.length,
@@ -44,4 +47,9 @@ export async function getRiskHistory(params = {}) {
 /** GET /api/risk/{id} */
 export function getRiskDetail(id) {
   return get(`/risk/${id}`, { mockFn: async () => mockRiskResult }).then(normalizeRiskResult)
+}
+
+/** @internal 供单元测试覆盖历史列表字段回退 */
+export function resolveRiskRecordsForTest(raw) {
+  return resolveRiskRecords(raw)
 }

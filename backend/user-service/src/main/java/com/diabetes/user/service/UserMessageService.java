@@ -73,6 +73,9 @@ public class UserMessageService {
 
     @Transactional
     public UserMessageResponse createMessage(CreateMessageRequest request) {
+        if ("health_alert".equals(request.messageType())) {
+            return createHealthAlertMessage(request);
+        }
         if (!isMessageNotifyEnabled(request.userId())) {
             return null;
         }
@@ -89,6 +92,50 @@ public class UserMessageService {
         entity.setMessageId(IdGenerator.nextId("msg_"));
         userMessageMapper.insert(entity);
         return toResponse(userMessageMapper.findById(entity.getMessageId()));
+    }
+
+    @Transactional
+    public UserMessageResponse createHealthAlertMessage(CreateMessageRequest request) {
+        if (!isHealthAlertNotifyEnabled(request.userId())) {
+            return null;
+        }
+        String bizId = request.bizId() == null ? IdGenerator.nextId("biz_") : request.bizId();
+        UserMessage existing = userMessageMapper.findByUserTypeBiz(
+                request.userId(), "health_alert", bizId);
+        UserMessage entity = buildEntity(request, bizId);
+        entity.setMessageType("health_alert");
+        if (existing != null) {
+            entity.setMessageId(existing.getMessageId());
+            userMessageMapper.updateByBiz(entity);
+            UserMessage updated = userMessageMapper.findById(existing.getMessageId());
+            return toResponse(updated);
+        }
+        entity.setMessageId(IdGenerator.nextId("msg_"));
+        userMessageMapper.insert(entity);
+        return toResponse(userMessageMapper.findById(entity.getMessageId()));
+    }
+
+    public boolean isHealthAlertNotifyEnabled(String userId) {
+        User user = userMapper.findById(userId);
+        if (user == null || user.getPrivacySettings() == null || user.getPrivacySettings().isBlank()) {
+            return true;
+        }
+        try {
+            Map<String, Object> settings = objectMapper.readValue(
+                    user.getPrivacySettings(), new TypeReference<>() {});
+            if (settings.containsKey("health_alert_notify")) {
+                return !Boolean.FALSE.equals(settings.get("health_alert_notify"));
+            }
+            if (settings.containsKey("message_notify")) {
+                return !Boolean.FALSE.equals(settings.get("message_notify"));
+            }
+            if (settings.containsKey("consult_notify")) {
+                return !Boolean.FALSE.equals(settings.get("consult_notify"));
+            }
+            return true;
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     public boolean isMessageNotifyEnabled(String userId) {

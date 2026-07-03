@@ -36,6 +36,13 @@ public class UserServiceClient {
         postInternal("/api/v1/internal/messages", difyKey, body);
     }
 
+    /**
+     * 触发主动健康干预评估（异步 fire-and-forget，失败静默）。
+     */
+    public void evaluateIntervention(String difyKey, Map<String, Object> body) {
+        postInternal("/api/v1/internal/interventions/evaluate", difyKey, body);
+    }
+
     private Map<String, Object> fetchInternal(String path, String difyKey) {
         try {
             String body = restClient.get()

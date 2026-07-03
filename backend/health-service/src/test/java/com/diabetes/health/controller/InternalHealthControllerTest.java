@@ -313,4 +313,67 @@ class InternalHealthControllerTest {
         assertEquals(401, exception.getCode());
         assertEquals("Dify 内部密钥无效", exception.getMessage());
     }
+
+    @Test
+    void riskHistory() {
+        RiskAssessment assessment = new RiskAssessment();
+        assessment.setAssessmentId("ra_001");
+        assessment.setRiskLevel(2);
+        assessment.setRiskScore(55);
+        assessment.setBmiSnapshot(BigDecimal.valueOf(24.1));
+        assessment.setReportSummary("摘要");
+        assessment.setAssessedAt(LocalDateTime.now());
+
+        when(riskAssessmentMapper.findByUserId("user1", 0, 10)).thenReturn(List.of(assessment));
+        when(riskAssessmentMapper.countByUserId("user1")).thenReturn(1);
+        when(medicalCalculator.riskLevelName(2)).thenReturn("medium");
+
+        var result = controller.riskHistory("user1", 1, 10, null);
+
+        assertEquals(200, result.code());
+        assertEquals(1, result.data().get("total"));
+        List<?> records = (List<?>) result.data().get("records");
+        assertEquals(1, records.size());
+        assertEquals("ra_001", ((Map<?, ?>) records.get(0)).get("assessmentId"));
+    }
+
+    @Test
+    void riskHistory_invalidKey() {
+        InternalHealthController controllerWithKey = new InternalHealthController(
+                healthRecordMapper, riskAssessmentMapper, medicalCalculator, "test-secret-key");
+
+        assertThrows(BusinessException.class,
+                () -> controllerWithKey.riskHistory("user1", 1, 10, "wrong"));
+    }
+
+    @Test
+    void history() {
+        HealthRecord record = new HealthRecord();
+        record.setRecordId("hr_001");
+        record.setHeight(BigDecimal.valueOf(170));
+        record.setWeight(BigDecimal.valueOf(65));
+        record.setBmi(BigDecimal.valueOf(22.5));
+        record.setFastingGlucose(BigDecimal.valueOf(5.5));
+        record.setPostprandialGlucose(BigDecimal.valueOf(7.8));
+        record.setSystolicBp(BigDecimal.valueOf(120));
+        record.setDiastolicBp(BigDecimal.valueOf(80));
+        record.setRecordedAt(LocalDateTime.now());
+
+        when(healthRecordMapper.findByUserId("user1", 5)).thenReturn(List.of(record));
+
+        var result = controller.history("user1", 5, null);
+
+        assertEquals(200, result.code());
+        assertEquals(1, result.data().size());
+        assertEquals("hr_001", result.data().get(0).get("recordId"));
+    }
+
+    @Test
+    void history_limitClamped() {
+        when(healthRecordMapper.findByUserId("user1", 100)).thenReturn(List.of());
+
+        controller.history("user1", 200, null);
+
+        verify(healthRecordMapper).findByUserId("user1", 100);
+    }
 }

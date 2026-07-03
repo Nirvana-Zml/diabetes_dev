@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "test:coverage:gate": "vitest --coverage --run && node scripts/check-coverage.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

@@ -4,7 +4,7 @@ export default [
     name: 'HealthEvaluation',
     component: () => import('@/views/HealthEvaluation/index.vue'),
     meta: {
-      title: '健康评估'
-    }
-  }
+      title: '风险评估',
+    },
+  },
 ]

@@ -1,6 +1,7 @@
 package com.diabetes.user.controller;
 
 import com.diabetes.common.api.ApiResponse;
+import com.diabetes.common.client.AuditServiceClient;
 import com.diabetes.common.exception.BusinessException;
 import com.diabetes.user.config.JwtAuthInterceptor;
 import com.diabetes.user.dto.*;
@@ -29,6 +30,8 @@ class ProfileControllerTest {
     private UserProfileService userProfileService;
     @Mock
     private DataExportService dataExportService;
+    @Mock
+    private AuditServiceClient auditServiceClient;
     @Mock
     private HttpServletRequest request;
 
@@ -82,10 +85,27 @@ class ProfileControllerTest {
     @Test
     void changePassword() {
         ChangePasswordRequest body = new ChangePasswordRequest("old", "newpass123");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn("  ");
+        when(request.getHeader("User-Agent")).thenReturn("JUnit");
+        when(request.getRemoteAddr()).thenReturn("10.0.0.6");
+
         ApiResponse<Void> response = profileController.changePassword(request, body);
 
         verify(userProfileService).changePassword("u_1", body);
+        verify(auditServiceClient).log(eq("u_1"), eq("user.password.change"), eq("u_1"), any(), eq("10.0.0.6"), eq("JUnit"), eq(1));
         assertEquals("密码修改成功", response.message());
+    }
+
+    @Test
+    void changePasswordUsesForwardedFor() {
+        ChangePasswordRequest body = new ChangePasswordRequest("old", "newpass123");
+        when(request.getHeader("X-Forwarded-For")).thenReturn("203.0.113.9, 10.0.0.2");
+        when(request.getHeader("User-Agent")).thenReturn("JUnit");
+
+        profileController.changePassword(request, body);
+
+        verify(auditServiceClient).log(eq("u_1"), eq("user.password.change"), eq("u_1"), any(), eq("203.0.113.9"), eq("JUnit"), eq(1));
     }
 
     @Test
@@ -127,10 +147,14 @@ class ProfileControllerTest {
         ExportTaskResponse task = new ExportTaskResponse(
                 "t_1", "completed", "ok", "http://dl", "f.xlsx", "2024-01-02T00:00:00");
         when(dataExportService.submitExport("u_1", body)).thenReturn(task);
+        when(request.getHeader("X-Forwarded-For")).thenReturn("   ");
+        when(request.getHeader("X-Real-IP")).thenReturn("198.51.100.8");
+        when(request.getHeader("User-Agent")).thenReturn("JUnit");
 
         ApiResponse<ExportTaskResponse> response = profileController.exportData(request, body);
         assertEquals("导出成功", response.message());
         assertEquals(task, response.data());
+        verify(auditServiceClient).log(eq("u_1"), eq("data.export"), eq("t_1"), any(), eq("198.51.100.8"), eq("JUnit"), eq(1));
     }
 
     @Test
@@ -150,7 +174,7 @@ class ProfileControllerTest {
 
     @Test
     void currentUserId_blank() {
-        when(request.getAttribute(JwtAuthInterceptor.ATTR_USER_ID)).thenReturn("  ");
-        assertThrows(BusinessException.class, () -> profileController.getProfile(request));
+        when(request.getAttribute(JwtAuthInterceptor.ATTR_USER_ID)).thenReturn("   ");
+        assertThrows(BusinessException.class, () -> profileController.overview(request));
     }
 }

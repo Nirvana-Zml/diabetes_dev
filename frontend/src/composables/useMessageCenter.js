@@ -1,6 +1,6 @@
-import { shallowRef, h } from 'vue'
-import { ElNotification, ElButton } from 'element-plus'
+import { shallowRef } from 'vue'
 import router from '@/router'
+import { showInAppNotification as openInAppNotification } from '@/utils/inAppNotification'
 import { useUserStore } from '@/stores/user'
 import {
   getMessages,
@@ -15,6 +15,10 @@ import {
 } from '@/utils/notification'
 
 const POLL_INTERVAL_MS = 30_000
+
+function resolveUnreadCount(countRes) {
+  return countRes?.unread_count ?? countRes?.unreadCount ?? 0
+}
 
 export const unreadCount = shallowRef(0)
 export const messageList = shallowRef([])
@@ -52,7 +56,7 @@ function shouldSuppressOnCurrentPage(msg) {
   }
 
   if (route.path === loc.path) {
-    const q = loc.query || {}
+    const q = loc.query
     const keys = Object.keys(q)
     if (keys.length === 0) return true
     return keys.every((k) => String(route.query[k] ?? '') === String(q[k] ?? ''))
@@ -80,8 +84,9 @@ function notificationTitle(msg) {
     const map = {
       risk_assess: '风险评估失败',
       plan_generate: '方案生成失败',
-      checkin_analysis: '打卡分析失败',
-    }
+    checkin_analysis: '打卡分析失败',
+    health_alert: '健康预警',
+  }
     return map[type] || msg.title || '任务失败'
   }
   const map = {
@@ -89,6 +94,7 @@ function notificationTitle(msg) {
     plan_generate: '健康方案已就绪',
     consult_reply: '医生已回复',
     checkin_analysis: '打卡分析已更新',
+    health_alert: '健康指标需关注',
   }
   return map[type] || msg.title || '消息通知'
 }
@@ -107,24 +113,20 @@ function showInAppNotification(msg) {
   const isFailed = msg.status === 'failed'
   let dismissedByAction = false
 
-  const notifyInstance = ElNotification({
+  const notifyInstance = openInAppNotification({
     title: notificationTitle(msg),
     type: isFailed ? 'warning' : 'success',
-    message: h('div', {}, [
-      h('p', { style: 'margin:0 0 8px;line-height:1.5;' }, msg.summary || msg.title || ''),
-      h(ElButton, {
-        type: 'primary',
-        size: 'small',
-        onClick: (e) => {
-          e.stopPropagation()
-          dismissedByAction = true
-          notifyInstance.close()
-          openMessage(msg)
-        },
-      }, () => actionLabel(msg)),
-    ]),
-    duration: 8000,
-    showClose: true,
+    summary: msg.summary || msg.title || '',
+    actions: [{
+      label: actionLabel(msg),
+      type: 'primary',
+      onClick: (e) => {
+        e.stopPropagation()
+        dismissedByAction = true
+        notifyInstance.close()
+        openMessage(msg)
+      },
+    }],
     onClose: () => {
       if (dismissedByAction) return
     },
@@ -177,7 +179,7 @@ async function pollOnce() {
   }
   try {
     const countRes = await getUnreadMessageCount()
-    unreadCount.value = countRes?.unread_count ?? countRes?.unreadCount ?? 0
+    unreadCount.value = resolveUnreadCount(countRes)
 
     if (unreadCount.value <= 0) return
 
@@ -188,7 +190,7 @@ async function pollOnce() {
     await autoMarkConsultOnPage(list)
     if (unreadCount.value > 0) {
       const refreshed = await getUnreadMessageCount()
-      unreadCount.value = refreshed?.unread_count ?? refreshed?.unreadCount ?? 0
+      unreadCount.value = resolveUnreadCount(refreshed)
     }
 
     const canBrowserPush = isNotificationSupported()
@@ -223,7 +225,7 @@ export function useMessageCenter() {
     }
     const res = await getMessages({ limit: 20 })
     messageList.value = res?.list || []
-    unreadCount.value = res?.unread_count ?? res?.unreadCount ?? 0
+    unreadCount.value = resolveUnreadCount(res)
     return res
   }
 
@@ -277,4 +279,21 @@ export function useMessageCenter() {
     unreadCount,
     messageList,
   }
+}
+
+/** @internal 供单元测试覆盖通知分支 */
+export const messageCenterTestUtils = {
+  showInAppNotification,
+  showBrowserNotification,
+  openMessage,
+  shouldSuppressOnCurrentPage,
+  autoMarkConsultOnPage,
+  notificationTitle,
+  actionLabel,
+  buildRouteLocation,
+  pollOnce,
+  resolveUnreadCount,
+  setRunning(value) {
+    running = value
+  },
 }

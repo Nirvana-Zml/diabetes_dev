@@ -21,6 +21,10 @@ export async function getDepartments() {
   return Array.isArray(data) ? data : []
 }
 
+function resolveConsultSessionList(data) {
+  return data?.sessions || data?.list || []
+}
+
 export async function listConsultations(params = {}) {
   const page = params.page || 1
   const pageSize = params.page_size || params.size || 20
@@ -31,7 +35,7 @@ export async function listConsultations(params = {}) {
       status: params.status,
     },
   })
-  const raw = data?.sessions || data?.list || []
+  const raw = resolveConsultSessionList(data)
   const list = raw.map((item) => {
     const s = toSnakeCase(item)
     return {
@@ -95,4 +99,14 @@ export async function closeConsultation(sessionId, data) {
     rating: data.rating,
     feedback: data.feedback,
   })
+}
+
+/** @internal 供单元测试覆盖消息归一化分支 */
+export function normalizeConsultMessageForTest(item) {
+  return normalizeMessage(item)
+}
+
+/** @internal 供单元测试覆盖会话列表字段回退 */
+export function resolveConsultSessionListForTest(data) {
+  return resolveConsultSessionList(data)
 }

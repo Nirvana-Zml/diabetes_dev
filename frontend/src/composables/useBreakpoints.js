@@ -3,7 +3,9 @@ import { ref, onMounted, onUnmounted } from 'vue'
 export const MOBILE_MAX = 768
 
 export function useIsMobile(maxWidth = MOBILE_MAX) {
-  const isMobile = ref(false)
+  const isMobile = ref(
+    typeof window !== 'undefined' && window.matchMedia(`(max-width: ${maxWidth}px)`).matches,
+  )
   let mql
 
   function sync() {

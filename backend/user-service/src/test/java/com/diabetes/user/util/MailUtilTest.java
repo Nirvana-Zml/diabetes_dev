@@ -72,6 +72,13 @@ class MailUtilTest {
     @Test
     void sendMail_masksNullEmail() {
         ReflectionTestUtils.setField(mailUtil, "fromAddress", "noreply@test.com");
+        mailUtil.sendMail(null, "sub", "text");
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void sendMail_masksInvalidEmail() {
+        ReflectionTestUtils.setField(mailUtil, "fromAddress", "noreply@test.com");
         mailUtil.sendMail("invalid", "sub", "text");
         verify(mailSender).send(any(SimpleMailMessage.class));
     }

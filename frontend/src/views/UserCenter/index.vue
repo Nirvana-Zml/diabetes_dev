@@ -11,7 +11,14 @@
         <svg class="alert-banner__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
-        <p class="alert-banner__text">{{ healthAlert.message }}</p>
+        <div class="alert-banner__body">
+          <p class="alert-banner__text">{{ healthAlert.message }}</p>
+          <p v-if="healthAlert.suggestion" class="alert-banner__sub">{{ healthAlert.suggestion }}</p>
+          <div class="alert-banner__actions">
+            <el-button size="small" type="primary" @click="goGlucoseCheckin">记录血糖</el-button>
+            <el-button size="small" @click="ackHealthAlert">知道了</el-button>
+          </div>
+        </div>
       </div>
 
       <div class="uc-layout">
@@ -57,7 +64,7 @@
         <!-- 右侧：健康档案与服务 -->
         <div class="uc-main">
       <!-- AI 健康趋势总结 -->
-      <div class="section-card trend-card">
+      <div class="section-card trend-card" v-loading="trendLoading">
         <div class="section-header">
           <div class="section-title-wrap">
             <svg class="section-title-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -68,6 +75,7 @@
           <span class="ai-tag">AI 总结</span>
         </div>
         <p class="trend-text">{{ trendSummary || '暂无足够数据生成趋势分析' }}</p>
+        <p v-if="trendLoading && !trendSummary" class="trend-hint">正在更新 AI 分析…</p>
       </div>
 
       <!-- 健康档案 -->
@@ -361,7 +369,13 @@ import {
   getHealthTrendSummary,
   getUserConsultations,
   updatePrivacySettings,
+  acknowledgeHealthIntervention,
 } from '@/api/user'
+import {
+  readHealthTrendCache,
+  writeHealthTrendCache,
+  clearHealthTrendCache,
+} from '@/composables/useHealthTrendCache'
 import { getCheckinStats } from '@/api/checkin'
 import { useUserStore } from '@/stores/user'
 import {
@@ -418,6 +432,7 @@ const profile = ref(null)
 const health = ref({})
 const healthAlert = ref(null)
 const trendSummary = ref('')
+const trendLoading = ref(false)
 const consultCount = ref(0)
 const checkinStats = ref({})
 
@@ -490,28 +505,72 @@ onMounted(async () => {
 async function loadPage() {
   pageLoading.value = true
   try {
-    const [p, h, alert, trend, consults, stats] = await Promise.all([
+    const [profileRes, healthRes, alertRes, consultRes, statsRes] = await Promise.allSettled([
       getUserProfile(),
       getHealthRecord(),
       getHealthAlert(),
-      getHealthTrendSummary(),
       getUserConsultations(),
       getCheckinStats(),
     ])
-    profile.value = p
-    health.value = h
-    healthAlert.value = alert
-    trendSummary.value = trend.summary
-    consultCount.value = consults.total
-    checkinStats.value = stats
-    const ps = p.privacy_settings || {}
-    privacy.data_visible = ps.data_visible ?? true
-    privacy.checkin_notify = ps.checkin_notify ?? true
-    privacy.message_notify = ps.message_notify ?? ps.consult_notify ?? true
-    privacy.marketing_notify = ps.marketing_notify ?? false
-    userStore.profile = p
+
+    if (profileRes.status === 'fulfilled') {
+      profile.value = profileRes.value
+      userStore.profile = profileRes.value
+      const ps = profileRes.value.privacy_settings || {}
+      privacy.data_visible = ps.data_visible ?? true
+      privacy.checkin_notify = ps.checkin_notify ?? true
+      privacy.message_notify = ps.message_notify ?? ps.consult_notify ?? true
+      privacy.marketing_notify = ps.marketing_notify ?? false
+      applyTrendCache(profileRes.value?.user_id)
+    } else {
+      console.error('加载用户资料失败', profileRes.reason)
+    }
+
+    if (healthRes.status === 'fulfilled') {
+      health.value = healthRes.value
+    } else {
+      console.error('加载健康档案失败', healthRes.reason)
+    }
+
+    if (alertRes.status === 'fulfilled') {
+      healthAlert.value = alertRes.value
+    }
+
+    if (consultRes.status === 'fulfilled') {
+      consultCount.value = consultRes.value?.total ?? 0
+    }
+
+    if (statsRes.status === 'fulfilled') {
+      checkinStats.value = statsRes.value
+    } else {
+      console.error('加载打卡统计失败', statsRes.reason)
+    }
   } finally {
     pageLoading.value = false
+  }
+}
+
+function applyTrendCache(userId) {
+  const cached = readHealthTrendCache(userId)
+  if (cached?.summary) {
+    trendSummary.value = cached.summary
+  }
+}
+
+async function refreshHealthTrend({ force = false } = {}) {
+  const userId = profile.value?.user_id
+  if (!userId) return
+  trendLoading.value = true
+  try {
+    const trend = await getHealthTrendSummary(30, { force })
+    if (trend?.summary) {
+      trendSummary.value = trend.summary
+      writeHealthTrendCache(userId, trend, health.value?.recorded_at)
+    }
+  } catch {
+    /* 保留缓存或占位文案 */
+  } finally {
+    trendLoading.value = false
   }
 }
 
@@ -549,6 +608,8 @@ function onProfileSaved(data) {
 
 function onHealthSaved(data) {
   health.value = data
+  clearHealthTrendCache(profile.value?.user_id)
+  refreshHealthTrend({ force: true })
 }
 
 function handleMenu(item) {
@@ -561,6 +622,22 @@ function handleMenu(item) {
 async function savePrivacy() {
   await updatePrivacySettings({ ...privacy })
   ElMessage.success('设置已保存')
+}
+
+function goGlucoseCheckin() {
+  router.push('/checkin-records/glucose')
+}
+
+async function ackHealthAlert() {
+  const planId = healthAlert.value?.plan_id || healthAlert.value?.planId
+  if (planId) {
+    try {
+      await acknowledgeHealthIntervention(planId)
+    } catch {
+      /* ignore */
+    }
+  }
+  healthAlert.value = { ...healthAlert.value, has_alert: false, active: false }
 }
 
 async function handleLogout() {
@@ -658,6 +735,24 @@ async function handleLogout() {
   margin: 0;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.alert-banner__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-banner__sub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #78716c;
+  line-height: 1.5;
+}
+
+.alert-banner__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 /* 个人信息卡片 */
@@ -874,6 +969,12 @@ async function handleLogout() {
   font-size: 14px;
   color: #4b5563;
   line-height: 1.7;
+}
+
+.trend-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .text-link {

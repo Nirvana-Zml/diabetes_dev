@@ -16,6 +16,8 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Ngrok 等隧道：Nginx 会把公网 Host 原样转发，需放行 *.ngrok-free.* 等域名
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app', '.ngrok.io'],
     proxy: {
       '^/api/v1/(auth|user)(/|$)': {
         target: userServiceTarget,
@@ -48,7 +50,7 @@ export default defineConfig({
     globals: true,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'json-summary'],
+      reporter: ['text', 'html', 'json-summary', 'json'],
       reportsDirectory: './coverage',
       include: ['src/**/*.{js,vue}'],
       exclude: [

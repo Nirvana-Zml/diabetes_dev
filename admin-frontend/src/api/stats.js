@@ -11,3 +11,7 @@ export function getStatsTrends(days = 30) {
 export function getStatsUsers(params = {}) {
   return get('/admin/stats/users', { params })
 }
+
+export function getStatsUserBrief(subjectId) {
+  return get(`/admin/stats/users/${subjectId}/brief`)
+}

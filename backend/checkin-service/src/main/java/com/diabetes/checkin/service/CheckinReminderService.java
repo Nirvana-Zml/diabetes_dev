@@ -59,7 +59,7 @@ public class CheckinReminderService {
 
     @Transactional
     public List<Map<String, Object>> saveRules(String userId, ReminderRulesSaveRequest request) {
-        ruleMapper.deleteByUserId(userId);
+        ruleMapper.deleteByUserIdAndSource(userId, "user");
         int order = 0;
         for (ReminderRuleItemRequest item : request.getRules()) {
             CheckinReminderRule rule = new CheckinReminderRule();
@@ -68,10 +68,73 @@ public class CheckinReminderService {
             rule.setCheckinType(item.getCheckinType());
             rule.setRemindTime(parseRemindTime(item.getRemindTime()));
             rule.setEnabled(item.getEnabled() == null || item.getEnabled());
+            rule.setRuleSource("user");
             rule.setSortOrder(item.getSortOrder() != null ? item.getSortOrder() : order++);
             ruleMapper.insert(rule);
         }
         return getRules(userId);
+    }
+
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public void applySystemAdjust(String userId, String interventionId,
+                                    List<Map<String, Object>> adjustments, LocalDateTime expiresAt) {
+        ruleMapper.deleteExpiredSystemRules(userId, LocalDateTime.now());
+        if (adjustments == null || adjustments.isEmpty()) {
+            return;
+        }
+        int order = 100;
+        for (Map<String, Object> adjustment : adjustments) {
+            int checkinType = ((Number) adjustment.getOrDefault("checkin_type", adjustment.get("checkinType"))).intValue();
+            String action = String.valueOf(adjustment.getOrDefault("action", "add_times"));
+            int durationDays = adjustment.containsKey("duration_days")
+                    ? ((Number) adjustment.get("duration_days")).intValue()
+                    : 7;
+            LocalDateTime ruleExpires = expiresAt != null ? expiresAt : LocalDateTime.now().plusDays(durationDays);
+
+            if ("apply_defaults".equals(action)) {
+                Map<String, Object> defaults = getDefaults();
+                Object rulesObj = defaults.get("rules");
+                if (rulesObj instanceof List<?> defaultRules) {
+                    for (Object item : defaultRules) {
+                        if (item instanceof Map<?, ?> map) {
+                            int type = ((Number) map.get("checkinType")).intValue();
+                            insertSystemRuleIfAbsent(userId, interventionId, type,
+                                    parseRemindTime(String.valueOf(map.get("remindTime"))),
+                                    ruleExpires, order++);
+                        }
+                    }
+                }
+                continue;
+            }
+
+            Object timesObj = adjustment.get("times");
+            if (!(timesObj instanceof List<?> times)) {
+                continue;
+            }
+            for (Object timeObj : times) {
+                LocalTime remindTime = parseRemindTime(String.valueOf(timeObj));
+                insertSystemRuleIfAbsent(userId, interventionId, checkinType, remindTime, ruleExpires, order++);
+            }
+        }
+    }
+
+    private void insertSystemRuleIfAbsent(String userId, String interventionId, int checkinType,
+                                          LocalTime remindTime, LocalDateTime expiresAt, int sortOrder) {
+        if (ruleMapper.findUserRule(userId, checkinType, remindTime) != null) {
+            return;
+        }
+        CheckinReminderRule rule = new CheckinReminderRule();
+        rule.setRuleId(IdGenerator.nextId("rul_"));
+        rule.setUserId(userId);
+        rule.setCheckinType(checkinType);
+        rule.setRemindTime(remindTime);
+        rule.setEnabled(true);
+        rule.setRuleSource("system");
+        rule.setInterventionId(interventionId);
+        rule.setExpiresAt(expiresAt);
+        rule.setSortOrder(sortOrder);
+        ruleMapper.insert(rule);
     }
 
     public Map<String, Object> getDefaults() {
@@ -116,7 +179,7 @@ public class CheckinReminderService {
                         pending.add(buildPendingItem(rule, log, true));
                         continue;
                     }
-                } else if (log.getStatus() != STATUS_SNOOZE) {
+                } else {
                     continue;
                 }
             }
@@ -214,6 +277,12 @@ public class CheckinReminderService {
         map.put("remindTime", rule.getRemindTime().format(TIME_FMT));
         map.put("enabled", rule.getEnabled());
         map.put("sortOrder", rule.getSortOrder());
+        map.put("ruleSource", rule.getRuleSource() == null ? "user" : rule.getRuleSource());
+        map.put("interventionId", rule.getInterventionId());
+        map.put("expiresAt", rule.getExpiresAt());
+        if ("system".equals(rule.getRuleSource())) {
+            map.put("systemSuggested", true);
+        }
         return map;
     }
 

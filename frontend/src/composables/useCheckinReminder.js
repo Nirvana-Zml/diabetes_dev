@@ -1,6 +1,6 @@
-import { shallowRef, h } from 'vue'
-import { ElNotification, ElButton } from 'element-plus'
+import { shallowRef } from 'vue'
 import router from '@/router'
+import { showInAppNotification as openInAppNotification } from '@/utils/inAppNotification'
 import {
   getPendingReminders,
   ackReminder,
@@ -23,7 +23,7 @@ let pollTimer = null
 let running = false
 
 function tabPath(tab) {
-  return { path: '/checkin-records', query: { tab } }
+  return { path: `/checkin-records/${tab}` }
 }
 
 async function goCheckin(tab, logId) {
@@ -45,34 +45,30 @@ function showInAppNotification(item) {
   const tab = item.tab || 'food'
   let dismissedByAction = false
 
-  const notifyInstance = ElNotification({
+  const notifyInstance = openInAppNotification({
     title: item.title || `${item.checkin_type_label || '打卡'}提醒`,
-    message: h('div', {}, [
-      h('p', { style: 'margin:0 0 8px;line-height:1.5;' }, item.body || '尚未完成今日打卡'),
-      h('div', { style: 'display:flex;gap:8px;' }, [
-        h(ElButton, {
-          type: 'primary',
-          size: 'small',
-          onClick: (e) => {
-            e.stopPropagation()
-            dismissedByAction = true
-            notifyInstance.close()
-            goCheckin(tab, logId)
-          },
-        }, () => '去打卡'),
-        h(ElButton, {
-          size: 'small',
-          onClick: (e) => {
-            e.stopPropagation()
-            dismissedByAction = true
-            notifyInstance.close()
-            snoozeReminder(logId, 15).then(() => shownLogIds.delete(logId)).catch(() => {})
-          },
-        }, () => '稍后提醒'),
-      ]),
-    ]),
-    duration: 8000,
-    showClose: true,
+    summary: item.body || '尚未完成今日打卡',
+    actions: [
+      {
+        label: '去打卡',
+        type: 'primary',
+        onClick: (e) => {
+          e.stopPropagation()
+          dismissedByAction = true
+          notifyInstance.close()
+          goCheckin(tab, logId)
+        },
+      },
+      {
+        label: '稍后提醒',
+        onClick: (e) => {
+          e.stopPropagation()
+          dismissedByAction = true
+          notifyInstance.close()
+          snoozeReminder(logId, 15).then(() => shownLogIds.delete(logId)).catch(() => {})
+        },
+      },
+    ],
     onClose: () => {
       if (dismissedByAction) return
       ackReminder(logId).catch(() => {})
@@ -101,7 +97,7 @@ async function pollOnce() {
     const list = await getPendingReminders()
     pendingReminders.value = list
 
-    const onCheckinPage = router.currentRoute.value.path === '/checkin-records'
+    const onCheckinPage = router.currentRoute.value.path.startsWith('/checkin-records')
     const canBrowserPush = isNotificationSupported()
       && getNotificationPermission() === 'granted'
       && document.visibilityState === 'hidden'
@@ -149,4 +145,10 @@ export function useCheckinReminder() {
   }
 
   return { start, stop, refresh, pendingReminders }
+}
+
+/** @internal 供单元测试覆盖通知分支 */
+export const checkinReminderTestUtils = {
+  showInAppNotification,
+  showBrowserNotification,
 }

@@ -13,5 +13,13 @@ public interface CheckinReminderRuleMapper {
 
     int deleteByUserId(@Param("userId") String userId);
 
+    int deleteByUserIdAndSource(@Param("userId") String userId, @Param("ruleSource") String ruleSource);
+
+    int deleteExpiredSystemRules(@Param("userId") String userId, @Param("now") java.time.LocalDateTime now);
+
+    CheckinReminderRule findUserRule(@Param("userId") String userId,
+                                     @Param("checkinType") int checkinType,
+                                     @Param("remindTime") java.time.LocalTime remindTime);
+
     int insert(CheckinReminderRule rule);
 }

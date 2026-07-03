@@ -5,6 +5,11 @@ import com.diabetes.checkin.dto.FoodCheckinRequest;
 import com.diabetes.checkin.dto.GlucoseCheckinRequest;
 import com.diabetes.checkin.dto.ImageUploadResponse;
 import com.diabetes.checkin.dto.MedicationCheckinRequest;
+import com.diabetes.checkin.dto.ReminderRuleItemRequest;
+import com.diabetes.checkin.dto.ReminderRulesSaveRequest;
+import com.diabetes.checkin.dto.ReminderSnoozeRequest;
+import com.diabetes.checkin.entity.CheckinReminderLog;
+import com.diabetes.checkin.entity.CheckinReminderRule;
 import com.diabetes.checkin.entity.CheckinDietDetail;
 import com.diabetes.checkin.entity.CheckinExerciseDetail;
 import com.diabetes.checkin.entity.CheckinGlucoseDetail;
@@ -19,6 +24,8 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,7 +45,9 @@ class CheckinModelTest {
         food.setMlToGRatio(new BigDecimal("1.1"));
         food.setCategoryId("cat");
         food.setImageObjectKey("key");
+        food.setRecordTime("08:00");
         assertEquals("2024-01-01", food.getCheckinDate());
+        assertEquals("08:00", food.getRecordTime());
         assertEquals(1, food.getMealPeriod());
         assertEquals(2, food.getSourceType());
         assertEquals("food", food.getFoodId());
@@ -95,6 +104,22 @@ class CheckinModelTest {
         assertEquals("id2", full.getImageId());
         assertEquals("key2", full.getObjectKey());
         assertEquals("url2", full.getImageUrl());
+
+        ReminderRuleItemRequest ruleItem = new ReminderRuleItemRequest();
+        ruleItem.setCheckinType(1);
+        ruleItem.setRemindTime("08:00");
+        ruleItem.setEnabled(false);
+        ruleItem.setSortOrder(2);
+        assertFalse(ruleItem.getEnabled());
+        assertEquals(2, ruleItem.getSortOrder());
+
+        ReminderRulesSaveRequest rulesSave = new ReminderRulesSaveRequest();
+        rulesSave.setRules(List.of(ruleItem));
+        assertEquals(1, rulesSave.getRules().size());
+
+        ReminderSnoozeRequest snooze = new ReminderSnoozeRequest();
+        snooze.setMinutes(30);
+        assertEquals(30, snooze.getMinutes());
     }
 
     @Test
@@ -191,5 +216,45 @@ class CheckinModelTest {
         preset.setExerciseName("跑步");
         preset.setCaloriesPerMinute(BigDecimal.ONE);
         assertEquals("跑步", preset.getExerciseName());
+
+        CheckinReminderLog reminderLog = new CheckinReminderLog();
+        reminderLog.setLogId("l1");
+        reminderLog.setUserId("u1");
+        reminderLog.setRuleId("r1");
+        reminderLog.setCheckinType(1);
+        reminderLog.setRemindDate(date);
+        reminderLog.setChannel("in_app");
+        reminderLog.setStatus(0);
+        reminderLog.setSnoozeUntil(time);
+        reminderLog.setSnoozeCount(1);
+        reminderLog.setCreatedAt(time);
+        reminderLog.setUpdatedAt(time);
+        assertEquals("l1", reminderLog.getLogId());
+        assertEquals("u1", reminderLog.getUserId());
+        assertEquals("r1", reminderLog.getRuleId());
+        assertEquals(1, reminderLog.getCheckinType());
+        assertEquals(date, reminderLog.getRemindDate());
+        assertEquals("in_app", reminderLog.getChannel());
+        assertEquals(1, reminderLog.getSnoozeCount());
+        assertEquals(time, reminderLog.getCreatedAt());
+        assertEquals(time, reminderLog.getUpdatedAt());
+
+        CheckinReminderRule reminderRule = new CheckinReminderRule();
+        reminderRule.setRuleId("r1");
+        reminderRule.setUserId("u1");
+        reminderRule.setCheckinType(1);
+        reminderRule.setRemindTime(LocalTime.of(8, 0));
+        reminderRule.setEnabled(true);
+        reminderRule.setRuleSource("user");
+        reminderRule.setInterventionId("int_1");
+        reminderRule.setExpiresAt(time);
+        reminderRule.setSortOrder(0);
+        reminderRule.setCreatedAt(time);
+        reminderRule.setUpdatedAt(time);
+        assertEquals("user", reminderRule.getRuleSource());
+        assertEquals("int_1", reminderRule.getInterventionId());
+        assertEquals("u1", reminderRule.getUserId());
+        assertEquals(time, reminderRule.getCreatedAt());
+        assertEquals(time, reminderRule.getUpdatedAt());
     }
 }

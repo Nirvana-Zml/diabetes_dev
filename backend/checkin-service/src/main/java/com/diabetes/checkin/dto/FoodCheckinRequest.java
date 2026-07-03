@@ -42,6 +42,8 @@ public class FoodCheckinRequest {
 
     private String categoryId;
     private String imageObjectKey;
+    /** 可选，格式 HH:mm 或 ISO 日期时间 */
+    private String recordTime;
 
     public String getCheckinDate() { return checkinDate; }
     public void setCheckinDate(String checkinDate) { this.checkinDate = checkinDate; }
@@ -65,4 +67,6 @@ public class FoodCheckinRequest {
     public void setCategoryId(String categoryId) { this.categoryId = categoryId; }
     public String getImageObjectKey() { return imageObjectKey; }
     public void setImageObjectKey(String imageObjectKey) { this.imageObjectKey = imageObjectKey; }
+    public String getRecordTime() { return recordTime; }
+    public void setRecordTime(String recordTime) { this.recordTime = recordTime; }
 }

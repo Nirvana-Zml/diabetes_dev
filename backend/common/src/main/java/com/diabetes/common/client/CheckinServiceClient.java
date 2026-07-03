@@ -47,4 +47,17 @@ public class CheckinServiceClient {
         summary.put("records", getRecentCheckins(userId, difyKey, days));
         return summary;
     }
+
+    public void applySystemReminderAdjust(String difyKey, Map<String, Object> body) {
+        try {
+            restClient.post()
+                    .uri("/api/v1/internal/reminders/system-adjust")
+                    .header("X-Dify-Key", difyKey == null ? "" : difyKey)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+        } catch (Exception ignored) {
+            // 提醒调整失败不阻断干预主流程
+        }
+    }
 }

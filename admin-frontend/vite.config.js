@@ -16,6 +16,7 @@ export default defineConfig({
   server: {
     port: 5174,
     host: true,
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app', '.ngrok.io'],
     proxy: {
       '^/api/v1/(auth|user|admin/stats)(/|$)': {
         target: userServiceTarget,
@@ -47,6 +48,26 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/dify-proxy/, ''),
         timeout: 300000,
         proxyTimeout: 300000,
+      },
+    },
+  },
+  test: {
+    environment: 'happy-dom',
+    globals: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary', 'json'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{js,vue}'],
+      exclude: [
+        'src/**/*.test.js',
+        'src/**/*.spec.js',
+      ],
+      thresholds: {
+        statements: 0,
+        branches: 0,
+        functions: 0,
+        lines: 0,
       },
     },
   },

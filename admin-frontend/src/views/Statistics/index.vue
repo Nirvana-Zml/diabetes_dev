@@ -19,6 +19,15 @@
     </header>
 
     <main class="admin-main" v-loading="loading">
+      <el-alert
+        v-if="focusedUser"
+        type="info"
+        :closable="true"
+        class="focus-alert"
+        @close="clearFocusedUser"
+      >
+        来自审计日志的用户：{{ focusedUser.nickname || focusedUser.username }}（{{ focusedUser.subject_id }}）
+      </el-alert>
       <section class="stat-grid">
         <div v-for="card in summaryCards" :key="card.label" class="stat-card">
           <span class="stat-label">{{ card.label }}</span>
@@ -108,13 +117,15 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getStatsOverview, getStatsTrends, getStatsUsers } from '@/api/stats'
+import { getStatsOverview, getStatsTrends, getStatsUsers, getStatsUserBrief } from '@/api/stats'
 import DistributionBars from './DistributionBars.vue'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
+const focusedUser = ref(null)
 const overview = ref(null)
 const trends = ref(null)
 const users = ref([])
@@ -191,12 +202,31 @@ async function reload() {
   }
 }
 
+async function loadFocusedUser() {
+  const userId = route.query.userId
+  if (!userId || typeof userId !== 'string') {
+    focusedUser.value = null
+    return
+  }
+  try {
+    focusedUser.value = await getStatsUserBrief(userId)
+  } catch {
+    focusedUser.value = { subject_id: userId, username: userId, nickname: userId, role: 'unknown' }
+  }
+}
+
+function clearFocusedUser() {
+  focusedUser.value = null
+  router.replace({ path: '/statistics' })
+}
+
 function onPageSizeChange() {
   page.value = 1
   loadUsers().catch((err) => ElMessage.error(err.message || '加载用户列表失败'))
 }
 
 onMounted(() => {
+  loadFocusedUser()
   reload()
 })
 </script>
@@ -238,6 +268,9 @@ onMounted(() => {
   max-width: var(--content-max);
   margin: 0 auto;
   padding: 24px var(--edge-padding) 64px;
+}
+.focus-alert {
+  margin-bottom: 16px;
 }
 .stat-grid {
   display: grid;

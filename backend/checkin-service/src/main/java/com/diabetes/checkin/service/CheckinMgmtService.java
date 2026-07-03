@@ -1,6 +1,7 @@
 package com.diabetes.checkin.service;
 
 import com.diabetes.checkin.dify.DifyCheckinAnalysisWorkflowContract;
+import com.diabetes.common.client.InterventionClientHelper;
 import com.diabetes.common.client.UserMessageClientHelper;
 import com.diabetes.common.client.HealthServiceClient;
 import com.diabetes.common.client.UserServiceClient;
@@ -78,6 +79,7 @@ public class CheckinMgmtService {
                     parsed.put("source", "dify");
                     UserMessageClientHelper.notifyCheckinAnalysisCompleted(userServiceClient, difyInternalKey,
                             userId, start.toString(), end.toString());
+                    triggerAnalysisIntervention(userId, start, end, parsed);
                     return parsed;
                 }
                 log.warn("Dify 行为分析响应缺少 summary，降级本地总结");
@@ -286,5 +288,21 @@ public class CheckinMgmtService {
         result.put("improvements", List.of("建议固定每日打卡时间", "增加运动打卡频率"));
         result.put("source", "local");
         return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void triggerAnalysisIntervention(String userId, LocalDate start, LocalDate end,
+                                             Map<String, Object> parsed) {
+        Object anomaliesObj = parsed.get("anomalies");
+        if (!(anomaliesObj instanceof List<?> list) || list.isEmpty()) {
+            return;
+        }
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("period_start", start.toString());
+        context.put("period_end", end.toString());
+        context.put("anomalies", list);
+        context.put("improvements", parsed.get("improvements"));
+        InterventionClientHelper.triggerEvaluate(userServiceClient, difyInternalKey,
+                userId, "checkin_analysis_done", context);
     }
 }

@@ -71,7 +71,7 @@ public class MedicalCalculator {
             score += 10;
             factors.add(factor("缺乏运动", 10, "运动频率不足"));
         }
-        if ("high-sugar".equals(request.getDietType()) || "high-fat".equals(request.getDietType())) {
+        if (isUnhealthyDiet(request.getDietType())) {
             score += 10;
             factors.add(factor("不良饮食习惯", 10, "饮食模式不利于血糖控制"));
         }
@@ -98,6 +98,15 @@ public class MedicalCalculator {
             case 3 -> "high";
             default -> "medium";
         };
+    }
+
+    /** 兼容 high_sugar / high-sugar、high_fat / high-fat 等写法 */
+    private boolean isUnhealthyDiet(String dietType) {
+        if (dietType == null || dietType.isBlank()) {
+            return false;
+        }
+        String normalized = dietType.trim().toLowerCase().replace('_', '-');
+        return "high-sugar".equals(normalized) || "high-fat".equals(normalized);
     }
 
     private Map<String, Object> factor(String name, int weight, String description) {

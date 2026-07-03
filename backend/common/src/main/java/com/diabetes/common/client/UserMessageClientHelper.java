@@ -86,6 +86,20 @@ public final class UserMessageClientHelper {
                 bizId, "/checkin-analysis", Map.of(), extra));
     }
 
+    public static void notifyHealthAlert(UserServiceClient client, String difyKey,
+                                         String userId, String planId, String severity,
+                                         String title, String summary, String suggestion) {
+        Map<String, Object> linkQuery = Map.of("section", "health-alert");
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("severity", severity);
+        extra.put("plan_id", planId);
+        if (suggestion != null && !suggestion.isBlank()) {
+            extra.put("suggestion", suggestion);
+        }
+        client.createMessage(difyKey, baseBody(userId, "health_alert", "completed",
+                title, summary, planId, "/user-center", linkQuery, extra));
+    }
+
     private static Map<String, Object> baseBody(String userId, String messageType, String status,
                                                 String title, String summary, String bizId,
                                                 String linkPath, Map<String, Object> linkQuery,

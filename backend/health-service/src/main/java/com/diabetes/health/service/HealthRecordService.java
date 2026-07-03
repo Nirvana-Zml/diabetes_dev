@@ -1,9 +1,12 @@
 package com.diabetes.health.service;
 
+import com.diabetes.common.client.InterventionClientHelper;
+import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.health.dto.RiskAssessRequest;
 import com.diabetes.health.dto.UpdateHealthRecordRequest;
 import com.diabetes.health.entity.*;
 import com.diabetes.health.mapper.HealthRecordMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,9 +23,15 @@ import java.util.stream.Collectors;
 public class HealthRecordService {
 
     private final HealthRecordMapper healthRecordMapper;
+    private final UserServiceClient userServiceClient;
+    private final String difyInternalKey;
 
-    public HealthRecordService(HealthRecordMapper healthRecordMapper) {
+    public HealthRecordService(HealthRecordMapper healthRecordMapper,
+                               UserServiceClient userServiceClient,
+                               @Value("${dify-internal.key:}") String difyInternalKey) {
         this.healthRecordMapper = healthRecordMapper;
+        this.userServiceClient = userServiceClient;
+        this.difyInternalKey = difyInternalKey;
     }
 
     public Map<String, Object> getLatest(String userId) {
@@ -35,9 +44,21 @@ public class HealthRecordService {
 
     @Transactional
     public Map<String, Object> save(String userId, UpdateHealthRecordRequest request) {
-        HealthRecord record = buildRecord(userId, request);
+        HealthRecord previous = healthRecordMapper.findLatestByUserId(userId);
+        HealthRecord record = buildRecord(userId, request, previous);
         healthRecordMapper.insert(record);
-        return toDetailView(record);
+        persistSubTables(userId, record.getRecordId(), request, previous);
+        Map<String, Object> view = toDetailView(record);
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("record_id", record.getRecordId());
+        context.put("recordId", record.getRecordId());
+        if (record.getFastingGlucose() != null) {
+            context.put("fasting_glucose", record.getFastingGlucose());
+            context.put("fastingGlucose", record.getFastingGlucose());
+        }
+        InterventionClientHelper.triggerEvaluate(userServiceClient, difyInternalKey,
+                userId, "health_record_saved", context);
+        return view;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -49,7 +70,9 @@ public class HealthRecordService {
         record.setHeight(BigDecimal.valueOf(request.getHeight()));
         record.setWeight(BigDecimal.valueOf(request.getWeight()));
         record.setBmi(bmi);
-        record.setFastingGlucose(BigDecimal.valueOf(request.getFastingGlucose()));
+        if (request.getFastingGlucose() != null) {
+            record.setFastingGlucose(BigDecimal.valueOf(request.getFastingGlucose()));
+        }
         if (request.getPostprandialGlucose() != null) {
             record.setPostprandialGlucose(BigDecimal.valueOf(request.getPostprandialGlucose()));
         }
@@ -76,6 +99,17 @@ public class HealthRecordService {
         healthRecordMapper.insert(record);
 
         saveSubTables(userId, recordId, request);
+
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("record_id", recordId);
+        context.put("recordId", recordId);
+        if (record.getFastingGlucose() != null) {
+            context.put("fasting_glucose", record.getFastingGlucose());
+            context.put("fastingGlucose", record.getFastingGlucose());
+        }
+        InterventionClientHelper.triggerEvaluate(userServiceClient, difyInternalKey,
+                userId, "health_record_saved", context);
+
         return recordId;
     }
 
@@ -145,25 +179,206 @@ public class HealthRecordService {
         }
     }
 
-    private HealthRecord buildRecord(String userId, UpdateHealthRecordRequest request) {
+    private HealthRecord buildRecord(String userId, UpdateHealthRecordRequest request, HealthRecord previous) {
         String recordId = com.diabetes.common.util.IdGenerator.nextId("hr_");
+        Float height = coalesceFloat(request.getHeight(), decimalToFloat(previous != null ? previous.getHeight() : null));
+        Float weight = coalesceFloat(request.getWeight(), decimalToFloat(previous != null ? previous.getWeight() : null));
         BigDecimal bmi = null;
-        if (request.getHeight() != null && request.getWeight() != null) {
-            float h = request.getHeight() / 100f;
-            bmi = BigDecimal.valueOf(request.getWeight() / (h * h)).setScale(1, RoundingMode.HALF_UP);
+        if (height != null && weight != null) {
+            float h = height / 100f;
+            bmi = BigDecimal.valueOf(weight / (h * h)).setScale(1, RoundingMode.HALF_UP);
+        } else if (previous != null) {
+            bmi = previous.getBmi();
         }
+
         HealthRecord record = new HealthRecord();
         record.setRecordId(recordId);
         record.setUserId(userId);
-        record.setHeight(request.getHeight() == null ? null : BigDecimal.valueOf(request.getHeight()));
-        record.setWeight(request.getWeight() == null ? null : BigDecimal.valueOf(request.getWeight()));
+        record.setHeight(toDecimal(height));
+        record.setWeight(toDecimal(weight));
         record.setBmi(bmi);
-        record.setFastingGlucose(request.getFastingGlucose() == null ? null : BigDecimal.valueOf(request.getFastingGlucose()));
-        record.setSystolicBp(request.getSystolicBp() == null ? null : BigDecimal.valueOf(request.getSystolicBp()));
-        record.setDiastolicBp(request.getDiastolicBp() == null ? null : BigDecimal.valueOf(request.getDiastolicBp()));
-        record.setHasDiabetesFamily(Boolean.TRUE.equals(request.getFamilyHistory()) ? 1 : 0);
-        record.setSmoking(request.getSmoking());
+        record.setFastingGlucose(toDecimal(coalesceFloat(
+                request.getFastingGlucose(), decimalToFloat(previous != null ? previous.getFastingGlucose() : null))));
+        record.setPostprandialGlucose(coalesceDecimal(
+                request.getPostprandialGlucose(), previous != null ? previous.getPostprandialGlucose() : null));
+        record.setRandomGlucose(previous != null ? previous.getRandomGlucose() : null);
+        record.setHba1c(coalesceDecimal(
+                request.getHba1c(), previous != null ? previous.getHba1c() : null));
+        record.setSystolicBp(toDecimal(coalesceInteger(
+                request.getSystolicBp(), decimalToInteger(previous != null ? previous.getSystolicBp() : null))));
+        record.setDiastolicBp(toDecimal(coalesceInteger(
+                request.getDiastolicBp(), decimalToInteger(previous != null ? previous.getDiastolicBp() : null))));
+        record.setDiabetesType(coalesceInteger(request.getDiabetesType(),
+                previous != null ? previous.getDiabetesType() : null));
+        record.setDiagnosedDate(previous != null ? previous.getDiagnosedDate() : null);
+        record.setIsPregnant(previous != null ? previous.getIsPregnant() : null);
+        record.setHasDiabetesFamily(familyHistoryFlag(request.getFamilyHistory(), previous));
+        record.setIsInsulinTaken(previous != null ? previous.getIsInsulinTaken() : null);
+        record.setSmoking(coalesceInteger(request.getSmoking(), previous != null ? previous.getSmoking() : null));
+        record.setAlcohol(previous != null ? previous.getAlcohol() : null);
+        record.setExerciseFreq(coalesceInteger(request.getExerciseFreq(),
+                previous != null ? previous.getExerciseFreq() : null));
+        record.setDietType(coalesceString(request.getDietType(), previous != null ? previous.getDietType() : null));
+        record.setTestSource(previous != null ? previous.getTestSource() : null);
         return record;
+    }
+
+    private void persistSubTables(String userId, String recordId,
+                                  UpdateHealthRecordRequest request, HealthRecord previous) {
+        if (request.getMedicalHistory() != null) {
+            saveMedicalHistoryFromText(userId, recordId, request.getMedicalHistory());
+        } else if (previous != null) {
+            copyMedicalHistories(userId, recordId, previous.getRecordId());
+        }
+
+        if (request.getMedication() != null) {
+            saveMedicationFromText(userId, recordId, request.getMedication());
+        } else if (previous != null) {
+            copyMedications(userId, recordId, previous.getRecordId());
+        }
+
+        if (previous != null) {
+            copyFamilyHistories(userId, recordId, previous.getRecordId());
+        }
+    }
+
+    private void saveMedicalHistoryFromText(String userId, String recordId, String text) {
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        for (String part : text.split("；")) {
+            String diseaseName = part.trim();
+            if (diseaseName.isEmpty()) {
+                continue;
+            }
+            HealthRecordMedicalHistory history = new HealthRecordMedicalHistory();
+            history.setHistoryId(com.diabetes.common.util.IdGenerator.nextId("mh_"));
+            history.setRecordId(recordId);
+            history.setUserId(userId);
+            history.setDiseaseName(diseaseName);
+            history.setStatus(1);
+            history.setSource(1);
+            healthRecordMapper.insertMedicalHistory(history);
+        }
+    }
+
+    private void saveMedicationFromText(String userId, String recordId, String text) {
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        for (String part : text.split("；")) {
+            String drugName = part.trim();
+            if (drugName.isEmpty()) {
+                continue;
+            }
+            HealthRecordMedication medication = new HealthRecordMedication();
+            medication.setMedicationId(com.diabetes.common.util.IdGenerator.nextId("med_"));
+            medication.setRecordId(recordId);
+            medication.setUserId(userId);
+            medication.setDrugName(drugName);
+            medication.setStatus(1);
+            medication.setSource(1);
+            healthRecordMapper.insertMedication(medication);
+        }
+    }
+
+    private void copyMedicalHistories(String userId, String recordId, String previousRecordId) {
+        for (HealthRecordMedicalHistory source : healthRecordMapper.findMedicalHistoriesByRecordId(previousRecordId)) {
+            HealthRecordMedicalHistory copy = new HealthRecordMedicalHistory();
+            copy.setHistoryId(com.diabetes.common.util.IdGenerator.nextId("mh_"));
+            copy.setRecordId(recordId);
+            copy.setUserId(userId);
+            copy.setDiseaseCode(source.getDiseaseCode());
+            copy.setDiseaseName(source.getDiseaseName());
+            copy.setDiagnosedDate(source.getDiagnosedDate());
+            copy.setStatus(source.getStatus());
+            copy.setNote(source.getNote());
+            copy.setSource(source.getSource() != null ? source.getSource() : 1);
+            healthRecordMapper.insertMedicalHistory(copy);
+        }
+    }
+
+    private void copyMedications(String userId, String recordId, String previousRecordId) {
+        for (HealthRecordMedication source : healthRecordMapper.findMedicationsByRecordId(previousRecordId)) {
+            HealthRecordMedication copy = new HealthRecordMedication();
+            copy.setMedicationId(com.diabetes.common.util.IdGenerator.nextId("med_"));
+            copy.setRecordId(recordId);
+            copy.setUserId(userId);
+            copy.setDrugName(source.getDrugName());
+            copy.setGenericName(source.getGenericName());
+            copy.setDosage(source.getDosage());
+            copy.setFrequency(source.getFrequency());
+            copy.setFrequencyDesc(source.getFrequencyDesc());
+            copy.setRoute(source.getRoute());
+            copy.setPurpose(source.getPurpose());
+            copy.setIsInsulin(source.getIsInsulin());
+            copy.setStartDate(source.getStartDate());
+            copy.setEndDate(source.getEndDate());
+            copy.setStatus(source.getStatus());
+            copy.setSource(source.getSource() != null ? source.getSource() : 1);
+            healthRecordMapper.insertMedication(copy);
+        }
+    }
+
+    private void copyFamilyHistories(String userId, String recordId, String previousRecordId) {
+        for (HealthRecordFamilyHistory source : healthRecordMapper.findFamilyHistoriesByRecordId(previousRecordId)) {
+            HealthRecordFamilyHistory copy = new HealthRecordFamilyHistory();
+            copy.setFamilyHistoryId(com.diabetes.common.util.IdGenerator.nextId("fh_"));
+            copy.setRecordId(recordId);
+            copy.setUserId(userId);
+            copy.setRelation(source.getRelation());
+            copy.setMemberAge(source.getMemberAge());
+            copy.setIsAlive(source.getIsAlive());
+            copy.setDiseaseCode(source.getDiseaseCode());
+            copy.setDiseaseName(source.getDiseaseName());
+            copy.setDiagnosedAge(source.getDiagnosedAge());
+            copy.setIsDiabetes(source.getIsDiabetes());
+            copy.setNote(source.getNote());
+            copy.setSource(source.getSource() != null ? source.getSource() : 1);
+            healthRecordMapper.insertFamilyHistory(copy);
+        }
+    }
+
+    private int familyHistoryFlag(Boolean requestValue, HealthRecord previous) {
+        if (requestValue != null) {
+            return Boolean.TRUE.equals(requestValue) ? 1 : 0;
+        }
+        if (previous != null && previous.getHasDiabetesFamily() != null) {
+            return previous.getHasDiabetesFamily();
+        }
+        return 0;
+    }
+
+    private Float coalesceFloat(Float requestValue, Float previousValue) {
+        return requestValue != null ? requestValue : previousValue;
+    }
+
+    private Integer coalesceInteger(Integer requestValue, Integer previousValue) {
+        return requestValue != null ? requestValue : previousValue;
+    }
+
+    private String coalesceString(String requestValue, String previousValue) {
+        return requestValue != null ? requestValue : previousValue;
+    }
+
+    private BigDecimal coalesceDecimal(Float requestValue, BigDecimal previousValue) {
+        return requestValue != null ? BigDecimal.valueOf(requestValue) : previousValue;
+    }
+
+    private BigDecimal toDecimal(Float value) {
+        return value == null ? null : BigDecimal.valueOf(value);
+    }
+
+    private BigDecimal toDecimal(Integer value) {
+        return value == null ? null : BigDecimal.valueOf(value);
+    }
+
+    private Float decimalToFloat(BigDecimal value) {
+        return value == null ? null : value.floatValue();
+    }
+
+    private Integer decimalToInteger(BigDecimal value) {
+        return value == null ? null : value.intValue();
     }
 
     private Map<String, Object> toDetailView(HealthRecord record) {

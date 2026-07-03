@@ -1292,4 +1292,309 @@ class RiskAssessmentServiceTest {
         Map<String, Object> result = service.assess("user1", request);
         assertNotNull(result);
     }
+
+    @Test
+    @DisplayName("notifyAssessmentFailed - 发送失败通知")
+    void notifyAssessmentFailed() {
+        service.notifyAssessmentFailed("user1", "评估失败");
+
+        verify(userServiceClient).createMessage(eq("test-internal-key"), org.mockito.ArgumentMatchers.argThat(body ->
+                "user1".equals(body.get("userId"))
+                        && "failed".equals(body.get("status"))
+                        && String.valueOf(body.get("summary")).contains("评估失败")));
+    }
+
+    @Test
+    @DisplayName("buildWorkflowInputs - flat 模式走平铺 inputs")
+    void buildWorkflowInputs_flatReturn() throws Exception {
+        RiskAssessmentService flatService = new RiskAssessmentService(
+                healthRecordService,
+                riskAssessmentMapper,
+                medicalCalculator,
+                difyClient,
+                userServiceClient,
+                realObjectMapper,
+                "http://localhost",
+                "test-api-key",
+                "",
+                "blocking",
+                "api",
+                "auto",
+                "flat",
+                "object",
+                "test-internal-key");
+
+        java.lang.reflect.Method method = RiskAssessmentService.class.getDeclaredMethod(
+                "buildWorkflowInputs", Map.class);
+        method.setAccessible(true);
+        Map<String, Object> payload = Map.of(
+                "user_id", "user1",
+                "user_profile", "{\"age\":30}",
+                "questionnaire", "{}",
+                "medical_calc_results", "{}",
+                "risk_factors", "[]");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> inputs = (Map<String, Object>) method.invoke(flatService, payload);
+
+        assertEquals("user1", inputs.get("user_id"));
+        assertTrue(inputs.containsKey("user_profile"));
+    }
+
+    @Test
+    @DisplayName("assess - 缺少 risk_assessment 且响应较短")
+    void assess_missingAssessmentShortPreview() throws Exception {
+        RiskAssessRequest request = createRiskAssessRequest();
+        Map<String, Object> userProfile = Map.of("birth_date", "1990-01-01", "gender", 1);
+
+        when(userServiceClient.getUserProfile("user1", "test-internal-key")).thenReturn(userProfile);
+        when(medicalCalculator.calculateBmi(170f, 65f))
+                .thenReturn(new MedicalCalculator.BmiResult(BigDecimal.valueOf(22.5), "normal"));
+        when(medicalCalculator.evaluateGlucose(5.5f)).thenReturn(new MedicalCalculator.GlucoseResult(1, "normal"));
+        when(medicalCalculator.calculateBaseRisk(any(), any(), any(), eq(36))).thenReturn(
+                new MedicalCalculator.BaseRiskResult(0, List.of()));
+        when(healthRecordService.saveFromQuestionnaire("user1", request, BigDecimal.valueOf(22.5)))
+                .thenReturn("hr_001");
+
+        JsonNode difyResponse = realObjectMapper.readTree("{\"data\":{\"outputs\":{}}}");
+        when(difyClient.runWorkflowBlocking(anyString(), anyString(), any(), anyString())).thenReturn(difyResponse);
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.assess("user1", request));
+        assertTrue(ex.getMessage().contains("risk_assessment"));
+        assertFalse(ex.getMessage().contains("..."));
+    }
+
+    @Test
+    @DisplayName("assess - Dify 未返回 run id")
+    void assess_difyRunIdBothBlank() throws Exception {
+        RiskAssessRequest request = createRiskAssessRequest();
+        Map<String, Object> userProfile = Map.of("birth_date", "1990-01-01", "gender", 1);
+
+        when(userServiceClient.getUserProfile("user1", "test-internal-key")).thenReturn(userProfile);
+        when(medicalCalculator.calculateBmi(170f, 65f))
+                .thenReturn(new MedicalCalculator.BmiResult(BigDecimal.valueOf(22.5), "normal"));
+        when(medicalCalculator.evaluateGlucose(5.5f)).thenReturn(new MedicalCalculator.GlucoseResult(1, "normal"));
+        when(medicalCalculator.calculateBaseRisk(any(), any(), any(), eq(36))).thenReturn(
+                new MedicalCalculator.BaseRiskResult(0, List.of()));
+        when(healthRecordService.saveFromQuestionnaire("user1", request, BigDecimal.valueOf(22.5)))
+                .thenReturn("hr_001");
+        when(medicalCalculator.riskLevelName(1)).thenReturn("low");
+
+        JsonNode difyResponse = realObjectMapper.readTree("""
+                {"risk_assessment":{"risk_score":20,"risk_level":"low"}}
+                """);
+        when(difyClient.runWorkflowBlocking(anyString(), anyString(), any(), anyString())).thenReturn(difyResponse);
+        when(riskAssessmentMapper.insert(any(RiskAssessment.class))).thenAnswer(invocation -> {
+            RiskAssessment assessment = invocation.getArgument(0);
+            assertNull(assessment.getDifyWorkflowId());
+            return 1;
+        });
+
+        Map<String, Object> result = service.assess("user1", request);
+        assertNotNull(result);
+    }
+
+    @Test
+    @DisplayName("buildWorkflowInputs - wrap 模式包装 inputs")
+    void buildWorkflowInputs_wrapReturn() throws Exception {
+        java.lang.reflect.Method method = RiskAssessmentService.class.getDeclaredMethod(
+                "buildWorkflowInputs", Map.class);
+        method.setAccessible(true);
+        Map<String, Object> payload = Map.of(
+                "user_id", "user1",
+                "user_profile", "{\"age\":30}",
+                "questionnaire", "{}",
+                "medical_calc_results", "{}",
+                "risk_factors", "[]");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> inputs = (Map<String, Object>) method.invoke(service, payload);
+
+        assertTrue(inputs.containsKey("inputs"));
+    }
+
+    @Test
+    @DisplayName("assess - Dify id 为空字符串时使用 workflow_run_id")
+    void assess_difyRunIdEmptyUsesWorkflowRunId() throws Exception {
+        RiskAssessRequest request = createRiskAssessRequest();
+        Map<String, Object> userProfile = Map.of("birth_date", "1990-01-01", "gender", 1);
+
+        when(userServiceClient.getUserProfile("user1", "test-internal-key")).thenReturn(userProfile);
+        when(medicalCalculator.calculateBmi(170f, 65f))
+                .thenReturn(new MedicalCalculator.BmiResult(BigDecimal.valueOf(22.5), "normal"));
+        when(medicalCalculator.evaluateGlucose(5.5f)).thenReturn(new MedicalCalculator.GlucoseResult(1, "normal"));
+        when(medicalCalculator.calculateBaseRisk(any(), any(), any(), eq(36))).thenReturn(
+                new MedicalCalculator.BaseRiskResult(0, List.of()));
+        when(healthRecordService.saveFromQuestionnaire("user1", request, BigDecimal.valueOf(22.5)))
+                .thenReturn("hr_001");
+        when(medicalCalculator.riskLevelName(1)).thenReturn("low");
+
+        JsonNode difyResponse = realObjectMapper.readTree("""
+                {"id":"","workflow_run_id":"workflow_blank_id","risk_assessment":{"risk_score":20,"risk_level":"low"}}
+                """);
+        when(difyClient.runWorkflowBlocking(anyString(), anyString(), any(), anyString())).thenReturn(difyResponse);
+        when(riskAssessmentMapper.insert(any(RiskAssessment.class))).thenAnswer(invocation -> {
+            RiskAssessment assessment = invocation.getArgument(0);
+            assertEquals("workflow_blank_id", assessment.getDifyWorkflowId());
+            return 1;
+        });
+
+        Map<String, Object> result = service.assess("user1", request);
+        assertNotNull(result);
+    }
+
+    @Test
+    @DisplayName("assess - 缺少 risk_assessment 且响应较长时截断预览")
+    void assess_missingAssessmentLongPreview() throws Exception {
+        RiskAssessRequest request = createRiskAssessRequest();
+        Map<String, Object> userProfile = Map.of("birth_date", "1990-01-01", "gender", 1);
+
+        when(userServiceClient.getUserProfile("user1", "test-internal-key")).thenReturn(userProfile);
+        when(medicalCalculator.calculateBmi(170f, 65f))
+                .thenReturn(new MedicalCalculator.BmiResult(BigDecimal.valueOf(22.5), "normal"));
+        when(medicalCalculator.evaluateGlucose(5.5f)).thenReturn(new MedicalCalculator.GlucoseResult(1, "normal"));
+        when(medicalCalculator.calculateBaseRisk(any(), any(), any(), eq(36))).thenReturn(
+                new MedicalCalculator.BaseRiskResult(0, List.of()));
+        when(healthRecordService.saveFromQuestionnaire("user1", request, BigDecimal.valueOf(22.5)))
+                .thenReturn("hr_001");
+
+        String padding = "x".repeat(900);
+        JsonNode difyResponse = realObjectMapper.readTree("{\"noise\":\"" + padding + "\"}");
+        when(difyClient.runWorkflowBlocking(anyString(), anyString(), any(), anyString())).thenReturn(difyResponse);
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.assess("user1", request));
+        assertTrue(ex.getMessage().contains("..."));
+    }
+
+    @Test
+    @DisplayName("extractRiskAssessment - text 为合法 JSON 但无风险字段")
+    void extractRiskAssessment_textWithoutRiskFields() throws Exception {
+        String json = "{\"outputs\":{\"text\":\"{\\\"analysis\\\":\\\"only\\\"}\"}}";
+        JsonNode response = realObjectMapper.readTree(json);
+        JsonNode result = service.extractRiskAssessment(response);
+        assertTrue(result.isMissingNode());
+    }
+
+    @Test
+    @DisplayName("assess - 未配置 api-key 为 null")
+    void assess_nullApiKey() {
+        RiskAssessmentService nullKeyService = new RiskAssessmentService(
+                healthRecordService,
+                riskAssessmentMapper,
+                medicalCalculator,
+                difyClient,
+                userServiceClient,
+                realObjectMapper,
+                "http://localhost",
+                null,
+                "",
+                "blocking",
+                "api",
+                "auto",
+                "inputs",
+                "object",
+                "test-internal-key");
+
+        RiskAssessRequest request = createRiskAssessRequest();
+        Map<String, Object> userProfile = Map.of("birth_date", "1990-01-01", "gender", 1);
+        when(userServiceClient.getUserProfile("user1", "test-internal-key")).thenReturn(userProfile);
+        when(medicalCalculator.calculateBmi(170f, 65f))
+                .thenReturn(new MedicalCalculator.BmiResult(BigDecimal.valueOf(22.5), "normal"));
+        when(medicalCalculator.evaluateGlucose(5.5f)).thenReturn(new MedicalCalculator.GlucoseResult(1, "normal"));
+        when(medicalCalculator.calculateBaseRisk(any(), any(), any(), eq(36))).thenReturn(
+                new MedicalCalculator.BaseRiskResult(0, List.of()));
+        when(healthRecordService.saveFromQuestionnaire("user1", request, BigDecimal.valueOf(22.5)))
+                .thenReturn("hr_001");
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> nullKeyService.assess("user1", request));
+        assertTrue(ex.getMessage().contains("api-key"));
+    }
+
+    @Test
+    @DisplayName("buildWorkflowInputs - inputVarName 为 null 时使用 flat 分支")
+    void buildWorkflowInputs_nullInputVarNameUsesFlat() throws Exception {
+        RiskAssessmentService localService = new RiskAssessmentService(
+                healthRecordService,
+                riskAssessmentMapper,
+                medicalCalculator,
+                difyClient,
+                userServiceClient,
+                realObjectMapper,
+                "http://localhost",
+                "test-api-key",
+                "",
+                "blocking",
+                "api",
+                "auto",
+                "inputs",
+                "object",
+                "test-internal-key");
+        java.lang.reflect.Field field = RiskAssessmentService.class.getDeclaredField("difyInputVarName");
+        field.setAccessible(true);
+        field.set(localService, null);
+
+        java.lang.reflect.Method method = RiskAssessmentService.class.getDeclaredMethod(
+                "buildWorkflowInputs", Map.class);
+        method.setAccessible(true);
+        Map<String, Object> payload = Map.of(
+                "user_id", "user1",
+                "user_profile", "{\"age\":30}",
+                "questionnaire", "{}",
+                "medical_calc_results", "{}",
+                "risk_factors", "[]");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> inputs = (Map<String, Object>) method.invoke(localService, payload);
+
+        assertEquals("user1", inputs.get("user_id"));
+    }
+
+    @Test
+    @DisplayName("buildWorkflowInputs - inputVarName 为 blank 时使用 flat 分支")
+    void buildWorkflowInputs_blankInputVarNameUsesFlat() throws Exception {
+        RiskAssessmentService localService = new RiskAssessmentService(
+                healthRecordService,
+                riskAssessmentMapper,
+                medicalCalculator,
+                difyClient,
+                userServiceClient,
+                realObjectMapper,
+                "http://localhost",
+                "test-api-key",
+                "",
+                "blocking",
+                "api",
+                "auto",
+                "inputs",
+                "object",
+                "test-internal-key");
+        java.lang.reflect.Field field = RiskAssessmentService.class.getDeclaredField("difyInputVarName");
+        field.setAccessible(true);
+        field.set(localService, "   ");
+
+        java.lang.reflect.Method method = RiskAssessmentService.class.getDeclaredMethod(
+                "buildWorkflowInputs", Map.class);
+        method.setAccessible(true);
+        Map<String, Object> payload = Map.of(
+                "user_id", "user1",
+                "user_profile", "{\"age\":30}",
+                "questionnaire", "{}",
+                "medical_calc_results", "{}",
+                "risk_factors", "[]");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> inputs = (Map<String, Object>) method.invoke(localService, payload);
+
+        assertEquals("user1", inputs.get("user_id"));
+    }
+
+    @Test
+    @DisplayName("extractRiskAssessment - outputs.text 解析失败进入 catch")
+    void extractRiskAssessment_outputsTextParseError() throws Exception {
+        String json = "{\"outputs\":{\"text\":\"{invalid json\"}}";
+        JsonNode response = realObjectMapper.readTree(json);
+        JsonNode result = service.extractRiskAssessment(response);
+        assertTrue(result.isMissingNode());
+    }
 }

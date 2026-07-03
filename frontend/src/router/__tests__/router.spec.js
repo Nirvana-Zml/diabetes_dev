@@ -56,6 +56,11 @@ describe('router modules', () => {
       '/assistant',
       '/checkin-analysis',
       '/checkin-records',
+      '/checkin-records/food',
+      '/checkin-records/medication',
+      '/checkin-records/exercise',
+      '/checkin-records/glucose',
+      '/checkin-records/achievements',
       '/consultation',
       '/health-evaluation',
       '/health-info',
@@ -92,9 +97,9 @@ describe('router modules', () => {
     expect(mocks.afterEach).toHaveBeenCalledWith(expect.any(Function))
     const afterEach = mocks.afterEach.mock.calls[0][0]
     afterEach({ meta: { title: '健康方案' } })
-    expect(document.title).toBe('健康方案 - 糖尿病预治智能助手')
+    expect(document.title).toBe('健康方案 - 糖尿病智能助手')
 
     afterEach({ meta: {} })
-    expect(document.title).toBe('糖尿病预治智能助手 - 糖尿病预治智能助手')
+    expect(document.title).toBe('糖尿病智能助手 - 糖尿病智能助手')
   })
 })

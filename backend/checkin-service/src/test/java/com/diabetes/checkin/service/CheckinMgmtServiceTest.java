@@ -184,6 +184,17 @@ class CheckinMgmtServiceTest {
         nullValue.put("a", null);
         assertNull(firstPresent.invoke(service, nullValue, new String[]{"a"}));
         assertNull(firstPresentMap.invoke(service, nullValue, new String[]{"a"}));
+
+        Method triggerAnalysisIntervention = CheckinMgmtService.class.getDeclaredMethod(
+                "triggerAnalysisIntervention", String.class, LocalDate.class, LocalDate.class, Map.class);
+        triggerAnalysisIntervention.setAccessible(true);
+        LocalDate start = LocalDate.of(2024, 1, 1);
+        LocalDate end = LocalDate.of(2024, 1, 2);
+        triggerAnalysisIntervention.invoke(service, "u1", start, end, Map.of("anomalies", "bad"));
+        triggerAnalysisIntervention.invoke(service, "u1", start, end, Map.of("anomalies", List.of()));
+        triggerAnalysisIntervention.invoke(service, "u1", start, end,
+                Map.of("anomalies", List.of(Map.of("date", "2024-01-01")), "improvements", List.of("x")));
+        verify(userServiceClient).evaluateIntervention(eq("internal"), anyMap());
     }
 
     private CheckinMgmtService service(String apiKey) {

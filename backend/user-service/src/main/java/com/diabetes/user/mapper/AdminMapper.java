@@ -8,4 +8,6 @@ import org.apache.ibatis.annotations.Param;
 public interface AdminMapper {
 
     Admin findByUsername(@Param("username") String username);
+
+    Admin findById(@Param("adminId") String adminId);
 }

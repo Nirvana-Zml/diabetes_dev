@@ -1,0 +1,17 @@
+# Ngrok / 外网演示：Nginx 直接托管前端生产构建，避免 Vite dev 大量小文件请求
+#
+# 用法：
+#   .\scripts\build-for-ngrok.ps1
+#   docker compose -f docker-compose.yml -f docker-compose.ngrok.yml up -d nginx
+#   ngrok http 80
+#
+# 可选：停止不再需要的 Vite 开发容器以节省资源
+#   docker stop diabetes-frontend diabetes-admin-frontend
+
+services:
+  nginx:
+    volumes:
+      - ./docker/nginx/conf.d/user-portal.static.conf:/etc/nginx/conf.d/user-portal.conf:ro
+      - ./docker/nginx/conf.d/admin-portal.static.conf:/etc/nginx/conf.d/admin-portal.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html/user:ro
+      - ./admin-frontend/dist:/usr/share/nginx/html/admin:ro

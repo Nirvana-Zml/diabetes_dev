@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 
 const push = vi.fn()
+const replace = vi.fn()
 
 const mocks = vi.hoisted(() => ({
   login: vi.fn(),
@@ -24,7 +25,7 @@ const route = vi.hoisted(() => ({
 }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace }),
   useRoute: () => route,
 }))
 
@@ -46,6 +47,7 @@ vi.mock('@element-plus/icons-vue', () => ({
 
 vi.mock('@/config', () => ({
   ADMIN_PORTAL_URL: 'http://admin.local',
+  APP_NAME: '糖尿病智能助手',
 }))
 
 vi.mock('@/api/auth.js', () => ({
@@ -222,7 +224,7 @@ describe('auth and security template events', () => {
     expect(mocks.login).toHaveBeenCalledWith({ username: 'testuser', password: '123456' })
     expect(mocks.saveTokens).toHaveBeenCalled()
     expect(localStorage.getItem('remember_username')).toBe('testuser')
-    expect(push).toHaveBeenCalledWith('/user-center')
+    expect(replace).toHaveBeenCalledWith('/user-center')
     expect(mocks.success).toHaveBeenCalledWith('登录成功')
   })
 
@@ -264,8 +266,7 @@ describe('auth and security template events', () => {
     const setup = setupOf(wrapper)
     setup.formRef = validForm()
     Object.assign(setup.form, {
-      verifyType: 'phone',
-      account: '13800000000',
+      account: 'user@example.com',
       code: '123456',
       newPassword: 'abcdef',
       confirmPassword: 'abcdef',
@@ -274,16 +275,16 @@ describe('auth and security template events', () => {
     await setup.handleSendCode()
     await flushPromises()
     expect(mocks.sendVerifyCode).toHaveBeenCalledWith({
-      account: '13800000000',
-      type: 'phone',
+      account: 'user@example.com',
+      type: 'email',
       purpose: 'reset_password',
     })
-    expect(mocks.success).toHaveBeenCalledWith('验证码已发送')
+    expect(mocks.success).toHaveBeenCalledWith('验证码已发送，请查收邮件')
 
     await setup.handleSubmit()
     await flushPromises()
     expect(mocks.resetPassword).toHaveBeenCalledWith({
-      account: '13800000000',
+      account: 'user@example.com',
       code: '123456',
       new_password: 'abcdef',
     })

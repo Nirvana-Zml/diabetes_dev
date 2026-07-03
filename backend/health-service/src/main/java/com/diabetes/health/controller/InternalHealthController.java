@@ -125,6 +125,31 @@ public class InternalHealthController {
         return latestRecord(userId, key);
     }
 
+    @GetMapping("/user/{userId}/history")
+    public ApiResponse<List<Map<String, Object>>> history(@PathVariable String userId,
+                                                           @RequestParam(defaultValue = "30") int limit,
+                                                           @RequestHeader(value = "X-Dify-Key", required = false) String key) {
+        validateDifyKey(key);
+        int safeLimit = Math.min(Math.max(limit, 1), 100);
+        List<HealthRecord> records = healthRecordMapper.findByUserId(userId, safeLimit);
+        List<Map<String, Object>> list = records.stream().map(this::toHistoryItem).toList();
+        return ApiResponse.ok(list);
+    }
+
+    private Map<String, Object> toHistoryItem(HealthRecord record) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("recordId", record.getRecordId());
+        item.put("recordedAt", record.getRecordedAt());
+        item.put("height", record.getHeight());
+        item.put("weight", record.getWeight());
+        item.put("bmi", record.getBmi());
+        item.put("fastingGlucose", record.getFastingGlucose());
+        item.put("postprandialGlucose", record.getPostprandialGlucose());
+        item.put("systolicBp", record.getSystolicBp());
+        item.put("diastolicBp", record.getDiastolicBp());
+        return item;
+    }
+
     private String glucoseLevelName(Integer level) {
         if (level == null) return "unknown";
         return switch (level) {

@@ -65,6 +65,51 @@
   --el-link-hover-text-color: var(--health-500);
 }
 
+/* 站内消息提醒（ElNotification） */
+.el-notification.in-app-notification {
+  width: 300px;
+  padding: 10px 14px 12px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.1);
+}
+
+.el-notification.in-app-notification .el-notification__title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  padding-right: 28px;
+}
+
+.el-notification.in-app-notification .el-notification__closeBtn {
+  top: 6px;
+  right: 2px;
+  width: 32px;
+  height: 32px;
+}
+
+.in-app-notification__body {
+  margin-top: 0;
+}
+
+.in-app-notification__summary {
+  margin: 0 0 8px;
+  line-height: 1.5;
+  color: var(--warm-600);
+  font-size: 13px;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.in-app-notification__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 @media (max-width: 768px) {
   .section-card {
     padding: 16px;
@@ -78,5 +123,50 @@
 
   .chart-box {
     height: 220px;
+  }
+
+  .el-notification.in-app-notification--mobile {
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+    top: calc(10px + env(safe-area-inset-top, 0px)) !important;
+    bottom: auto !important;
+    padding: 10px 12px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  body:has(.site-header) .el-notification.in-app-notification--mobile {
+    top: calc(var(--header-height, 56px) + 8px) !important;
+  }
+
+  .el-notification.in-app-notification--mobile .el-notification__group {
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+  }
+
+  .el-notification.in-app-notification--mobile .el-notification__title {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.35;
+    padding-right: 28px;
+  }
+
+  .in-app-notification--mobile .in-app-notification__summary {
+    margin-bottom: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .el-notification.in-app-notification--mobile .el-notification__closeBtn {
+    top: 4px;
+    right: 2px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }

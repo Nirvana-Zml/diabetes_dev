@@ -235,6 +235,32 @@ class MedicalCalculatorTest {
     }
 
     @Test
+    @DisplayName("calculateBaseRisk - 不良饮食习惯(high_sugar 下划线写法)")
+    void calculateBaseRisk_dietHighSugarUnderscore() {
+        RiskAssessRequest request = createRequest(170f, 65f, 5.5f, false, 0, 3, "high_sugar", 30);
+        MedicalCalculator.BmiResult bmi = calculator.calculateBmi(170f, 65f);
+        MedicalCalculator.GlucoseResult glucose = calculator.evaluateGlucose(5.5f);
+
+        MedicalCalculator.BaseRiskResult result = calculator.calculateBaseRisk(request, bmi, glucose, 30);
+
+        assertEquals(10, result.baseRiskScore());
+        assertEquals("不良饮食习惯", result.riskFactors().get(0).get("name"));
+    }
+
+    @Test
+    @DisplayName("calculateBaseRisk - 不良饮食习惯(high_fat 下划线写法)")
+    void calculateBaseRisk_dietHighFatUnderscore() {
+        RiskAssessRequest request = createRequest(170f, 65f, 5.5f, false, 0, 3, "high_fat", 30);
+        MedicalCalculator.BmiResult bmi = calculator.calculateBmi(170f, 65f);
+        MedicalCalculator.GlucoseResult glucose = calculator.evaluateGlucose(5.5f);
+
+        MedicalCalculator.BaseRiskResult result = calculator.calculateBaseRisk(request, bmi, glucose, 30);
+
+        assertEquals(10, result.baseRiskScore());
+        assertEquals("不良饮食习惯", result.riskFactors().get(0).get("name"));
+    }
+
+    @Test
     @DisplayName("calculateBaseRisk - 年龄因素(age>=45)")
     void calculateBaseRisk_ageFactor() {
         RiskAssessRequest request = createRequest(170f, 65f, 5.5f, false, 0, 3, "balanced", 45);
@@ -279,6 +305,45 @@ class MedicalCalculatorTest {
     @DisplayName("mapRiskLevel - 高风险分数")
     void mapRiskLevel_high() {
         assertEquals(3, calculator.mapRiskLevel(75));
+    }
+
+    @Test
+    @DisplayName("calculateBaseRisk - 吸烟为 null 不计分")
+    void calculateBaseRisk_smokingNull() {
+        RiskAssessRequest request = createRequest(170f, 65f, 5.5f, false, null, 3, "balanced", 30);
+        MedicalCalculator.BmiResult bmi = calculator.calculateBmi(170f, 65f);
+        MedicalCalculator.GlucoseResult glucose = calculator.evaluateGlucose(5.5f);
+
+        MedicalCalculator.BaseRiskResult result = calculator.calculateBaseRisk(request, bmi, glucose, 30);
+
+        assertEquals(0, result.baseRiskScore());
+        assertTrue(result.riskFactors().isEmpty());
+    }
+
+    @Test
+    @DisplayName("calculateBaseRisk - 饮食类型为空不计分")
+    void calculateBaseRisk_dietTypeBlank() {
+        RiskAssessRequest request = createRequest(170f, 65f, 5.5f, false, 0, 3, "  ", 30);
+        MedicalCalculator.BmiResult bmi = calculator.calculateBmi(170f, 65f);
+        MedicalCalculator.GlucoseResult glucose = calculator.evaluateGlucose(5.5f);
+
+        MedicalCalculator.BaseRiskResult result = calculator.calculateBaseRisk(request, bmi, glucose, 30);
+
+        assertEquals(0, result.baseRiskScore());
+        assertTrue(result.riskFactors().isEmpty());
+    }
+
+    @Test
+    @DisplayName("calculateBaseRisk - 饮食类型为 null 不计分")
+    void calculateBaseRisk_dietTypeNull() {
+        RiskAssessRequest request = createRequest(170f, 65f, 5.5f, false, 0, 3, null, 30);
+        MedicalCalculator.BmiResult bmi = calculator.calculateBmi(170f, 65f);
+        MedicalCalculator.GlucoseResult glucose = calculator.evaluateGlucose(5.5f);
+
+        MedicalCalculator.BaseRiskResult result = calculator.calculateBaseRisk(request, bmi, glucose, 30);
+
+        assertEquals(0, result.baseRiskScore());
+        assertTrue(result.riskFactors().isEmpty());
     }
 
     @Test

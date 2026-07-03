@@ -32,7 +32,7 @@
           <div class="meta">问诊 {{ doc.consultation_count }} 次 · 评分 {{ doc.rating }}</div>
           <p class="intro">{{ doc.introduction }}</p>
         </div>
-        <el-button type="primary" @click="openChat(doc)">
+        <el-button type="primary" class="doctor-row__action" @click="openChat(doc)">
           {{ consultBtnText(doc.status) }}
         </el-button>
       </div>
@@ -40,15 +40,16 @@
 
     <!-- 咨询会话 -->
     <div v-else class="chat-page">
-      <div class="chat-toolbar">
-        <button type="button" class="chat-back-btn" aria-label="返回" @click="router.back()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-        </button>
-      </div>
+      <div class="page-inner">
+        <div class="chat-toolbar">
+          <button type="button" class="chat-back-btn" aria-label="返回" @click="safeBack('/home')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+        </div>
 
-      <header class="doctor-card">
+        <header class="doctor-card">
         <div class="doctor-card__main">
           <img
             :src="currentDoctor?.avatar_url || doctorAvatarUrl(currentDoctor?.doctor_id)"
@@ -149,7 +150,12 @@
 
         <!-- 快捷提问（仅欢迎语后） -->
         <div v-if="showQuickQuestions" class="quick-questions">
-          <p class="quick-label">您可以这样问：</p>
+          <p class="quick-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+            </svg>
+            您可以这样问
+          </p>
           <div class="quick-chips">
             <button
               v-for="q in quickQuestions"
@@ -196,6 +202,7 @@
         </div>
         <p class="footer-tip">按 Enter 发送 · 内容由 AI 生成，仅供参考</p>
       </div>
+      </div>
     </div>
 
     <!-- 评价弹窗 -->
@@ -235,6 +242,7 @@ import { getDoctors } from '@/api/home'
 import { doctorAvatarUrl } from '@/utils/media'
 import { useUserStore } from '@/stores/user'
 import { useMessageCenter } from '@/composables/useMessageCenter'
+import { safeBack } from '@/utils/navigation'
 import {
   createConsultation,
   getConsultMessages,
@@ -517,40 +525,69 @@ async function scrollToBottom() {
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
-.doctor-row { display: flex; gap: 12px; align-items: flex-start; }
+.doctor-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.doctor-row__action {
+  flex-shrink: 0;
+  align-self: center;
+  white-space: nowrap;
+}
+
+.doctor-row:hover {
+  box-shadow: 0 8px 28px rgba(13, 148, 136, 0.08);
+  transform: translateY(-1px);
+}
+
 .doc-info { flex: 1; min-width: 0; }
-.doc-header { display: flex; align-items: center; gap: 8px; }
-.name { font-weight: 600; font-size: 16px; }
-.meta { font-size: 12px; color: #909399; margin-top: 4px; }
-.intro { font-size: 13px; color: #606266; margin: 8px 0 0; }
+.doc-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.name { font-weight: 600; font-size: 16px; color: var(--warm-800); }
+.meta { font-size: 12px; color: var(--warm-400); margin-top: 4px; }
+.intro {
+  font-size: 13px;
+  color: var(--warm-500);
+  margin: 8px 0 0;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 /* ===== Chat ===== */
 .chat-page {
-  --c-bg: #fafbfc;
-  --c-text: #333333;
-  --c-muted: #888888;
-  --c-border: #e6e8eb;
-  --c-moss: #7a9e88;
-  --c-moss-deep: #6a8772;
-  --c-moss-light: #c2d9cb;
-  --c-ai-bg: #f3f6f4;
-  --c-warn: #c9956a;
-  --c-card: #ffffff;
+  --chat-accent-bg: #f0fdfa;
+  --chat-accent-border: #ccfbf1;
 
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 100px);
-  min-height: 520px;
-  max-width: 900px;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  background: var(--warm-50);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.page-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 820px;
   margin: 0 auto;
-  padding: 0 24px;
-  background: var(--c-bg);
+  padding: 16px clamp(16px, 4vw, 32px) 0;
   box-sizing: border-box;
 }
 
 .chat-toolbar {
   flex-shrink: 0;
-  padding: 12px 0 4px;
+  padding: 0 0 12px;
 }
 
 .chat-back-btn {
@@ -559,17 +596,17 @@ async function scrollToBottom() {
   justify-content: center;
   width: 36px;
   height: 36px;
-  border: 1px solid var(--c-border);
+  border: 1px solid var(--warm-200);
   border-radius: 10px;
-  background: var(--c-card);
-  color: var(--c-muted);
+  background: #fff;
+  color: var(--warm-600);
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
+  transition: border-color 0.2s ease, color 0.2s ease;
 }
 
 .chat-back-btn:hover {
-  border-color: #c5d5cb;
-  color: var(--c-text);
+  border-color: var(--health-500);
+  color: var(--health-600);
 }
 
 .chat-back-btn svg {
@@ -583,12 +620,10 @@ async function scrollToBottom() {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin: 8px 0 12px;
-  padding: 14px 16px;
-  background: linear-gradient(180deg, #f7f9f8 0%, #ffffff 100%);
-  border: 1px solid var(--c-border);
-  border-radius: 14px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+  padding: 0 0 16px;
+  margin-bottom: 4px;
+  background: transparent;
+  border-bottom: 1px solid var(--warm-200);
 }
 
 .doctor-card__main {
@@ -604,7 +639,8 @@ async function scrollToBottom() {
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
-  border: 1px solid var(--c-border);
+  border: 1px solid var(--warm-200);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.12);
 }
 
 .doctor-card__info { min-width: 0; }
@@ -613,20 +649,20 @@ async function scrollToBottom() {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--c-text);
+  color: var(--warm-800);
   line-height: 1.35;
 }
 
 .doctor-card__title {
   font-size: 13px;
   font-weight: 400;
-  color: var(--c-muted);
+  color: var(--warm-500);
 }
 
 .doctor-card__dept {
   margin: 2px 0 4px;
   font-size: 12px;
-  color: var(--c-muted);
+  color: var(--warm-400);
 }
 
 .doctor-card__status {
@@ -634,23 +670,23 @@ async function scrollToBottom() {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--c-muted);
+  color: var(--warm-500);
 }
 
 .status-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #b0b8b4;
+  background: var(--warm-300);
 }
 
 .status-dot--online {
-  background: var(--c-moss);
+  background: var(--health-500);
   animation: statusPulse 2s infinite;
 }
 
-.status-dot--busy { background: var(--c-warn); }
-.status-dot--offline { background: #c5cbc7; }
+.status-dot--busy { background: var(--accent-500); }
+.status-dot--offline { background: var(--warm-300); }
 
 @keyframes statusPulse {
   0%, 100% { opacity: 1; }
@@ -662,25 +698,26 @@ async function scrollToBottom() {
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--c-muted);
-  background: #f5f6f7;
-  border: 1px solid var(--c-border);
+  color: var(--warm-500);
+  background: #fff;
+  border: 1px solid var(--warm-200);
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .doctor-card__end:hover {
-  background: #eef0f2;
-  color: var(--c-text);
+  border-color: var(--health-500);
+  color: var(--health-700);
+  background: var(--chat-accent-bg);
 }
 
 .ai-panel {
   flex-shrink: 0;
-  margin-bottom: 12px;
-  background: var(--c-ai-bg);
-  border: 1px solid #e8ece9;
-  border-radius: 12px;
+  margin: 0 0 12px;
+  background: var(--chat-accent-bg);
+  border: 1px solid var(--chat-accent-border);
+  border-radius: 14px;
   overflow: hidden;
 }
 
@@ -693,24 +730,29 @@ async function scrollToBottom() {
   user-select: none;
 }
 
+.ai-panel-header:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
 .ai-panel-title {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 500;
-  color: var(--c-text);
+  font-weight: 600;
+  color: var(--health-700);
+  letter-spacing: 0.02em;
 }
 
 .ai-icon {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #dce8e0;
+  background: var(--chat-accent-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--c-moss-deep);
+  color: var(--health-600);
 }
 
 .ai-icon svg { width: 12px; height: 12px; }
@@ -719,15 +761,15 @@ async function scrollToBottom() {
   padding: 1px 6px;
   font-size: 10px;
   font-weight: 500;
-  color: var(--c-muted);
-  background: rgba(255, 255, 255, 0.7);
+  color: var(--warm-500);
+  background: rgba(255, 255, 255, 0.85);
   border-radius: 4px;
 }
 
 .ai-panel-arrow {
   width: 16px;
   height: 16px;
-  color: #b0b8b4;
+  color: var(--warm-400);
   transition: transform 0.25s;
 }
 
@@ -735,8 +777,26 @@ async function scrollToBottom() {
 
 .ai-panel-body { padding: 0 14px 12px; }
 
+.ai-panel:not(.collapsed) .ai-panel-body {
+  max-height: min(45dvh, 380px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--warm-200) transparent;
+}
+
+.ai-panel:not(.collapsed) .ai-panel-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ai-panel:not(.collapsed) .ai-panel-body::-webkit-scrollbar-thumb {
+  background: var(--warm-200);
+  border-radius: 4px;
+}
+
 .ai-suggest-card {
-  background: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.72);
   border-radius: 10px;
   padding: 14px 16px;
 }
@@ -747,14 +807,14 @@ async function scrollToBottom() {
 .ai-block-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--c-muted);
-  letter-spacing: 0.3px;
+  color: var(--warm-500);
+  letter-spacing: 0.04em;
   margin-bottom: 8px;
 }
 
 .ai-block-text {
   font-size: 14px;
-  color: var(--c-text);
+  color: var(--warm-700);
   margin: 0;
   line-height: 1.75;
 }
@@ -769,27 +829,27 @@ async function scrollToBottom() {
   font-size: 12px;
   font-weight: 500;
   background: #fff;
-  color: var(--c-text);
+  color: var(--warm-700);
   border-radius: 8px;
-  border: 1px solid var(--c-border);
+  border: 1px solid var(--warm-200);
 }
 
 .diag-tag.high {
-  border-color: #f0d4c4;
-  background: #fdf8f4;
-  color: #a06840;
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .diag-tag.medium {
-  border-color: #ede4c8;
-  background: #faf8f2;
-  color: #8a7344;
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
 }
 
 .diag-tag em {
   font-style: normal;
   font-size: 10px;
-  color: var(--c-muted);
+  color: var(--warm-400);
 }
 
 .question-chips, .quick-chips {
@@ -801,33 +861,34 @@ async function scrollToBottom() {
 .question-chip, .quick-chip {
   padding: 7px 14px;
   font-size: 13px;
-  color: var(--c-text);
+  color: var(--warm-700);
   background: #fff;
-  border: 1px solid var(--c-border);
+  border: 1px solid var(--warm-200);
   border-radius: 20px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   text-align: left;
   line-height: 1.45;
 }
 
 .question-chip:hover, .quick-chip:hover {
-  background: var(--c-moss-light);
-  border-color: #d4e0d8;
+  background: var(--chat-accent-bg);
+  border-color: var(--chat-accent-border);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.08);
 }
 
 .ai-strategy {
   font-size: 14px;
-  color: var(--c-text);
+  color: var(--warm-700);
   line-height: 1.75;
   margin: 12px 0 0;
   padding-top: 12px;
-  border-top: 1px solid #e8ece9;
+  border-top: 1px solid var(--chat-accent-border);
 }
 
 .ai-empty {
   font-size: 13px;
-  color: var(--c-muted);
+  color: var(--warm-400);
   margin: 0;
   text-align: center;
   padding: 8px 0;
@@ -836,7 +897,7 @@ async function scrollToBottom() {
 
 .ai-disclaimer {
   font-size: 10px;
-  color: #b0b8b4;
+  color: var(--warm-400);
   text-align: center;
   margin: 10px 0 0;
   line-height: 1.5;
@@ -847,20 +908,42 @@ async function scrollToBottom() {
   overflow-y: auto;
   padding: 8px 0 16px;
   scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--warm-200) transparent;
+}
+
+.chat-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.chat-body::-webkit-scrollbar-thumb {
+  background: var(--warm-200);
+  border-radius: 4px;
 }
 
 .date-divider {
   text-align: center;
-  margin: 6px 0 14px;
+  margin: 8px 0 18px;
 }
 
 .date-divider span {
+  display: inline-block;
+  padding: 4px 14px;
   font-size: 11px;
-  color: var(--c-muted);
+  font-weight: 500;
+  color: var(--warm-500);
+  background: var(--warm-100);
+  border-radius: 999px;
 }
 
 .msg-group {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
+  animation: msgFadeIn 0.35s ease-out both;
+}
+
+@keyframes msgFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .msg-group.user .chat-msg {
@@ -870,7 +953,7 @@ async function scrollToBottom() {
 .msg-time-line {
   text-align: center;
   font-size: 11px;
-  color: var(--c-muted);
+  color: var(--warm-400);
   margin-bottom: 6px;
   line-height: 1;
 }
@@ -887,57 +970,73 @@ async function scrollToBottom() {
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
-  border: 1px solid var(--c-border);
+  border: 1px solid var(--warm-200);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.12);
 }
 
 .user-avatar {
-  background: #eef0f2;
+  background: var(--warm-100);
 }
 
 .bubble {
-  max-width: min(78%, 520px);
-  padding: 12px 16px;
-  font-size: 14px;
-  line-height: 1.7;
+  max-width: min(82%, 560px);
+  padding: 12px 18px;
+  font-size: 15px;
+  line-height: 1.75;
   word-break: break-word;
-  border-radius: 12px;
 }
 
 .bubble.doctor {
-  background: var(--c-card);
-  color: var(--c-text);
-  border: 1px solid var(--c-border);
+  background: var(--chat-accent-bg);
+  color: var(--warm-700);
+  border: 1px solid var(--chat-accent-border);
+  border-radius: 4px 18px 18px 18px;
 }
 
 .bubble.user {
-  background: var(--c-moss-light);
-  color: var(--c-text);
-  border: none;
+  background: #c2d9cb;
+  color: var(--warm-800);
+  border-radius: 18px 4px 18px 18px;
 }
 
-.bubble.doctor :deep(.markdown-body) { font-size: 14px; color: var(--c-text); }
+.bubble.doctor :deep(.markdown-body) { font-size: 15px; color: var(--warm-700); line-height: 1.75; }
 .bubble.doctor :deep(.markdown-body p) { margin: 0 0 8px; }
 .bubble.doctor :deep(.markdown-body p:last-child) { margin-bottom: 0; }
+.bubble.doctor :deep(.markdown-body strong) { color: var(--health-700); font-weight: 600; }
 .bubble.doctor :deep(.markdown-body ul) { padding-left: 1.2em; margin: 4px 0; }
 
 .quick-questions {
-  margin: 8px 0 14px;
-  padding: 0 12px;
+  margin: 8px 0 16px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
 }
 
 .quick-label {
-  font-size: 12px;
-  color: var(--c-muted);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--warm-500);
   margin: 0 0 10px;
-  text-align: center;
+}
+
+.quick-label svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--health-600);
 }
 
 .typing-wrap { padding-bottom: 2px; }
 
 .typing-bubble {
-  background: var(--c-card);
-  border: 1px solid var(--c-border);
-  border-radius: 12px;
+  background: var(--chat-accent-bg);
+  border: 1px solid var(--chat-accent-border);
+  border-radius: 4px 18px 18px 18px;
   padding: 14px 18px;
   display: inline-flex;
   gap: 5px;
@@ -946,7 +1045,7 @@ async function scrollToBottom() {
 .typing-dot {
   width: 7px;
   height: 7px;
-  background: var(--c-moss);
+  background: var(--health-500);
   border-radius: 50%;
   animation: typingBounce 1.4s infinite ease-in-out both;
 }
@@ -961,56 +1060,69 @@ async function scrollToBottom() {
 
 .chat-footer {
   flex-shrink: 0;
-  padding: 12px 0 20px;
-  background: transparent;
+  padding: 16px 0 20px;
+  border-top: 1px solid var(--warm-200);
+  background: var(--warm-50);
 }
 
 .input-row {
   display: flex;
   align-items: flex-end;
   gap: 10px;
+  padding: 6px 6px 6px 16px;
+  background: #fff;
+  border: 1.5px solid var(--warm-200);
+  border-radius: 20px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-row:focus-within {
+  border-color: var(--health-500);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
 }
 
 .msg-input {
   flex: 1;
   min-height: 44px;
   max-height: 120px;
-  padding: 11px 16px;
-  font-size: 14px;
+  padding: 10px 0;
+  font-size: 15px;
   font-family: inherit;
   line-height: 1.5;
-  color: var(--c-text);
-  background: var(--c-card);
-  border: 1px solid var(--c-border);
-  border-radius: 22px;
+  color: var(--warm-700);
+  background: transparent;
+  border: none;
+  border-radius: 0;
   outline: none;
   resize: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.msg-input::placeholder { color: #b0b8b4; }
+.msg-input::placeholder { color: var(--warm-400); }
 
 .msg-input:focus {
-  border-color: #c5d5cb;
-  box-shadow: 0 0 0 3px rgba(139, 175, 154, 0.12);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .send-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: none;
-  border-radius: 50%;
-  background: var(--c-moss-deep);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--health-500), var(--health-600));
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: opacity 0.15s, background 0.15s;
+  transition: opacity 0.2s, transform 0.15s;
 }
 
-.send-btn:hover:not(:disabled) { background: #6f8f7a; }
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.04);
+}
+
 .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .send-btn svg { width: 18px; height: 18px; }
 
@@ -1027,7 +1139,7 @@ async function scrollToBottom() {
 
 .footer-tip {
   font-size: 10px;
-  color: #b0b8b4;
+  color: var(--warm-400);
   text-align: center;
   margin: 8px 0 0;
 }
@@ -1048,23 +1160,28 @@ async function scrollToBottom() {
 .rate-modal {
   background: #fff;
   border-radius: 24px;
-  padding: 28px 24px;
+  padding: 32px 28px 28px;
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  border: 1px solid var(--warm-100);
 }
 
 .rate-modal-icon {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 14px;
-  background: #f3f6f4;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, var(--chat-accent-bg), #fff);
+  border: 1px solid var(--chat-accent-border);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #7d9e88;
+  color: var(--health-600);
+  box-shadow: 0 4px 16px rgba(13, 148, 136, 0.12);
 }
 
 .rate-modal-icon svg { width: 32px; height: 32px; }
@@ -1072,13 +1189,13 @@ async function scrollToBottom() {
 .rate-modal h3 {
   font-size: 20px;
   font-weight: 700;
-  color: #111827;
+  color: var(--warm-800);
   margin: 0 0 6px;
 }
 
 .rate-sub {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--warm-500);
   margin: 0 0 18px;
 }
 
@@ -1104,7 +1221,7 @@ async function scrollToBottom() {
 
 .rating-text {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--warm-500);
   margin: 0 0 16px;
 }
 
@@ -1113,17 +1230,18 @@ async function scrollToBottom() {
   padding: 12px 14px;
   font-size: 14px;
   font-family: inherit;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--warm-200);
   border-radius: 14px;
   resize: none;
   outline: none;
   margin-bottom: 16px;
   box-sizing: border-box;
+  color: var(--warm-700);
 }
 
 .rate-textarea:focus {
-  border-color: #0d9488;
-  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  border-color: var(--health-500);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
 }
 
 .rate-actions { display: flex; gap: 12px; }
@@ -1138,12 +1256,17 @@ async function scrollToBottom() {
   cursor: pointer;
 }
 
-.btn-secondary { background: #f5f6f7; color: #333333; }
-.btn-primary {
-  background: #7d9e88;
-  color: #fff;
-  box-shadow: none;
+.btn-secondary {
+  background: var(--warm-100);
+  color: var(--warm-700);
 }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--health-500), var(--health-600));
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+}
+
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
@@ -1161,19 +1284,26 @@ async function scrollToBottom() {
   }
 
   .doctor-row {
-    flex-direction: column;
-    align-items: stretch;
+    gap: 10px;
   }
 
-  .doctor-row .el-button {
-    width: 100%;
-    margin-top: 8px;
+  .doctor-row .el-avatar {
+    flex-shrink: 0;
+    --el-avatar-size: 48px;
+  }
+
+  .doctor-row__action {
+    padding: 8px 12px;
+    font-size: 13px;
   }
 
   .chat-page {
-    height: calc(100dvh - var(--header-height));
-    min-height: 0;
-    padding: 0 12px;
+    padding: 0;
+  }
+
+  .page-inner {
+    padding: 8px 16px 0;
+    max-width: none;
   }
 
   .chat-toolbar {
@@ -1183,6 +1313,7 @@ async function scrollToBottom() {
   .doctor-card {
     flex-wrap: wrap;
     gap: 10px;
+    padding-bottom: 12px;
   }
 
   .doctor-card__end {
@@ -1190,12 +1321,12 @@ async function scrollToBottom() {
     text-align: center;
   }
 
-  .chat-footer {
-    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  .bubble {
+    max-width: 88%;
   }
 
-  .rate-overlay {
-    padding: 16px;
+  .chat-footer {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
 }
 </style>

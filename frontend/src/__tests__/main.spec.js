@@ -28,8 +28,19 @@ vi.mock('@/router', () => ({
   default: 'router',
 }))
 
+vi.mock('../App.vue', () => ({
+  default: { name: 'AppMock', template: '<div />' },
+}))
+
+vi.mock('../styles/auth.css', () => ({}))
+vi.mock('../styles/site.css', () => ({}))
+vi.mock('../styles/app.css', () => ({}))
+vi.mock('element-plus/dist/index.css', () => ({}))
+vi.mock('element-plus/es/locale/lang/zh-cn', () => ({ default: {} }))
+
 describe('main entry', () => {
   it('creates and mounts the Vue application', async () => {
+    vi.resetModules()
     await import('../main')
 
     expect(mocks.createApp).toHaveBeenCalled()

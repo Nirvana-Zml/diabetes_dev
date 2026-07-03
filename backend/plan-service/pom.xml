@@ -78,6 +78,24 @@
                         <configuration>
                             <rules>
                                 <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.diabetes.plan.service</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>1.00</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>1.00</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
                                     <element>BUNDLE</element>
                                     <limits>
                                         <limit>

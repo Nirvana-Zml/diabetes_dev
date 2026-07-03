@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.*;
 
 class CheckinReminderControllerTest {
@@ -27,15 +28,17 @@ class CheckinReminderControllerTest {
         assertEquals("r1", controller.rules("u1").data().get(0).get("ruleId"));
         assertEquals("l1", controller.pending("u1").data().get(0).get("logId"));
         assertEquals("r2", controller.saveRules("u1", new ReminderRulesSaveRequest()).data().get(0).get("ruleId"));
+        assertNotNull(controller.defaults().data().get("rules"));
 
         controller.ack("u1", "l1");
         controller.click("u1", "l1");
         ReminderSnoozeRequest snooze = new ReminderSnoozeRequest();
         snooze.setMinutes(15);
         controller.snooze("u1", "l1", snooze);
+        controller.snooze("u1", "l1", null);
 
         verify(service).ack("u1", "l1");
         verify(service).markClicked("u1", "l1");
-        verify(service).snooze("u1", "l1", 15);
+        verify(service, times(2)).snooze("u1", "l1", 15);
     }
 }

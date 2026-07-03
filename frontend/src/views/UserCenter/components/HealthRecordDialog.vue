@@ -30,7 +30,7 @@
         <el-col :span="12">
           <el-form-item label="糖尿病类型">
             <el-select v-model="form.diabetes_type" style="width:100%">
-              <el-option v-for="(label, key) in DIABETES_TYPE_LABELS" :key="key" :label="label" :value="key" />
+              <el-option v-for="opt in DIABETES_TYPE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
           </el-form-item>
         </el-col>
@@ -47,21 +47,21 @@
         <el-col :span="12">
           <el-form-item label="吸烟状况">
             <el-select v-model="form.smoking" style="width:100%">
-              <el-option v-for="(label, key) in SMOKING_LABELS" :key="key" :label="label" :value="key" />
+              <el-option v-for="opt in SMOKING_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="运动频率">
             <el-select v-model="form.exercise_freq" style="width:100%">
-              <el-option v-for="(label, key) in EXERCISE_LABELS" :key="key" :label="label" :value="key" />
+              <el-option v-for="opt in EXERCISE_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="饮食偏好">
             <el-select v-model="form.diet_type" style="width:100%">
-              <el-option v-for="(label, key) in DIET_LABELS" :key="key" :label="label" :value="key" />
+              <el-option v-for="opt in DIET_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
           </el-form-item>
         </el-col>
@@ -96,7 +96,12 @@
 import { ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { updateHealthRecord } from '@/api/user'
-import { DIABETES_TYPE_LABELS, SMOKING_LABELS, EXERCISE_LABELS, DIET_LABELS } from '../constants'
+import {
+  DIABETES_TYPE_OPTIONS,
+  SMOKING_OPTIONS,
+  EXERCISE_OPTIONS,
+  DIET_OPTIONS,
+} from '../constants'
 
 const props = defineProps({
   modelValue: Boolean,

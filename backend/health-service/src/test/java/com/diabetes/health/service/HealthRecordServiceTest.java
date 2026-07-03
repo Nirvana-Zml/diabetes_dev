@@ -1,5 +1,6 @@
 package com.diabetes.health.service;
 
+import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.health.dto.*;
 import com.diabetes.health.entity.*;
 import com.diabetes.health.mapper.HealthRecordMapper;
@@ -25,12 +26,15 @@ class HealthRecordServiceTest {
     @Mock
     private HealthRecordMapper healthRecordMapper;
 
+    @Mock
+    private UserServiceClient userServiceClient;
+
     private HealthRecordService service;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        service = new HealthRecordService(healthRecordMapper);
+        service = new HealthRecordService(healthRecordMapper, userServiceClient, "test-key");
     }
 
     @Test
@@ -64,6 +68,49 @@ class HealthRecordServiceTest {
     }
 
     @Test
+    @DisplayName("save - 合并上一条记录，避免部分字段被清空")
+    void save_mergesWithPreviousRecord() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+        previous.setPostprandialGlucose(BigDecimal.valueOf(8.2));
+        previous.setHba1c(BigDecimal.valueOf(6.1));
+        previous.setDiabetesType(3);
+        previous.setExerciseFreq(2);
+        previous.setDietType("balanced");
+        previous.setSmoking(0);
+
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setHeight(168f);
+        request.setWeight(60f);
+        request.setFastingGlucose(8f);
+        request.setSystolicBp(128);
+        request.setDiastolicBp(82);
+        request.setFamilyHistory(false);
+        request.setMedicalHistory("高血压");
+        request.setMedication("二甲双胍（500mg 每日两次）");
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        Map<String, Object> result = service.save("user1", request);
+
+        assertEquals(BigDecimal.valueOf(8.2), result.get("postprandialGlucose"));
+        assertEquals(BigDecimal.valueOf(6.1), result.get("hba1c"));
+        assertEquals(3, result.get("diabetesType"));
+        assertEquals(2, result.get("exerciseFreq"));
+        assertEquals("balanced", result.get("dietType"));
+        assertEquals(0, result.get("smoking"));
+        verify(healthRecordMapper).insert(argThat(record ->
+                record.getFastingGlucose() != null
+                        && record.getFastingGlucose().compareTo(BigDecimal.valueOf(8)) == 0
+                        && Integer.valueOf(3).equals(record.getDiabetesType())));
+        verify(healthRecordMapper).insertMedicalHistory(any());
+        verify(healthRecordMapper).insertMedication(any());
+    }
+
+    @Test
     @DisplayName("save - 保存健康记录")
     void save() {
         UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
@@ -75,6 +122,7 @@ class HealthRecordServiceTest {
         request.setFamilyHistory(true);
         request.setSmoking(0);
 
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(null);
         when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
         when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
         when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
@@ -106,6 +154,8 @@ class HealthRecordServiceTest {
         verify(healthRecordMapper).insertMedicalHistory(any(HealthRecordMedicalHistory.class));
         verify(healthRecordMapper).insertMedication(any(HealthRecordMedication.class));
         verify(healthRecordMapper).insertFamilyHistory(any(HealthRecordFamilyHistory.class));
+        verify(userServiceClient).evaluateIntervention(eq("test-key"), org.mockito.ArgumentMatchers.argThat(body ->
+                "user1".equals(body.get("userId")) && "health_record_saved".equals(body.get("trigger"))));
     }
 
     @Test
@@ -441,6 +491,7 @@ class HealthRecordServiceTest {
     @Test
     @DisplayName("save - 测试空 height/weight 不计算 BMI")
     void save_nullHeightWeight() {
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(null);
         UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
         request.setFastingGlucose(5.5f);
         request.setSystolicBp(120);
@@ -603,6 +654,7 @@ class HealthRecordServiceTest {
     @Test
     @DisplayName("save - 空血糖和血压字段")
     void save_nullGlucoseAndBp() {
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(null);
         UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
         request.setHeight(170f);
         request.setWeight(65f);
@@ -849,5 +901,518 @@ class HealthRecordServiceTest {
 
         assertNotNull(recordId);
         verify(healthRecordMapper).insertFamilyHistory(any());
+    }
+
+    @Test
+    @DisplayName("save - 从上一条记录复制子表数据")
+    void save_copiesSubTablesFromPrevious() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+        previous.setBmi(BigDecimal.valueOf(23));
+
+        HealthRecordMedicalHistory history = new HealthRecordMedicalHistory();
+        history.setDiseaseName("高血压");
+        history.setDiseaseCode("I10");
+        history.setStatus(1);
+        history.setSource(null);
+
+        HealthRecordMedication medication = new HealthRecordMedication();
+        medication.setDrugName("二甲双胍");
+        medication.setGenericName("Metformin");
+        medication.setStatus(1);
+        medication.setSource(null);
+
+        HealthRecordFamilyHistory family = new HealthRecordFamilyHistory();
+        family.setRelation("父亲");
+        family.setDiseaseName("糖尿病");
+        family.setSource(null);
+
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setFastingGlucose(6.0f);
+        request.setSystolicBp(120);
+        request.setDiastolicBp(80);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId("hr_prev")).thenReturn(List.of(history));
+        when(healthRecordMapper.findMedicationsByRecordId("hr_prev")).thenReturn(List.of(medication));
+        when(healthRecordMapper.findFamilyHistoriesByRecordId("hr_prev")).thenReturn(List.of(family));
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(argThat(id -> !"hr_prev".equals(id))))
+                .thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(argThat(id -> !"hr_prev".equals(id))))
+                .thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(argThat(id -> !"hr_prev".equals(id))))
+                .thenReturn(List.of());
+
+        service.save("user1", request);
+
+        verify(healthRecordMapper).insertMedicalHistory(argThat(copy ->
+                "高血压".equals(copy.getDiseaseName()) && Integer.valueOf(1).equals(copy.getSource())));
+        verify(healthRecordMapper).insertMedication(argThat(copy ->
+                "二甲双胍".equals(copy.getDrugName()) && Integer.valueOf(1).equals(copy.getSource())));
+        verify(healthRecordMapper).insertFamilyHistory(argThat(copy ->
+                "糖尿病".equals(copy.getDiseaseName()) && Integer.valueOf(1).equals(copy.getSource())));
+    }
+
+    @Test
+    @DisplayName("save - 缺少身高体重时沿用上一版 BMI")
+    void save_bmiFromPreviousWhenHeightWeightMissing() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+        previous.setHeight(null);
+        previous.setWeight(null);
+        previous.setBmi(BigDecimal.valueOf(24.2));
+
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setFastingGlucose(6.1f);
+        request.setSystolicBp(120);
+        request.setDiastolicBp(80);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        Map<String, Object> result = service.save("user1", request);
+
+        assertEquals(BigDecimal.valueOf(24.2), result.get("bmi"));
+        verify(healthRecordMapper).insert(argThat(record ->
+                record.getBmi() != null && record.getBmi().compareTo(BigDecimal.valueOf(24.2)) == 0));
+    }
+
+    @Test
+    @DisplayName("save - 空白病史/用药文本不写入")
+    void save_blankMedicalHistoryAndMedicationText() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+        request.setMedicalHistory("   ");
+        request.setMedication("");
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        service.save("user1", request);
+
+        verify(healthRecordMapper, never()).insertMedicalHistory(any());
+        verify(healthRecordMapper, never()).insertMedication(any());
+    }
+
+    @Test
+    @DisplayName("save - 文本病史忽略空分段")
+    void save_medicalHistoryWithEmptyPart() {
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+        request.setMedicalHistory("高血压；  ；  ");
+        request.setMedication("二甲双胍；  ");
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(null);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        service.save("user1", request);
+
+        verify(healthRecordMapper, times(1)).insertMedicalHistory(any());
+        verify(healthRecordMapper, times(1)).insertMedication(any());
+    }
+
+    @Test
+    @DisplayName("save - 未传 familyHistory 时沿用上一版标记")
+    void save_familyHistoryFromPreviousWhenRequestNull() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+        previous.setHasDiabetesFamily(1);
+
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        Map<String, Object> result = service.save("user1", request);
+
+        assertTrue((Boolean) result.get("familyHistory"));
+        verify(healthRecordMapper).insert(argThat(record -> Integer.valueOf(1).equals(record.getHasDiabetesFamily())));
+    }
+
+    @Test
+    @DisplayName("save - 空腹血糖写入干预上下文")
+    void save_withFastingGlucoseTriggersIntervention() {
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+        request.setFastingGlucose(6.2f);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(null);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        service.save("user1", request);
+
+        verify(userServiceClient).evaluateIntervention(eq("test-key"), org.mockito.ArgumentMatchers.argThat(body ->
+                "user1".equals(body.get("userId"))
+                        && body.get("context") instanceof Map<?, ?> ctx
+                        && ctx.get("fastingGlucose") != null));
+    }
+
+    @Test
+    @DisplayName("summarizeMedications - 仅药物名称")
+    void summarizeMedications_drugNameOnly() {
+        HealthRecord record = new HealthRecord();
+        record.setRecordId("hr_med_only");
+
+        HealthRecordMedication med = new HealthRecordMedication();
+        med.setDrugName("二甲双胍");
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(record);
+        when(healthRecordMapper.findMedicationsByRecordId("hr_med_only")).thenReturn(List.of(med));
+
+        Map<String, Object> result = service.getLatest("user1");
+
+        assertEquals("二甲双胍", result.get("medication"));
+    }
+
+    @Test
+    @DisplayName("medicationView - isInsulin 为 null/false")
+    void medicationView_isInsulinNullAndFalse() {
+        HealthRecord record = new HealthRecord();
+        record.setRecordId("hr_insulin");
+
+        HealthRecordMedication medNull = new HealthRecordMedication();
+        medNull.setDrugName("药A");
+        medNull.setIsInsulin(null);
+        HealthRecordMedication medFalse = new HealthRecordMedication();
+        medFalse.setDrugName("药B");
+        medFalse.setIsInsulin(0);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(record);
+        when(healthRecordMapper.findMedicationsByRecordId("hr_insulin")).thenReturn(List.of(medNull, medFalse));
+
+        Map<String, Object> result = service.getLatest("user1");
+
+        List<?> medications = (List<?>) result.get("medications");
+        assertFalse((Boolean) ((Map<?, ?>) medications.get(0)).get("isInsulin"));
+        assertFalse((Boolean) ((Map<?, ?>) medications.get(1)).get("isInsulin"));
+    }
+
+    @Test
+    @DisplayName("familyHistoryView - isAlive 为 null 视为存活")
+    void familyHistoryView_isAliveNull() {
+        HealthRecord record = new HealthRecord();
+        record.setRecordId("hr_family_null");
+
+        HealthRecordFamilyHistory family = new HealthRecordFamilyHistory();
+        family.setRelation("母亲");
+        family.setDiseaseName("高血压");
+        family.setIsAlive(null);
+        family.setIsDiabetes(null);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(record);
+        when(healthRecordMapper.findFamilyHistoriesByRecordId("hr_family_null")).thenReturn(List.of(family));
+
+        Map<String, Object> result = service.getLatest("user1");
+
+        List<?> familyHistories = (List<?>) result.get("familyHistories");
+        assertTrue((Boolean) ((Map<?, ?>) familyHistories.get(0)).get("isAlive"));
+        assertFalse((Boolean) ((Map<?, ?>) familyHistories.get(0)).get("isDiabetes"));
+    }
+
+    @Test
+    @DisplayName("saveFromQuestionnaire - isAlive 显式 true")
+    void saveFromQuestionnaire_isAliveTrue() {
+        RiskAssessRequest request = new RiskAssessRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+        request.setFastingGlucose(5.5f);
+        request.setSystolicBp(120);
+        request.setDiastolicBp(80);
+
+        FamilyHistoryItem familyHistory = new FamilyHistoryItem();
+        familyHistory.setRelation("母亲");
+        familyHistory.setDiseaseName("糖尿病");
+        familyHistory.setIsAlive(true);
+        request.setFamilyHistories(List.of(familyHistory));
+
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.insertFamilyHistory(any(HealthRecordFamilyHistory.class))).thenReturn(1);
+
+        service.saveFromQuestionnaire("user1", request, BigDecimal.valueOf(22.5));
+
+        verify(healthRecordMapper).insertFamilyHistory(argThat(h -> h.getIsAlive() == 1));
+    }
+
+    @Test
+    @DisplayName("saveFromQuestionnaire - 无空腹血糖不写入干预上下文")
+    void saveFromQuestionnaire_noFastingGlucose() {
+        RiskAssessRequest request = new RiskAssessRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+        request.setFastingGlucose(null);
+        request.setSystolicBp(120);
+        request.setDiastolicBp(80);
+
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+
+        service.saveFromQuestionnaire("user1", request, BigDecimal.valueOf(22.5));
+
+        verify(userServiceClient).evaluateIntervention(eq("test-key"), org.mockito.ArgumentMatchers.argThat(body ->
+                "user1".equals(body.get("userId"))
+                        && body.get("context") instanceof Map<?, ?> ctx
+                        && !ctx.containsKey("fastingGlucose")
+                        && !ctx.containsKey("fasting_glucose")));
+    }
+
+    @Test
+    @DisplayName("save - 仅身高或体重缺失时不计算 BMI")
+    void save_partialHeightWeightNoBmi() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+        previous.setWeight(null);
+
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setFastingGlucose(5.5f);
+        request.setSystolicBp(120);
+        request.setDiastolicBp(80);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        Map<String, Object> result = service.save("user1", request);
+
+        assertEquals(BigDecimal.valueOf(22.5), result.get("bmi"));
+    }
+
+    @Test
+    @DisplayName("save - 复制子表保留已有 source")
+    void save_copyPreservesExistingSource() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+
+        HealthRecordMedicalHistory history = new HealthRecordMedicalHistory();
+        history.setDiseaseName("高血压");
+        history.setSource(2);
+
+        HealthRecordMedication medication = new HealthRecordMedication();
+        medication.setDrugName("二甲双胍");
+        medication.setSource(2);
+
+        HealthRecordFamilyHistory family = new HealthRecordFamilyHistory();
+        family.setDiseaseName("糖尿病");
+        family.setSource(2);
+
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId("hr_prev")).thenReturn(List.of(history));
+        when(healthRecordMapper.findMedicationsByRecordId("hr_prev")).thenReturn(List.of(medication));
+        when(healthRecordMapper.findFamilyHistoriesByRecordId("hr_prev")).thenReturn(List.of(family));
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(argThat(id -> !"hr_prev".equals(id))))
+                .thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(argThat(id -> !"hr_prev".equals(id))))
+                .thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(argThat(id -> !"hr_prev".equals(id))))
+                .thenReturn(List.of());
+
+        service.save("user1", request);
+
+        verify(healthRecordMapper).insertMedicalHistory(argThat(copy -> Integer.valueOf(2).equals(copy.getSource())));
+        verify(healthRecordMapper).insertMedication(argThat(copy -> Integer.valueOf(2).equals(copy.getSource())));
+        verify(healthRecordMapper).insertFamilyHistory(argThat(copy -> Integer.valueOf(2).equals(copy.getSource())));
+    }
+
+    @Test
+    @DisplayName("save - 上一版 familyHistory 标记为 null 时返回 false")
+    void save_familyHistoryFlagPreviousNull() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+        previous.setHasDiabetesFamily(null);
+
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        Map<String, Object> result = service.save("user1", request);
+
+        assertFalse((Boolean) result.get("familyHistory"));
+        verify(healthRecordMapper).insert(argThat(record -> Integer.valueOf(0).equals(record.getHasDiabetesFamily())));
+    }
+
+    @Test
+    @DisplayName("save - 沿用上一版 dietType 与 postprandialGlucose")
+    void save_coalesceFromPrevious() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+        previous.setDietType("low_carb");
+        previous.setPostprandialGlucose(BigDecimal.valueOf(8.1));
+
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        Map<String, Object> result = service.save("user1", request);
+
+        assertEquals("low_carb", result.get("dietType"));
+        assertEquals(BigDecimal.valueOf(8.1), result.get("postprandialGlucose"));
+    }
+
+    @Test
+    @DisplayName("toDetailView - isPregnant/isInsulinTaken 为 0")
+    void toDetailView_booleanFieldsZero() {
+        HealthRecord record = new HealthRecord();
+        record.setRecordId("hr_bool_zero");
+        record.setIsPregnant(0);
+        record.setIsInsulinTaken(0);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(record);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId("hr_bool_zero")).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId("hr_bool_zero")).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId("hr_bool_zero")).thenReturn(List.of());
+
+        Map<String, Object> result = service.getLatest("user1");
+
+        assertFalse((Boolean) result.get("isPregnant"));
+        assertFalse((Boolean) result.get("isInsulinTaken"));
+    }
+
+    @Test
+    @DisplayName("saveMedicalHistoryFromText - null 文本直接返回")
+    void saveMedicalHistoryFromText_nullText() throws Exception {
+        java.lang.reflect.Method method = HealthRecordService.class.getDeclaredMethod(
+                "saveMedicalHistoryFromText", String.class, String.class, String.class);
+        method.setAccessible(true);
+        method.invoke(service, "user1", "hr_1", null);
+
+        verify(healthRecordMapper, never()).insertMedicalHistory(any());
+    }
+
+    @Test
+    @DisplayName("saveMedicationFromText - null 文本直接返回")
+    void saveMedicationFromText_nullText() throws Exception {
+        java.lang.reflect.Method method = HealthRecordService.class.getDeclaredMethod(
+                "saveMedicationFromText", String.class, String.class, String.class);
+        method.setAccessible(true);
+        method.invoke(service, "user1", "hr_1", null);
+
+        verify(healthRecordMapper, never()).insertMedication(any());
+    }
+
+    @Test
+    @DisplayName("summarizeMedicalHistories - null 列表返回空字符串")
+    void summarizeMedicalHistories_nullList() throws Exception {
+        java.lang.reflect.Method method = HealthRecordService.class.getDeclaredMethod(
+                "summarizeMedicalHistories", List.class);
+        method.setAccessible(true);
+
+        String summary = (String) method.invoke(service, new Object[] { null });
+
+        assertEquals("", summary);
+    }
+
+    @Test
+    @DisplayName("summarizeMedications - null 列表返回空字符串")
+    void summarizeMedications_nullList() throws Exception {
+        java.lang.reflect.Method method = HealthRecordService.class.getDeclaredMethod(
+                "summarizeMedications", List.class);
+        method.setAccessible(true);
+
+        String summary = (String) method.invoke(service, new Object[] { null });
+
+        assertEquals("", summary);
+    }
+
+    @Test
+    @DisplayName("save - 请求显式传入 dietType 与 hba1c")
+    void save_explicitDietTypeAndHba1c() {
+        HealthRecord previous = createHealthRecord("hr_prev", "user1");
+        previous.setDietType("low_carb");
+        previous.setHba1c(BigDecimal.valueOf(7.0));
+
+        UpdateHealthRecordRequest request = new UpdateHealthRecordRequest();
+        request.setHeight(170f);
+        request.setWeight(65f);
+        request.setDietType("vegetarian");
+        request.setHba1c(6.3f);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(previous);
+        when(healthRecordMapper.insert(any(HealthRecord.class))).thenReturn(1);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId(anyString())).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId(anyString())).thenReturn(List.of());
+
+        Map<String, Object> result = service.save("user1", request);
+
+        assertEquals("vegetarian", result.get("dietType"));
+        assertEquals(0, ((BigDecimal) result.get("hba1c")).compareTo(BigDecimal.valueOf(6.3f)));
+    }
+
+    @Test
+    @DisplayName("familyHistoryView - isAlive 为 1")
+    void familyHistoryView_isAliveTrue() {
+        HealthRecord record = new HealthRecord();
+        record.setRecordId("hr_alive_true");
+
+        HealthRecordFamilyHistory family = new HealthRecordFamilyHistory();
+        family.setRelation("母亲");
+        family.setDiseaseName("糖尿病");
+        family.setIsAlive(1);
+        family.setIsDiabetes(1);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(record);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId("hr_alive_true")).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId("hr_alive_true")).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId("hr_alive_true")).thenReturn(List.of(family));
+
+        Map<String, Object> result = service.getLatest("user1");
+
+        List<?> familyHistories = (List<?>) result.get("familyHistories");
+        assertTrue((Boolean) ((Map<?, ?>) familyHistories.get(0)).get("isAlive"));
+        assertTrue((Boolean) ((Map<?, ?>) familyHistories.get(0)).get("isDiabetes"));
+    }
+
+    @Test
+    @DisplayName("familyHistoryView - isDiabetes 为 0")
+    void familyHistoryView_isDiabetesFalse() {
+        HealthRecord record = new HealthRecord();
+        record.setRecordId("hr_diabetes_false");
+
+        HealthRecordFamilyHistory family = new HealthRecordFamilyHistory();
+        family.setRelation("父亲");
+        family.setDiseaseName("高血压");
+        family.setIsDiabetes(0);
+
+        when(healthRecordMapper.findLatestByUserId("user1")).thenReturn(record);
+        when(healthRecordMapper.findMedicalHistoriesByRecordId("hr_diabetes_false")).thenReturn(List.of());
+        when(healthRecordMapper.findMedicationsByRecordId("hr_diabetes_false")).thenReturn(List.of());
+        when(healthRecordMapper.findFamilyHistoriesByRecordId("hr_diabetes_false")).thenReturn(List.of(family));
+
+        Map<String, Object> result = service.getLatest("user1");
+
+        List<?> familyHistories = (List<?>) result.get("familyHistories");
+        assertFalse((Boolean) ((Map<?, ?>) familyHistories.get(0)).get("isDiabetes"));
     }
 }

@@ -2,8 +2,6 @@ import { get, put, post } from '@/utils/request'
 import { toSnakeCase } from '@/utils/normalize'
 import {
   mockUserProfile,
-  mockHealthAlert,
-  mockHealthTrendSummary,
 } from '@/mock/data'
 import { getHealthRecord, updateHealthRecord } from '@/api/healthRecord'
 import { listConsultations } from '@/api/consultation'
@@ -44,18 +42,33 @@ export function getUserConsultations(params = {}) {
   return listConsultations(params)
 }
 
-/** 异常指标预警 — 占位 */
-export async function getHealthAlert() {
-  const { delay } = await import('@/utils/delay')
-  await delay()
-  return mockHealthAlert
+/** GET /api/v1/user/health-alert — 当前健康预警 */
+export function getHealthAlert() {
+  return get('/user/health-alert', {
+    mockFn: async () => {
+      const { mockHealthAlert } = await import('@/mock/data')
+      return mockHealthAlert
+    },
+  }).then((d) => toSnakeCase(d))
 }
 
-/** AI 健康趋势 — 占位 */
-export async function getHealthTrendSummary() {
-  const { delay } = await import('@/utils/delay')
-  await delay()
-  return { summary: mockHealthTrendSummary }
+/** GET /api/v1/user/health-trend — AI 健康趋势分析（Dify 可能较慢，单独调用勿阻塞页面） */
+export function getHealthTrendSummary(limit = 30, { force = false } = {}) {
+  return get('/user/health-trend', {
+    params: { limit, force: force ? true : undefined },
+    timeout: 120000,
+    mockFn: async () => {
+      const { mockHealthTrendSummary } = await import('@/mock/data')
+      return { summary: mockHealthTrendSummary }
+    },
+  }).then((d) => toSnakeCase(d))
+}
+
+/** POST /api/v1/user/interventions/{planId}/ack — 确认已读预警 */
+export function acknowledgeHealthIntervention(planId) {
+  return post(`/user/interventions/${planId}/ack`, {}, {
+    mockFn: async () => ({ success: true }),
+  })
 }
 
 /** POST /api/user/export — 提交数据导出 */

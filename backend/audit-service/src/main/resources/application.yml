@@ -1,0 +1,34 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: audit-service
+  datasource:
+    url: jdbc:kingbase8://${KINGBASE_HOST:localhost}:${KINGBASE_PORT:54321}/DIABETES_AUDIT?useUnicode=true&characterEncoding=utf8
+    username: ${KINGBASE_USER:system}
+    password: ${KINGBASE_PASSWORD:12345678ab}
+    driver-class-name: com.kingbase8.Driver
+    hikari:
+      max-lifetime: 600000
+      keepalive-time: 300000
+      connection-test-query: SELECT 1
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.diabetes.audit.entity
+  configuration:
+    map-underscore-to-camel-case: false
+    default-statement-timeout: 30
+
+jwt:
+  secret: ${JWT_SECRET:diabetes_jwt_secret_key_at_least_32_chars}
+
+dify-internal:
+  key: ${DIFY_INTERNAL_KEY:LoginAuth2026}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

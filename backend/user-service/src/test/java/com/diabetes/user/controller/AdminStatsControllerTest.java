@@ -55,4 +55,15 @@ class AdminStatsControllerTest {
         assertEquals(data, response.data());
         verify(adminStatsService).listUsers(1, 20);
     }
+
+    @Test
+    void userBrief() {
+        Map<String, Object> data = Map.of("subject_id", "u_1", "role", "user");
+        when(adminStatsService.getSubjectBrief("u_1")).thenReturn(data);
+
+        ApiResponse<Map<String, Object>> response = adminStatsController.userBrief("u_1");
+
+        assertEquals(data, response.data());
+        verify(adminStatsService).getSubjectBrief("u_1");
+    }
 }

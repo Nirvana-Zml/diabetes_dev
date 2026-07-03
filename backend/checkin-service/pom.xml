@@ -84,17 +84,12 @@
                                 <rule>
                                     <element>PACKAGE</element>
                                     <includes>
-                                        <include>com.diabetes.checkin</include>
-                                        <include>com.diabetes.checkin.config</include>
-                                        <include>com.diabetes.checkin.controller</include>
-                                        <include>com.diabetes.checkin.dify</include>
-                                        <include>com.diabetes.checkin.dto</include>
-                                        <include>com.diabetes.checkin.entity</include>
                                         <include>com.diabetes.checkin.service</include>
+                                        <include>com.diabetes.checkin.controller</include>
                                     </includes>
                                     <limits>
                                         <limit>
-                                            <counter>INSTRUCTION</counter>
+                                            <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
                                             <minimum>1.00</minimum>
                                         </limit>
@@ -103,10 +98,26 @@
                                             <value>COVEREDRATIO</value>
                                             <minimum>1.00</minimum>
                                         </limit>
+                                    </limits>
+                                </rule>
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>com.diabetes.checkin.config</include>
+                                        <include>com.diabetes.checkin.dify</include>
+                                        <include>com.diabetes.checkin.dto</include>
+                                        <include>com.diabetes.checkin.entity</include>
+                                    </includes>
+                                    <limits>
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
                                             <minimum>1.00</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

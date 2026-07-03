@@ -67,6 +67,7 @@ import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import AuthLogo from '@/components/AuthLogo.vue'
 import { login, saveTokens, clearTokens } from '@/api/auth.js'
+import { resolvePostLoginRedirect } from '@/utils/auth'
 import { ADMIN_PORTAL_URL, APP_NAME } from '@/config'
 
 const router = useRouter()
@@ -123,8 +124,8 @@ async function handleSubmit() {
       localStorage.removeItem('remember_username')
     }
     ElMessage.success('登录成功')
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/home'
-    router.push(redirect)
+    const redirect = resolvePostLoginRedirect(route.query.redirect)
+    router.replace(redirect)
   } catch (err) {
     ElMessage.error(err.message || '登录失败，请检查用户名和密码')
   } finally {

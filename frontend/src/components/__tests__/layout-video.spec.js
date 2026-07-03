@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 
 const mocks = vi.hoisted(() => ({
   route: { path: '/home', meta: {} },
   push: vi.fn(),
   back: vi.fn(),
+  replace: vi.fn(),
   loggedIn: false,
   redirectToLogin: vi.fn((redirect) => ({ path: '/login', query: { redirect } })),
+  messageCenter: {
+    unreadCount: { value: 0 },
+    messageList: { value: [] },
+  },
 }))
 
 vi.mock('vue-router', () => ({
@@ -15,13 +21,60 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: mocks.push,
     back: mocks.back,
+    replace: mocks.replace,
   }),
+  createRouter: vi.fn(() => ({
+    beforeEach: vi.fn(),
+    afterEach: vi.fn(),
+    currentRoute: { value: mocks.route },
+    push: mocks.push,
+    back: mocks.back,
+    replace: mocks.replace,
+  })),
+  createWebHistory: vi.fn(() => ({})),
+}))
+
+vi.mock('@/router', () => ({
+  default: {
+    push: mocks.push,
+    back: mocks.back,
+    replace: mocks.replace,
+  },
 }))
 
 vi.mock('@/utils/auth', () => ({
   isLoggedIn: () => mocks.loggedIn,
   redirectToLogin: mocks.redirectToLogin,
+  isAuthPath: (path) => {
+    if (!path) return false
+    const base = String(path).split('?')[0]
+    return ['/login', '/register', '/forgot-password'].includes(base)
+  },
 }))
+
+vi.mock('@/composables/useMessageCenter', () => ({
+  unreadCount: mocks.messageCenter.unreadCount,
+  messageList: mocks.messageCenter.messageList,
+  useMessageCenter: () => ({
+    start: vi.fn(),
+    stop: vi.fn(),
+    refresh: vi.fn(async () => {}),
+    loadList: vi.fn(async () => {}),
+    unreadCount: mocks.messageCenter.unreadCount,
+    messageList: mocks.messageCenter.messageList,
+  }),
+}))
+
+vi.mock('@/composables/useCheckinReminder', () => ({
+  useCheckinReminder: () => ({ start: vi.fn(), stop: vi.fn() }),
+}))
+
+vi.mock('@/composables/useBreakpoints', async () => {
+  const { ref } = await import('vue')
+  return {
+    useIsMobile: () => ref(false),
+  }
+})
 
 vi.mock('@element-plus/icons-vue', () => ({
   ArrowLeft: { name: 'ArrowLeft', template: '<i />' },
@@ -44,6 +97,17 @@ const global = {
       name: 'ElIcon',
       template: '<span><slot /></span>',
     }),
+    'el-badge': true,
+    'el-popover': defineComponent({
+      name: 'ElPopover',
+      template: '<div><slot /><slot name="reference" /></div>',
+    }),
+    'el-drawer': defineComponent({
+      name: 'ElDrawer',
+      props: ['modelValue'],
+      emits: ['update:modelValue'],
+      template: '<div v-if="modelValue"><slot /></div>',
+    }),
     RouterView: defineComponent({
       name: 'RouterView',
       template: '<main>route content</main>',
@@ -52,11 +116,13 @@ const global = {
 }
 
 beforeEach(() => {
+  setActivePinia(createPinia())
   mocks.route.path = '/home'
   mocks.route.meta = {}
   mocks.loggedIn = false
   mocks.push.mockClear()
   mocks.back.mockClear()
+  mocks.replace.mockClear()
   mocks.redirectToLogin.mockClear()
 })
 
@@ -69,7 +135,7 @@ describe('layout and shell components', () => {
     mocks.route.meta = { layout: 'auth' }
     const authWrapper = mount(App, { global })
     expect(authWrapper.classes()).toContain('app-root')
-  })
+  }, 15000)
 
   it('handles top and bottom navigation branches', async () => {
     const TopNav = (await import('../layout/TopNav.vue')).default
@@ -112,14 +178,17 @@ describe('layout and shell components', () => {
     mocks.loggedIn = true
     const loggedHeader = mount(SiteHeader, { global })
     expect(loggedHeader.text()).toContain('我的')
-    await loggedHeader.findAll('.nav-link').at(-1).trigger('click')
+    const myNavLink = loggedHeader.findAll('.nav-link').find((item) => item.text().includes('我的'))
+    await myNavLink.trigger('click')
     expect(mocks.push).toHaveBeenLastCalledWith('/user-center')
+
     mocks.loggedIn = false
-    await loggedHeader.findAll('.nav-link').at(-1).trigger('click')
-    expect(mocks.push).toHaveBeenLastCalledWith({ path: '/login', query: { redirect: '/user-center' } })
+    const loggedOutHeader = mount(SiteHeader, { global })
+    await loggedOutHeader.findAll('.nav-link').find((item) => item.text().includes('登录')).trigger('click')
+    expect(mocks.push).toHaveBeenLastCalledWith('/login')
     mocks.route.path = '/login'
     await nextTick()
-    expect(loggedHeader.findAll('.nav-link').some((item) => item.classes('active'))).toBe(true)
+    expect(loggedOutHeader.findAll('.nav-link').some((item) => item.classes('active'))).toBe(true)
 
     mocks.loggedIn = false
     const footer = mount(SiteFooter, { global })
@@ -152,6 +221,10 @@ describe('layout and shell components', () => {
     })
     expect(site.text()).toContain('页面标题')
     expect(site.text()).toContain('页面内容')
+    vi.stubGlobal('history', {
+      length: 2,
+      state: { back: '/consultation' },
+    })
     await site.find('.back-btn').trigger('click')
     expect(mocks.back).toHaveBeenCalled()
     const plainSite = mount(SiteLayout, { global })

@@ -478,6 +478,11 @@ body {
     padding: 16px var(--edge-padding) 0;
   }
 
+  .site-main.site-main--full,
+  .site-page--no-header .site-main {
+    padding: 0;
+  }
+
   .header-inner {
     gap: 8px;
   }

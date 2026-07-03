@@ -5,8 +5,11 @@ import com.diabetes.checkin.entity.CheckinGlucoseDetail;
 import com.diabetes.checkin.entity.CheckinRecord;
 import com.diabetes.checkin.mapper.CheckinGlucoseDetailMapper;
 import com.diabetes.checkin.mapper.CheckinRecordMapper;
+import com.diabetes.common.client.InterventionClientHelper;
+import com.diabetes.common.client.UserServiceClient;
 import com.diabetes.common.exception.BusinessException;
 import com.diabetes.common.util.IdGenerator;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,13 +32,19 @@ public class GlucoseCheckinService {
     private final CheckinRecordMapper checkinRecordMapper;
     private final CheckinGlucoseDetailMapper glucoseDetailMapper;
     private final CheckinService checkinService;
+    private final UserServiceClient userServiceClient;
+    private final String difyInternalKey;
 
     public GlucoseCheckinService(CheckinRecordMapper checkinRecordMapper,
                                  CheckinGlucoseDetailMapper glucoseDetailMapper,
-                                 CheckinService checkinService) {
+                                 CheckinService checkinService,
+                                 UserServiceClient userServiceClient,
+                                 @Value("${dify-internal.key:}") String difyInternalKey) {
         this.checkinRecordMapper = checkinRecordMapper;
         this.glucoseDetailMapper = glucoseDetailMapper;
         this.checkinService = checkinService;
+        this.userServiceClient = userServiceClient;
+        this.difyInternalKey = difyInternalKey;
     }
 
     @Transactional
@@ -70,6 +79,15 @@ public class GlucoseCheckinService {
         result.put("measureContextLabel", CONTEXT_LABELS.getOrDefault(detail.getMeasureContext(), "随机"));
         result.put("pointsEarned", 15);
         result.put("streakDays", streak);
+
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("checkin_type", CheckinConstants.TYPE_GLUCOSE);
+        context.put("checkinType", CheckinConstants.TYPE_GLUCOSE);
+        context.put("checkin_date", date.toString());
+        context.put("glucose_value", detail.getGlucoseValue());
+        context.put("glucoseValue", detail.getGlucoseValue());
+        InterventionClientHelper.triggerEvaluate(userServiceClient, difyInternalKey,
+                userId, "checkin_created", context);
         return result;
     }
 

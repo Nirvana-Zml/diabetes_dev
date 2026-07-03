@@ -58,6 +58,7 @@ dist/
 # Docker runtime data (keep nginx config)
 # =========================
 docker/mysql/data/
+docker/kingbase/data/
 docker/minio/data/
 docker/redis/data/
 docker/milvus/data/

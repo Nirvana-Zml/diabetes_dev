@@ -8,4 +8,9 @@
         FROM ADMINS
         WHERE USERNAME = #{username} AND IS_DELETED = 0
     </select>
+    <select id="findById" resultType="com.diabetes.user.entity.Admin">
+        SELECT ADMIN_ID AS adminId, USERNAME AS username, PASSWORD_HASH AS passwordHash
+        FROM ADMINS
+        WHERE ADMIN_ID = #{adminId} AND IS_DELETED = 0
+    </select>
 </mapper>

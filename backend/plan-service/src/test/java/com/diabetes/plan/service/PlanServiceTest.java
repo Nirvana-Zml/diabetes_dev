@@ -425,29 +425,326 @@ class PlanServiceTest {
     }
 
     @Test
-    void generatePlanContent_shallowWithoutRequiredSections() throws Exception {
+    void generatePlanContent_nullDifyApiKey() throws Exception {
+        PlanService nullKeyService = new PlanService(
+                healthPlanMapper, planPersistenceService, userProfileService,
+                calorieCalculator, planPromptBuilder, difyClient, userServiceClient, objectMapper,
+                "http://dify", null, "blocking", "");
+        Map<String, Object> content = invokeGeneratePlanContent(nullKeyService, "u_1", Map.of(), 1800);
+        assertTrue(content.containsKey("dietPlan"));
+    }
+
+    @Test
+    void generatePlanContent_healthPlanCamelCaseNested() throws Exception {
         when(planPromptBuilder.buildDifyPayload(anyString(), any(), anyInt())).thenReturn(Map.of());
-        JsonNode response = objectMapper.readTree(
-                "{\"data\":{\"status\":\"succeeded\",\"outputs\":{\"plan_llm_output\":{\"breakfast_foods\":[]}}}}");
+        JsonNode response = objectMapper.readTree("""
+                {"data":{"status":"succeeded","outputs":{"health_plan":{
+                  "dietPlan":{"meal_plan":{"breakfast":{"foods":[{"name":"蛋","amount":"1","calories":1}]}}},
+                  "exercisePlan":{"items":[{"type":"走","duration":"10分钟"}]},
+                  "restPlan":{"sleep":"22:00"},
+                  "medicationNote":"camel"
+                }}}}
+                """);
         when(difyClient.runWorkflowBlocking(anyString(), anyString(), any(), anyString())).thenReturn(response);
 
+        Map<String, Object> content = invokeGeneratePlanContent(planServiceWithDify, "u_1", Map.of(), 1800);
+        assertEquals("camel", content.get("medicationNote"));
+    }
+
+    @Test
+    void parseDifyPlanResponse_llmOutputNotShallow() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod(
+                "parseDifyPlanResponse", JsonNode.class, Map.class);
+        method.setAccessible(true);
+        JsonNode response = objectMapper.readTree("""
+                {"data":{"outputs":{"plan_llm_output":{
+                  "diet_plan":{"meal_plan":{"breakfast":{"foods":[{"name":"蛋","amount":"1","calories":1}]}}},
+                  "exercise_plan":{"items":[{"type":"走","duration":"10分钟"}]},
+                  "rest_plan":{"wake_up":"06:00"}
+                }}}}
+                """);
+        Map<String, Object> fallback = Map.of(
+                "dietPlan", Map.of(), "exercisePlan", Map.of(), "restPlan", Map.of());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsed = (Map<String, Object>) method.invoke(
+                planServiceWithDify, response, fallback);
+        assertNull(parsed);
+    }
+
+    @Test
+    void assertWorkflowSucceeded_blankDataStatusUsesRoot() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod("assertWorkflowSucceeded", JsonNode.class);
+        method.setAccessible(true);
+        JsonNode response = objectMapper.readTree("{\"data\":{\"status\":\"\"},\"status\":\"succeeded\"}");
+        assertDoesNotThrow(() -> method.invoke(planServiceWithDify, response));
+    }
+
+    @Test
+    void assertWorkflowSucceeded_noStatus() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod("assertWorkflowSucceeded", JsonNode.class);
+        method.setAccessible(true);
+        JsonNode response = objectMapper.readTree("{\"data\":{\"outputs\":{}}}");
+        assertDoesNotThrow(() -> method.invoke(planServiceWithDify, response));
+    }
+
+    @Test
+    void toggleFavorite_nullPlanUserId() {
+        HealthPlan plan = samplePlan();
+        plan.setUserId(null);
+        plan.setIsFavorite(0);
+        when(healthPlanMapper.findById("plan_1")).thenReturn(plan);
+
+        Map<String, Object> result = planServiceNoDify.toggleFavorite("u_1", "plan_1");
+        assertEquals(true, result.get("favorited"));
+        verify(healthPlanMapper).updateFavorite("plan_1", 1);
+    }
+
+    @Test
+    void getDetail_noAiRawResponse() {
+        HealthPlan plan = samplePlan();
+        plan.setAiRawResponse(null);
+        when(healthPlanMapper.findById("plan_1")).thenReturn(plan);
+
+        Map<String, Object> detail = planServiceNoDify.getDetail("plan_1");
+        assertEquals("plan_1", detail.get("planId"));
+        assertFalse(detail.containsKey("dietPlan"));
+    }
+
+    @Test
+    void getDetail_aiRawWithoutSummary() throws Exception {
+        HealthPlan plan = samplePlan();
+        plan.setSummary("DB摘要");
+        plan.setAiRawResponse(objectMapper.writeValueAsString(Map.of(
+                "dietPlan", Map.of("k", "v"),
+                "exercisePlan", Map.of("e", 1),
+                "restPlan", Map.of("r", 1))));
+        when(healthPlanMapper.findById("plan_1")).thenReturn(plan);
+
+        Map<String, Object> detail = planServiceNoDify.getDetail("plan_1");
+        assertEquals("DB摘要", detail.get("summary"));
+    }
+
+    @Test
+    void extractDeepHealthPlan_outputsDietPlanCamelCase() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod("extractDeepHealthPlan", JsonNode.class);
+        method.setAccessible(true);
+        JsonNode response = objectMapper.readTree("""
+                {"outputs":{"dietPlan":{"meal_plan":{}},"exercisePlan":{"items":[]},"restPlan":{"sleep":"22:00"}}}
+                """);
+        JsonNode plan = (JsonNode) method.invoke(planServiceWithDify, response);
+        assertFalse(plan.isMissingNode());
+        assertTrue(plan.has("dietPlan"));
+    }
+
+    @Test
+    void extractDeepHealthPlan_textWithDietPlanCamelCase() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod("extractDeepHealthPlan", JsonNode.class);
+        method.setAccessible(true);
+        String inner = objectMapper.writeValueAsString(Map.of(
+                "dietPlan", Map.of("meal_plan", Map.of("breakfast", Map.of("foods", List.of()))),
+                "exercisePlan", Map.of("items", List.of(Map.of("type", "走", "duration", "10分钟"))),
+                "restPlan", Map.of("wake_up", "06:00")));
+        JsonNode response = objectMapper.readTree(
+                "{\"outputs\":{\"text\":" + objectMapper.writeValueAsString(inner) + "}}");
+        JsonNode plan = (JsonNode) method.invoke(planServiceWithDify, response);
+        assertFalse(plan.isMissingNode());
+        assertTrue(plan.has("dietPlan"));
+    }
+
+    @Test
+    void generatePlanContent_difyFailedStatusAtRoot() throws Exception {
+        when(planPromptBuilder.buildDifyPayload(anyString(), any(), anyInt())).thenReturn(Map.of());
+        JsonNode response = objectMapper.readTree("{\"status\":\"failed\",\"error\":\"root boom\"}");
+        when(difyClient.runWorkflowBlocking(anyString(), anyString(), any(), anyString())).thenReturn(response);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> invokeGeneratePlanContent(planServiceWithDify, "u_1", Map.of(), 1800));
+        assertTrue(ex.getMessage().contains("root boom"));
+    }
+
+    @Test
+    void parseDifyPlanResponse_mixedCaseSectionKeys() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod(
+                "parseDifyPlanResponse", JsonNode.class, Map.class);
+        method.setAccessible(true);
+        Map<String, Object> fallback = Map.of(
+                "dietPlan", Map.of(), "exercisePlan", Map.of(), "restPlan", Map.of());
+
+        JsonNode dietCamel = objectMapper.readTree("""
+                {"health_plan":{
+                  "dietPlan":{"meal_plan":{"breakfast":{"foods":[{"name":"蛋","amount":"1","calories":1}]}}},
+                  "exercise_plan":{"items":[{"type":"走","duration":"10分钟"}]},
+                  "rest_plan":{"wake_up":"06:00"}
+                }}
+                """);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsedDiet = (Map<String, Object>) method.invoke(
+                planServiceWithDify, dietCamel, fallback);
+        assertNotNull(parsedDiet.get("dietPlan"));
+
+        JsonNode exerciseCamel = objectMapper.readTree("""
+                {"health_plan":{
+                  "diet_plan":{"meal_plan":{"breakfast":{"foods":[{"name":"蛋","amount":"1","calories":1}]}}},
+                  "exercisePlan":{"items":[{"type":"走","duration":"10分钟"}]},
+                  "rest_plan":{"wake_up":"06:00"}
+                }}
+                """);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsedExercise = (Map<String, Object>) method.invoke(
+                planServiceWithDify, exerciseCamel, fallback);
+        assertNotNull(parsedExercise.get("exercisePlan"));
+
+        JsonNode restCamel = objectMapper.readTree("""
+                {"health_plan":{
+                  "diet_plan":{"meal_plan":{"breakfast":{"foods":[{"name":"蛋","amount":"1","calories":1}]}}},
+                  "exercise_plan":{"items":[{"type":"走","duration":"10分钟"}]},
+                  "restPlan":{"wake_up":"06:00"}
+                }}
+                """);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsedRest = (Map<String, Object>) method.invoke(
+                planServiceWithDify, restCamel, fallback);
+        assertNotNull(parsedRest.get("restPlan"));
+    }
+
+    @Test
+    void extractDeepHealthPlan_outputsDietPlanSnakeCase() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod("extractDeepHealthPlan", JsonNode.class);
+        method.setAccessible(true);
+        JsonNode response = objectMapper.readTree("""
+                {"outputs":{"diet_plan":{"meal_plan":{}},"exercise_plan":{"items":[]},"rest_plan":{"sleep":"22:00"}}}
+                """);
+        JsonNode plan = (JsonNode) method.invoke(planServiceWithDify, response);
+        assertFalse(plan.isMissingNode());
+        assertTrue(plan.has("diet_plan"));
+    }
+
+    @Test
+    void assertWorkflowSucceeded_explicitSucceededStatus() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod("assertWorkflowSucceeded", JsonNode.class);
+        method.setAccessible(true);
+        JsonNode response = objectMapper.readTree("{\"data\":{\"status\":\"succeeded\"}}");
+        assertDoesNotThrow(() -> method.invoke(planServiceWithDify, response));
+    }
+
+    @Test
+    void parseDifyPlanResponse_sectionKeyElseIfFalseBranches() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod(
+                "parseDifyPlanResponse", JsonNode.class, Map.class);
+        method.setAccessible(true);
+        Map<String, Object> fallback = Map.of(
+                "dietPlan", Map.of("fallback", true),
+                "exercisePlan", Map.of("fallback", true),
+                "restPlan", Map.of("fallback", true));
+
+        JsonNode noDietKeys = objectMapper.readTree("""
+                {"health_plan":{
+                  "exercise_plan":{"items":[{"type":"走","duration":"10分钟"}]},
+                  "rest_plan":{"wake_up":"06:00"}
+                }}
+                """);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsedNoDiet = (Map<String, Object>) method.invoke(
+                planServiceWithDify, noDietKeys, fallback);
+        assertEquals(Map.of("fallback", true), parsedNoDiet.get("dietPlan"));
+
+        JsonNode noExerciseKeys = objectMapper.readTree("""
+                {"health_plan":{
+                  "diet_plan":{"meal_plan":{"breakfast":{"foods":[{"name":"蛋","amount":"1","calories":1}]}}},
+                  "rest_plan":{"wake_up":"06:00"}
+                }}
+                """);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsedNoExercise = (Map<String, Object>) method.invoke(
+                planServiceWithDify, noExerciseKeys, fallback);
+        assertEquals(Map.of("fallback", true), parsedNoExercise.get("exercisePlan"));
+
+        JsonNode noRestKeys = objectMapper.readTree("""
+                {"health_plan":{
+                  "diet_plan":{"meal_plan":{"breakfast":{"foods":[{"name":"蛋","amount":"1","calories":1}]}}},
+                  "exercise_plan":{"items":[{"type":"走","duration":"10分钟"}]}
+                }}
+                """);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsedNoRest = (Map<String, Object>) method.invoke(
+                planServiceWithDify, noRestKeys, fallback);
+        assertEquals(Map.of("fallback", true), parsedNoRest.get("restPlan"));
+    }
+
+    @Test
+    void extractDeepHealthPlan_outputsWithoutDietKeys() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod("extractDeepHealthPlan", JsonNode.class);
+        method.setAccessible(true);
+        JsonNode response = objectMapper.readTree("""
+                {"outputs":{"exercise_plan":{"items":[]},"rest_plan":{"sleep":"22:00"}}}
+                """);
+        assertTrue(((JsonNode) method.invoke(planServiceWithDify, response)).isMissingNode());
+    }
+
+    @Test
+    void parseDifyPlanResponse_shallowWithoutRequiredSections() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod(
+                "parseDifyPlanResponse", JsonNode.class, Map.class);
+        method.setAccessible(true);
+        JsonNode response = objectMapper.readTree("""
+                {"data":{"outputs":{"plan_llm_output":{
+                  "breakfast_foods":[{"name":"蛋","amount":"1","calories":70,"gi_level":"low"}],
+                  "lunch_foods":[{"name":"饭","amount":"1","calories":100,"gi_level":"low"}],
+                  "dinner_foods":[{"name":"菜","amount":"1","calories":50,"gi_level":"low"}],
+                  "snack_foods":[{"name":"果","amount":"1","calories":60,"gi_level":"low"}],
+                  "exercise_items":[{"type":"走","duration":"10分钟","frequency":"每日","intensity":"中","calories_burned":1,"caution":""}]
+                }}}}
+                """);
+        Map<String, Object> fallback = Map.of(
+                "dietPlan", Map.of(), "exercisePlan", Map.of(), "restPlan", Map.of());
         try (MockedStatic<DifyPlanLlmOutputAssembler> mocked = mockStatic(DifyPlanLlmOutputAssembler.class)) {
-            mocked.when(() -> DifyPlanLlmOutputAssembler.isShallowLlmOutput(any())).thenReturn(true);
-            mocked.when(() -> DifyPlanLlmOutputAssembler.assembleToPlanContent(any()))
-                    .thenReturn(Map.of("dietPlan", Map.of("k", "v")));
+            mocked.when(() -> DifyPlanLlmOutputAssembler.isShallowLlmOutput(any())).thenCallRealMethod();
+            mocked.when(() -> DifyPlanLlmOutputAssembler.assembleToPlanContent(any())).thenCallRealMethod();
             mocked.when(() -> DifyPlanLlmOutputAssembler.hasRequiredSections(any())).thenReturn(false);
-            assertThrows(BusinessException.class,
-                    () -> invokeGeneratePlanContent(planServiceWithDify, "u_1", Map.of(), 1800));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> parsed = (Map<String, Object>) method.invoke(
+                    planServiceWithDify, response, fallback);
+            assertNull(parsed);
         }
     }
 
     @Test
-    void hasRequiredPlanSections_reflection() throws Exception {
-        Method method = PlanService.class.getDeclaredMethod("hasRequiredPlanSections", Map.class);
+    void assertWorkflowSucceeded_blankRootStatus() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod("assertWorkflowSucceeded", JsonNode.class);
         method.setAccessible(true);
-        assertTrue((Boolean) method.invoke(planServiceNoDify, Map.of(
-                "dietPlan", Map.of(), "exercisePlan", Map.of(), "restPlan", Map.of())));
-        assertFalse((Boolean) method.invoke(planServiceNoDify, Map.of("dietPlan", Map.of())));
+        JsonNode blankRoot = objectMapper.readTree("{\"status\":\"\"}");
+        assertDoesNotThrow(() -> method.invoke(planServiceWithDify, blankRoot));
+
+        JsonNode succeededMixedCase = objectMapper.readTree("{\"status\":\"SuCcEeded\"}");
+        assertDoesNotThrow(() -> method.invoke(planServiceWithDify, succeededMixedCase));
+    }
+
+    @Test
+    void extractDeepHealthPlan_noOutputs() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod("extractDeepHealthPlan", JsonNode.class);
+        method.setAccessible(true);
+        assertTrue(((JsonNode) method.invoke(planServiceWithDify, objectMapper.readTree("{}"))).isMissingNode());
+    }
+
+    @Test
+    void parseDifyPlanResponse_camelCaseHealthPlan() throws Exception {
+        Method method = PlanService.class.getDeclaredMethod(
+                "parseDifyPlanResponse", JsonNode.class, Map.class);
+        method.setAccessible(true);
+        JsonNode response = objectMapper.readTree("""
+                {"health_plan":{
+                  "dietPlan":{"meal_plan":{"breakfast":{"foods":[{"name":"蛋","amount":"1","calories":1}]}}},
+                  "exercisePlan":{"items":[{"type":"走","duration":"10分钟"}]},
+                  "restPlan":{"wake_up":"06:00"},
+                  "medicationNote":"note",
+                  "summary":"sum"
+                }}
+                """);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> parsed = (Map<String, Object>) method.invoke(
+                planServiceWithDify, response, Map.of("dietPlan", Map.of(), "exercisePlan", Map.of(), "restPlan", Map.of()));
+        assertEquals("note", parsed.get("medicationNote"));
+        assertEquals("sum", parsed.get("summary"));
     }
 
     @Test

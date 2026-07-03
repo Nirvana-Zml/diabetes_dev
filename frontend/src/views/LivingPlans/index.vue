@@ -4,36 +4,49 @@
     <div class="page-container plan-page" :class="{ 'plan-page--mobile': isMobile }">
       <!-- 顶部操作区 -->
       <div class="section-card hero-card">
-        <div v-if="isMobile" class="hero-card__decor" aria-hidden="true" />
+        <div v-if="isMobile" class="hero-card__accent" aria-hidden="true" />
         <div class="hero-text">
-          <p v-if="isMobile" class="hero-eyebrow">AI 定制 · 饮食 · 运动 · 作息</p>
-          <h2>{{ isMobile ? '我的健康方案' : '个性化健康管理方案' }}</h2>
-          <div v-if="isMobile && plan?.summary" class="hero-summary-wrap">
-            <p class="hero-summary" :class="{ 'hero-summary--collapsed': !summaryExpanded }">{{ plan.summary }}</p>
-            <button
-              v-if="summaryNeedsToggle"
-              type="button"
-              class="hero-summary-toggle"
-              @click="summaryExpanded = !summaryExpanded"
-            >
-              {{ summaryExpanded ? '收起' : '展开全文' }}
-            </button>
-          </div>
-          <p v-else-if="plan?.summary">{{ plan.summary }}</p>
-          <p v-else class="muted">结合健康档案、风险评估与打卡数据，AI 为您定制饮食、运动与作息计划</p>
-          <div v-if="isMobile && (displayPlan?.daily_calories || streamingCalories)" class="hero-stats-row">
-            <div class="hero-calorie-pill">
-              <span class="hero-calorie-pill__label">每日推荐</span>
-              <div class="hero-calorie-pill__main">
-                <span class="hero-calorie-pill__value">{{ displayPlan?.daily_calories || streamingCalories }}</span>
-                <span class="hero-calorie-pill__unit">千卡</span>
+          <template v-if="isMobile">
+            <div class="hero-mobile-top">
+              <div class="hero-mobile-top__main">
+                
+                <h2>我的健康方案</h2>
+              </div>
+              <div
+                v-if="plan && (displayPlan?.version || displayPlan?.generated_at)"
+                class="hero-version-tag"
+              >
+                <span v-if="displayPlan?.version">v{{ displayPlan.version }}</span>
+                <span v-if="displayPlan?.generated_at">{{ formatShortTime(displayPlan.generated_at) }}</span>
               </div>
             </div>
-            <div v-if="displayPlan?.version || displayPlan?.generated_at" class="hero-meta-stack">
-              <span v-if="displayPlan?.version" class="hero-meta-chip">v{{ displayPlan.version }}</span>
-              <span v-if="displayPlan?.generated_at" class="hero-meta-time">{{ formatShortTime(displayPlan.generated_at) }}</span>
+            <div v-if="plan?.summary" class="hero-summary-panel">
+              <p class="hero-summary" :class="{ 'hero-summary--collapsed': !summaryExpanded }">{{ plan.summary }}</p>
+              <button
+                v-if="summaryNeedsToggle"
+                type="button"
+                class="hero-summary-toggle"
+                @click="summaryExpanded = !summaryExpanded"
+              >
+                {{ summaryExpanded ? '收起' : '展开全文' }}
+              </button>
             </div>
-          </div>
+            <p v-else class="hero-placeholder">结合健康档案与打卡数据，生成专属饮食、运动与作息计划</p>
+            <div v-if="displayPlan?.daily_calories || streamingCalories" class="hero-metric">
+              <div class="hero-metric__content">
+                <span class="hero-metric__label">每日推荐摄入</span>
+                <div class="hero-metric__value">
+                  <strong>{{ displayPlan?.daily_calories || streamingCalories }}</strong>
+                  <span>千卡</span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <h2>个性化健康管理方案</h2>
+            <p v-if="plan?.summary">{{ plan.summary }}</p>
+            <p v-else class="muted">结合健康档案、风险评估与打卡数据，AI 为您定制饮食、运动与作息计划</p>
+          </template>
         </div>
         <div class="hero-actions" :class="{ 'hero-actions--mobile': isMobile }">
           <el-button
@@ -372,8 +385,6 @@
             {{ displayPlan.medication_note }}
           </el-alert>
         </div>
-
-        <DisclaimerBar />
       </template>
 
       <!-- 空状态 -->
@@ -444,7 +455,6 @@ import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { MagicStick, Star, StarFilled, Printer } from '@element-plus/icons-vue'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
-import DisclaimerBar from '@/components/DisclaimerBar.vue'
 import { getLatestPlan, generatePlan, getPlanHistory, togglePlanFavorite, getPlanDetail } from '@/api/plan'
 import { normalizePlan } from '@/utils/normalize'
 import { useMessageCenter } from '@/composables/useMessageCenter'
@@ -777,42 +787,44 @@ function handlePrint() {
   overflow: hidden;
   flex-direction: column;
   align-items: stretch;
-  border-radius: 20px;
-  padding: 20px 16px 16px;
-  border: none;
-  background: linear-gradient(145deg, #ecfdf5 0%, #f0fdfa 42%, #ffffff 100%);
-  box-shadow: 0 10px 32px rgba(13, 148, 136, 0.14);
+  border-radius: 24px;
+  padding: 24px 20px 20px;
+  border: 1px solid rgba(231, 229, 228, 0.8);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.03);
 }
 
-.hero-card__decor {
+.hero-card__accent {
   position: absolute;
-  top: -36px;
-  right: -24px;
-  width: 132px;
-  height: 132px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(45, 212, 191, 0.38) 0%, rgba(45, 212, 191, 0) 72%);
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 3px;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, var(--health-400, #2dd4bf), var(--health-600, #0d9488));
+  opacity: 0.85;
   pointer-events: none;
 }
 
-.hero-card__decor::after {
-  content: '';
-  position: absolute;
-  bottom: -58px;
-  left: -96px;
-  width: 108px;
-  height: 108px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(20, 184, 166, 0.16) 0%, rgba(20, 184, 166, 0) 72%);
+.hero-mobile-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.hero-mobile-top__main {
+  flex: 1;
+  min-width: 0;
 }
 
 .hero-eyebrow {
-  margin: 0 0 8px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--health-600);
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--health-600, #0d9488);
 }
 
 .hero-text h2 {
@@ -827,9 +839,37 @@ function handlePrint() {
 }
 
 .plan-page--mobile .hero-text h2 {
-  font-size: 24px;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  color: var(--warm-900, #1c1917);
+}
+
+.hero-version-tag {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--warm-50, #fafaf9);
+  border: 1px solid var(--warm-100, #f5f5f4);
+}
+
+.hero-version-tag span:first-child {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warm-700, #44403c);
+  line-height: 1.2;
+}
+
+.hero-version-tag span:last-child {
+  font-size: 11px;
+  color: var(--warm-400, #a8a29e);
+  line-height: 1.2;
 }
 
 .hero-text p {
@@ -840,14 +880,25 @@ function handlePrint() {
   line-height: 1.6;
 }
 
-.hero-summary-wrap {
-  margin-bottom: 4px;
+.hero-placeholder {
+  margin: 0 0 4px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--warm-500, #78716c);
+}
+
+.hero-summary-panel {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--warm-50, #fafaf9);
+  border-left: 3px solid var(--health-400, #2dd4bf);
 }
 
 .hero-summary {
   margin: 0;
-  color: #64748b;
-  font-size: 13px;
+  color: var(--warm-600, #57534e);
+  font-size: 14px;
   line-height: 1.75;
 }
 
@@ -860,88 +911,54 @@ function handlePrint() {
 }
 
 .hero-summary-toggle {
-  margin-top: 8px;
+  margin-top: 10px;
   padding: 0;
   border: none;
   background: none;
-  color: var(--health-600);
+  color: var(--health-600, #0d9488);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.hero-stats-row {
+.hero-metric {
+  margin-bottom: 4px;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--warm-100, #f5f5f4);
+}
+
+.hero-metric__content {
   display: flex;
-  align-items: stretch;
-  gap: 10px;
-  margin-top: 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.hero-calorie-pill {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(153, 246, 228, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+.hero-metric__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--warm-500, #78716c);
 }
 
-.hero-calorie-pill__label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.hero-calorie-pill__main {
+.hero-metric__value {
   display: flex;
   align-items: baseline;
   gap: 4px;
 }
 
-.hero-calorie-pill__value {
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--health-600);
+.hero-metric__value strong {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--warm-900, #1c1917);
   line-height: 1;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
-.hero-calorie-pill__unit {
+.hero-metric__value span {
   font-size: 13px;
-  color: #64748b;
   font-weight: 500;
-}
-
-.hero-meta-stack {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
-  min-width: 72px;
-}
-
-.hero-meta-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid #ccfbf1;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--health-700);
-}
-
-.hero-meta-time {
-  font-size: 11px;
-  color: #94a3b8;
-  text-align: center;
-  line-height: 1.3;
+  color: var(--warm-400, #a8a29e);
 }
 
 .hero-actions {
@@ -955,24 +972,26 @@ function handlePrint() {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 .hero-actions--mobile .hero-generate-btn {
   width: 100%;
-  height: 48px;
-  border-radius: 14px;
+  height: 46px;
+  border-radius: 12px;
   font-size: 15px;
   font-weight: 600;
-  box-shadow: 0 8px 20px rgba(13, 148, 136, 0.28);
+  letter-spacing: 0.01em;
+  box-shadow: none;
+  border: none;
 }
 
 .hero-secondary-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .hero-secondary-btn {
@@ -980,15 +999,15 @@ function handlePrint() {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 44px;
-  border-radius: 14px;
-  border: 1px solid rgba(231, 229, 228, 0.95);
-  background: rgba(255, 255, 255, 0.92);
-  color: #57534e;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--warm-200, #e7e5e4);
+  background: #fff;
+  color: var(--warm-600, #57534e);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .hero-secondary-btn .el-icon {
@@ -996,11 +1015,11 @@ function handlePrint() {
 }
 
 .hero-secondary-btn:active {
-  transform: scale(0.98);
+  background: var(--warm-50, #fafaf9);
 }
 
 .hero-secondary-btn--active {
-  border-color: #fcd34d;
+  border-color: #fde68a;
   background: #fffbeb;
   color: #b45309;
 }
@@ -1021,12 +1040,13 @@ function handlePrint() {
 
 .mobile-section-nav__track {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 8px;
-  border-radius: 18px;
+  padding: 4px;
+  border-radius: 14px;
   background: #fff;
-  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--warm-100, #f5f5f4);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   scrollbar-width: none;
 }
 
@@ -1040,30 +1060,32 @@ function handlePrint() {
   align-items: center;
   gap: 6px;
   border: none;
-  background: #f5f5f4;
-  color: #78716c;
-  padding: 11px 16px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
+  background: transparent;
+  color: var(--warm-500, #78716c);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .mobile-section-nav__icon {
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1;
+  opacity: 0.85;
 }
 
 .mobile-section-nav__chip.active {
-  background: linear-gradient(135deg, var(--health-500), var(--health-600));
-  color: #fff;
-  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.28);
+  background: var(--warm-100, #f5f5f4);
+  color: var(--health-700, #0f766e);
+  font-weight: 600;
+  box-shadow: none;
 }
 
 .mobile-section-nav__chip:active {
-  transform: scale(0.96);
+  background: var(--warm-50, #fafaf9);
 }
 
 .progress-card {

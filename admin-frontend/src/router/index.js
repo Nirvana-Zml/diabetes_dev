@@ -36,6 +36,12 @@ const router = createRouter({
       component: () => import('@/views/Videos/index.vue'),
       meta: { title: '科普视频管理' },
     },
+    {
+      path: '/audit-logs',
+      name: 'AdminAuditLogs',
+      component: () => import('@/views/AuditLogs/index.vue'),
+      meta: { title: '审计日志' },
+    },
   ],
 })
 

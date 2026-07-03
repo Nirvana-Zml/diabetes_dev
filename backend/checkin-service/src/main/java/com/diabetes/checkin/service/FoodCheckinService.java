@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,7 +64,8 @@ public class FoodCheckinService {
         calculateNutrition(detail, request.getInputUnit(), request.getInputAmount(),
                 resolveMlToGRatio(request, detail));
 
-        String checkinId = recordWriter.createRecord(userId, CheckinConstants.TYPE_DIET, date);
+        String checkinId = recordWriter.createRecord(
+                userId, CheckinConstants.TYPE_DIET, date, parseRecordTime(request.getCheckinDate(), request.getRecordTime()));
         detail.setCheckinId(checkinId);
         dietDetailMapper.insert(detail);
 
@@ -185,6 +187,24 @@ public class FoodCheckinService {
             return LocalDate.parse(date);
         } catch (DateTimeParseException e) {
             throw new BusinessException(400, "日期格式错误，应为 yyyy-MM-dd");
+        }
+    }
+
+    private LocalDateTime parseRecordTime(String checkinDate, String recordTime) {
+        if (recordTime == null || recordTime.isBlank()) {
+            return LocalDateTime.now();
+        }
+        String value = recordTime.trim();
+        try {
+            if (value.contains("T")) {
+                return LocalDateTime.parse(value);
+            }
+            if (value.length() == 5) {
+                return LocalDateTime.parse(checkinDate + "T" + value + ":00");
+            }
+            return LocalDateTime.parse(checkinDate + "T" + value);
+        } catch (DateTimeParseException e) {
+            return LocalDateTime.now();
         }
     }
 }

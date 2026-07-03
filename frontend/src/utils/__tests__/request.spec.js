@@ -43,13 +43,19 @@ vi.mock('axios', () => ({
   },
 }))
 
+vi.mock('@/config', () => ({
+  API_BASE: '/api/v1',
+  API_V2_BASE: '/api/v2',
+  USE_MOCK: true,
+}))
+
 vi.mock('@/api/auth', () => ({
   clearTokens: mocks.clearTokens,
 }))
 
 vi.mock('@/router', () => ({
   default: {
-    currentRoute: { value: { fullPath: '/private' } },
+    currentRoute: { value: { fullPath: '/private', path: '/private', meta: {} } },
     push: mocks.routerPush,
   },
 }))

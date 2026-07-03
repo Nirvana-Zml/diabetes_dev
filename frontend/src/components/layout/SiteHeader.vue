@@ -93,6 +93,7 @@ import { unreadCount, useMessageCenter } from '@/composables/useMessageCenter'
 import { useIsMobile } from '@/composables/useBreakpoints'
 import { APP_NAME } from '@/config'
 import MessagePopover from '@/components/MessageCenter/MessagePopover.vue'
+import { safeBack } from '@/utils/navigation'
 
 const props = defineProps({
   title: { type: String, default: '' },
@@ -153,11 +154,7 @@ function goNav(link) {
 }
 
 function goBack() {
-  if (window.history.length > 1) {
-    router.back()
-    return
-  }
-  router.push('/home')
+  safeBack('/home')
 }
 </script>
 

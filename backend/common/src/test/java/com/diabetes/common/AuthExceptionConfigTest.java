@@ -12,6 +12,8 @@ import com.diabetes.common.storage.MinioProperties;
 import com.diabetes.common.storage.MinioStorageService;
 import com.diabetes.common.util.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.time.LocalDateTime;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -138,6 +140,15 @@ class AuthExceptionConfigTest {
         assertNotNull(mapper);
         assertEquals(1, resolvers.size());
         assertInstanceOf(UserIdArgumentResolver.class, resolvers.get(0));
+    }
+
+    @Test
+    @DisplayName("ObjectMapper 将 LocalDateTime 序列化为 ISO 字符串")
+    void shouldSerializeLocalDateTimeAsIsoString() throws Exception {
+        ObjectMapper mapper = new CommonAutoConfiguration().objectMapper();
+        LocalDateTime time = LocalDateTime.of(2026, 7, 3, 9, 15, 7);
+
+        assertEquals("\"2026-07-03T09:15:07\"", mapper.writeValueAsString(time));
     }
 
     @Test
