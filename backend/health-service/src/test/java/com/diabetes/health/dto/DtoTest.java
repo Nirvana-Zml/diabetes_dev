@@ -106,18 +106,32 @@ class DtoTest {
         dto.setHeight(170f);
         dto.setWeight(65f);
         dto.setFastingGlucose(5.5f);
+        dto.setPostprandialGlucose(7.8f);
+        dto.setHba1c(6.0f);
         dto.setSystolicBp(120);
         dto.setDiastolicBp(80);
-        dto.setFamilyHistory(true);
+        dto.setDiabetesType(1);
+        dto.setExerciseFreq(3);
+        dto.setDietType("balanced");
         dto.setSmoking(0);
+        dto.setFamilyHistory(true);
+        dto.setMedicalHistory("高血压");
+        dto.setMedication("阿司匹林");
 
         assertEquals(170f, dto.getHeight());
         assertEquals(65f, dto.getWeight());
         assertEquals(5.5f, dto.getFastingGlucose());
+        assertEquals(7.8f, dto.getPostprandialGlucose());
+        assertEquals(6.0f, dto.getHba1c());
         assertEquals(120, dto.getSystolicBp());
         assertEquals(80, dto.getDiastolicBp());
-        assertTrue(dto.getFamilyHistory());
+        assertEquals(1, dto.getDiabetesType());
+        assertEquals(3, dto.getExerciseFreq());
+        assertEquals("balanced", dto.getDietType());
         assertEquals(0, dto.getSmoking());
+        assertTrue(dto.getFamilyHistory());
+        assertEquals("高血压", dto.getMedicalHistory());
+        assertEquals("阿司匹林", dto.getMedication());
     }
 
     @Test

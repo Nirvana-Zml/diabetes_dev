@@ -34,6 +34,7 @@ class EntityTest {
         entity.setExerciseFreq(3);
         entity.setDietType("balanced");
         entity.setTestSource(1);
+        entity.setDelFlag(0);
         entity.setRecordedAt(LocalDateTime.now());
 
         assertEquals("hr_001", entity.getRecordId());
@@ -57,6 +58,7 @@ class EntityTest {
         assertEquals(3, entity.getExerciseFreq());
         assertEquals("balanced", entity.getDietType());
         assertEquals(1, entity.getTestSource());
+        assertEquals(0, entity.getDelFlag());
         assertNotNull(entity.getRecordedAt());
     }
 
@@ -72,6 +74,8 @@ class EntityTest {
         entity.setStatus(1);
         entity.setNote("备注");
         entity.setSource(1);
+        entity.setDelFlag(0);
+        entity.setCreatedAt(LocalDateTime.now());
 
         assertEquals("mh_001", entity.getHistoryId());
         assertEquals("hr_001", entity.getRecordId());
@@ -82,6 +86,8 @@ class EntityTest {
         assertEquals(1, entity.getStatus());
         assertEquals("备注", entity.getNote());
         assertEquals(1, entity.getSource());
+        assertEquals(0, entity.getDelFlag());
+        assertNotNull(entity.getCreatedAt());
     }
 
     @Test
@@ -102,6 +108,8 @@ class EntityTest {
         entity.setEndDate(LocalDate.parse("2024-01-01"));
         entity.setStatus(1);
         entity.setSource(1);
+        entity.setDelFlag(0);
+        entity.setCreatedAt(LocalDateTime.now());
 
         assertEquals("med_001", entity.getMedicationId());
         assertEquals("hr_001", entity.getRecordId());
@@ -118,6 +126,8 @@ class EntityTest {
         assertEquals(LocalDate.parse("2024-01-01"), entity.getEndDate());
         assertEquals(1, entity.getStatus());
         assertEquals(1, entity.getSource());
+        assertEquals(0, entity.getDelFlag());
+        assertNotNull(entity.getCreatedAt());
     }
 
     @Test
@@ -135,6 +145,8 @@ class EntityTest {
         entity.setIsDiabetes(1);
         entity.setNote("备注");
         entity.setSource(1);
+        entity.setDelFlag(0);
+        entity.setCreatedAt(LocalDateTime.now());
 
         assertEquals("fh_001", entity.getFamilyHistoryId());
         assertEquals("hr_001", entity.getRecordId());
@@ -148,6 +160,8 @@ class EntityTest {
         assertEquals(1, entity.getIsDiabetes());
         assertEquals("备注", entity.getNote());
         assertEquals(1, entity.getSource());
+        assertEquals(0, entity.getDelFlag());
+        assertNotNull(entity.getCreatedAt());
     }
 
     @Test
@@ -165,7 +179,10 @@ class EntityTest {
         entity.setGenerationStatus(1);
         entity.setReportSummary("风险评估报告");
         entity.setAiRawResponse("AI原始响应");
+        entity.setDelFlag(0);
         entity.setAssessedAt(LocalDateTime.now());
+        entity.setCreatedAt(LocalDateTime.now());
+        entity.setUpdatedAt(LocalDateTime.now());
 
         assertEquals("ra_001", entity.getAssessmentId());
         assertEquals("user1", entity.getUserId());
@@ -179,7 +196,10 @@ class EntityTest {
         assertEquals(1, entity.getGenerationStatus());
         assertEquals("风险评估报告", entity.getReportSummary());
         assertEquals("AI原始响应", entity.getAiRawResponse());
+        assertEquals(0, entity.getDelFlag());
         assertNotNull(entity.getAssessedAt());
+        assertNotNull(entity.getCreatedAt());
+        assertNotNull(entity.getUpdatedAt());
     }
 
     @Test
@@ -192,6 +212,7 @@ class EntityTest {
         entity.setWeight(BigDecimal.valueOf(15));
         entity.setFactorLevel(1);
         entity.setDescription("父母患病");
+        entity.setSortOrder(1);
 
         assertEquals("rf_001", entity.getFactorId());
         assertEquals("ra_001", entity.getAssessmentId());
@@ -200,6 +221,7 @@ class EntityTest {
         assertEquals(BigDecimal.valueOf(15), entity.getWeight());
         assertEquals(1, entity.getFactorLevel());
         assertEquals("父母患病", entity.getDescription());
+        assertEquals(1, entity.getSortOrder());
     }
 
     @Test
@@ -210,11 +232,13 @@ class EntityTest {
         entity.setCategory(1);
         entity.setPriority(1);
         entity.setContent("定期检查血糖");
+        entity.setSortOrder(1);
 
         assertEquals("rs_001", entity.getSuggestionId());
         assertEquals("ra_001", entity.getAssessmentId());
         assertEquals(1, entity.getCategory());
         assertEquals(1, entity.getPriority());
         assertEquals("定期检查血糖", entity.getContent());
+        assertEquals(1, entity.getSortOrder());
     }
 }
