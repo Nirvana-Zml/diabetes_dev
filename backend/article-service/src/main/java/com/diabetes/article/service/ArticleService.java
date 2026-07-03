@@ -174,6 +174,7 @@ public class ArticleService {
         articleMapper.update(article);
         saveTags(articleId, parseTags(body));
         invalidateListCache();
+        minioStorageService.deleteArticleAudio(articleId);
         if (existing.getStatus() != null && existing.getStatus() == 3) {
             articleVectorSyncService.syncArticle(articleId);
         }

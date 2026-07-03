@@ -197,6 +197,25 @@
           </span>
         </div>
 
+        <button
+          type="button"
+          class="detail-listen-btn"
+          :class="{ 'detail-listen-btn--playing': audioPlaying, 'detail-listen-btn--loading': audioLoading }"
+          :disabled="audioLoading"
+          @click="toggleListen"
+        >
+          <svg v-if="audioLoading" class="detail-listen-btn__icon detail-listen-btn__icon--spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <svg v-else-if="audioPlaying" class="detail-listen-btn__icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+          </svg>
+          <svg v-else class="detail-listen-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 012.25 12c0-.83.112-1.633.322-2.396.234-.847 1.058-1.354 1.938-1.354H6.75z" />
+          </svg>
+          {{ audioLoading ? '正在合成语音，长文约需 1～3 分钟…' : audioPlaying ? '暂停朗读' : '听全文' }}
+        </button>
+
         <div class="detail-article__content">
           <MarkdownContent :content="detail.content" />
         </div>
@@ -282,6 +301,7 @@ import {
   categoryMap,
 } from '@/api/article'
 import { isLoggedIn, redirectToLogin } from '@/utils/auth'
+import { useArticleAudio } from '@/composables/useArticleAudio'
 
 const defaultCover = 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&h=480&fit=crop'
 
@@ -326,6 +346,7 @@ const loading = ref(false)
 const total = ref(0)
 const recommendStrategy = ref('popular')
 const readStartedAt = ref(0)
+const { loading: audioLoading, playing: audioPlaying, toggle: toggleArticleAudio, stop: stopArticleAudio } = useArticleAudio()
 
 const detailTags = computed(() => {
   if (!detail.value) return []
@@ -357,11 +378,13 @@ onMounted(async () => {
 
 onUnmounted(() => {
   flushReadEvent()
+  stopArticleAudio()
 })
 
 watch(() => route.params.id, (id, prev) => {
   if (prev && prev !== id) {
     flushReadEvent(prev)
+    stopArticleAudio()
   }
   if (id) loadDetail()
   else loadArticles()
@@ -456,6 +479,7 @@ function handleSearchClear() {
 
 async function loadDetail() {
   flushReadEvent()
+  stopArticleAudio()
   detail.value = await getArticleDetail(route.params.id)
   favorited.value = !!detail.value.favorited
   if (favorited.value) {
@@ -564,6 +588,10 @@ async function toggleFav() {
 
 function handleShare() {
   ElMessage.info('分享功能开发中')
+}
+
+function toggleListen() {
+  toggleArticleAudio(route.params.id)
 }
 </script>
 
@@ -1103,6 +1131,58 @@ function handleShare() {
 
 .detail-meta__dot {
   color: var(--warm-300);
+}
+
+.detail-listen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 24px;
+  padding: 14px 20px;
+  border: 1px solid rgba(13, 148, 136, 0.25);
+  border-radius: 14px;
+  background: rgba(13, 148, 136, 0.08);
+  color: var(--health-700);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.detail-listen-btn:hover:not(:disabled) {
+  background: rgba(13, 148, 136, 0.14);
+  border-color: var(--health-500);
+}
+
+.detail-listen-btn--playing {
+  background: var(--health-600);
+  border-color: var(--health-600);
+  color: #fff;
+}
+
+.detail-listen-btn--loading {
+  opacity: 0.85;
+  cursor: wait;
+}
+
+.detail-listen-btn:disabled {
+  cursor: wait;
+}
+
+.detail-listen-btn__icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.detail-listen-btn__icon--spin {
+  animation: listenSpin 1s linear infinite;
+}
+
+@keyframes listenSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .detail-article__content {

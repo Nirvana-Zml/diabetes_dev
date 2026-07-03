@@ -36,6 +36,9 @@ public class MinioProperties {
     /** 用户数据导出 bucket */
     private String exportBucket = "export";
 
+    /** 语音识别临时音频 bucket（Fun-ASR 需公网 URL 拉取） */
+    private String sttBucket = "stt";
+
     /** 浏览器可访问的基础 URL，如 http://localhost:9000 */
     private String publicBaseUrl = "http://localhost:9000";
 
@@ -61,6 +64,8 @@ public class MinioProperties {
     public void setAvatarBucket(String avatarBucket) { this.avatarBucket = avatarBucket; }
     public String getExportBucket() { return exportBucket; }
     public void setExportBucket(String exportBucket) { this.exportBucket = exportBucket; }
+    public String getSttBucket() { return sttBucket; }
+    public void setSttBucket(String sttBucket) { this.sttBucket = sttBucket; }
     public String getPublicBaseUrl() { return publicBaseUrl; }
     public void setPublicBaseUrl(String publicBaseUrl) { this.publicBaseUrl = publicBaseUrl; }
 }

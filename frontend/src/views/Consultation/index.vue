@@ -185,15 +185,39 @@
       </div>
 
       <!-- 输入区 -->
-      <div class="chat-footer">
+      <div
+        class="chat-footer"
+        :class="{ 'chat-footer--recording': recording, 'chat-footer--transcribing': transcribing }"
+      >
+        <VoiceStatusBar :recording="recording" :transcribing="transcribing" />
         <div class="input-row">
+          <button
+            type="button"
+            class="mic-btn"
+            :class="{ 'mic-btn--active': recording, 'mic-btn--busy': transcribing }"
+            :disabled="sending || transcribing"
+            :aria-label="recording ? '停止录音' : transcribing ? '正在识别' : '语音输入'"
+            @click="toggleVoice"
+          >
+            <span v-if="recording" class="mic-recording-ring" aria-hidden="true" />
+            <svg v-if="!transcribing && !recording" class="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 14a3 3 0 003-3V7a3 3 0 10-6 0v4a3 3 0 003 3z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-14 0M12 18v3" />
+            </svg>
+            <svg v-else-if="recording" class="mic-icon mic-icon--stop" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="7" y="7" width="10" height="10" rx="2" />
+            </svg>
+            <span v-else class="mic-spinner" aria-hidden="true" />
+          </button>
           <textarea
+            ref="textareaRef"
             v-model="inputMsg"
             class="msg-input"
             rows="1"
-            placeholder="描述您的症状或健康问题…"
-            :disabled="sending"
+            :placeholder="recording ? '正在聆听您的声音…' : transcribing ? '正在识别语音…' : '描述您的症状或健康问题…'"
+            :disabled="sending || recording || transcribing"
             @keydown.enter.exact.prevent="sendMsg"
+            @input="autoResize"
           />
           <button type="button" class="send-btn" :disabled="sending || !inputMsg.trim()" @click="sendMsg">
             <svg v-if="!sending" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
@@ -238,6 +262,9 @@ import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
 import SiteLayout from '@/components/layout/SiteLayout.vue'
 import MarkdownContent from '@/components/MarkdownContent.vue'
+import VoiceStatusBar from '@/components/VoiceStatusBar.vue'
+import { voiceToText } from '@/api/chat'
+import { useVoiceInput } from '@/composables/useVoiceInput'
 import { getDoctors } from '@/api/home'
 import { doctorAvatarUrl } from '@/utils/media'
 import { useUserStore } from '@/stores/user'
@@ -267,8 +294,11 @@ const sessionId = ref('')
 const messages = ref([])
 const inputMsg = ref('')
 const sending = ref(false)
+const transcribing = ref(false)
 const typing = ref(false)
 const chatRef = ref()
+const textareaRef = ref()
+const { recording, start: startVoice, stop: stopVoice } = useVoiceInput()
 const showRate = ref(false)
 const rating = ref(5)
 const feedback = ref('')
@@ -294,8 +324,45 @@ const hasAiSuggestion = computed(() =>
 )
 
 const showQuickQuestions = computed(() =>
-  !sending.value && !typing.value && messages.value.length <= 1 && messages.value.every(m => m.sender_type === 'doctor'),
+  !sending.value && !typing.value && !recording.value && !transcribing.value
+  && messages.value.length <= 1 && messages.value.every(m => m.sender_type === 'doctor'),
 )
+
+function autoResize() {
+  const el = textareaRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+}
+
+async function toggleVoice() {
+  if (sending.value || transcribing.value) return
+  if (!recording.value) {
+    try {
+      await startVoice()
+    } catch {
+      ElMessage.warning('无法访问麦克风，请检查浏览器权限')
+    }
+    return
+  }
+  transcribing.value = true
+  try {
+    const blob = await stopVoice()
+    if (!blob?.size) {
+      ElMessage.warning('录音时间过短，请重试')
+      return
+    }
+    const result = await voiceToText(blob)
+    if (result?.text) {
+      inputMsg.value = result.text
+      nextTick(autoResize)
+    }
+  } catch (err) {
+    ElMessage.error(err.message || '语音识别失败')
+  } finally {
+    transcribing.value = false
+  }
+}
 
 onMounted(async () => {
   userStore.fetchProfile()
@@ -454,6 +521,9 @@ async function sendMsg() {
 
   sending.value = true
   inputMsg.value = ''
+  nextTick(() => {
+    if (textareaRef.value) textareaRef.value.style.height = 'auto'
+  })
   messages.value.push(pendingMsg)
   await nextTick()
   await scrollToBottom()
@@ -1063,6 +1133,17 @@ async function scrollToBottom() {
   padding: 16px 0 20px;
   border-top: 1px solid var(--warm-200);
   background: var(--warm-50);
+  transition: background 0.25s, box-shadow 0.25s;
+}
+
+.chat-footer--recording {
+  background: linear-gradient(180deg, #fff5f5 0%, var(--warm-50) 100%);
+  box-shadow: inset 0 2px 0 #fecaca;
+}
+
+.chat-footer--transcribing {
+  background: linear-gradient(180deg, #f0fdfa 0%, var(--warm-50) 100%);
+  box-shadow: inset 0 2px 0 #99f6e4;
 }
 
 .input-row {
@@ -1079,6 +1160,99 @@ async function scrollToBottom() {
 .input-row:focus-within {
   border-color: var(--health-500);
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
+.chat-footer--recording .input-row {
+  border-color: #fca5a5;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.chat-footer--transcribing .input-row {
+  border-color: #5eead4;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
+.mic-btn {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 2px;
+  border: none;
+  border-radius: 50%;
+  background: var(--warm-100);
+  color: var(--warm-600);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+.mic-btn:hover:not(:disabled) {
+  background: var(--chat-accent-bg);
+  color: var(--health-700);
+}
+
+.mic-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mic-btn--active {
+  background: #ef4444;
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25);
+  animation: micBtnPulse 1.5s ease-in-out infinite;
+}
+
+.mic-btn--busy {
+  background: var(--chat-accent-bg);
+  color: var(--health-700);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+}
+
+.mic-recording-ring {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid rgba(239, 68, 68, 0.35);
+  border-radius: 50%;
+  animation: micRing 1.2s ease-out infinite;
+}
+
+.mic-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.mic-icon--stop {
+  position: relative;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+}
+
+.mic-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--health-200);
+  border-top-color: var(--health-600);
+  border-radius: 50%;
+  animation: micSpin 0.8s linear infinite;
+}
+
+@keyframes micBtnPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes micRing {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+@keyframes micSpin {
+  to { transform: rotate(360deg); }
 }
 
 .msg-input {
@@ -1102,6 +1276,11 @@ async function scrollToBottom() {
 .msg-input:focus {
   border-color: transparent;
   box-shadow: none;
+}
+
+.msg-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .send-btn {

@@ -6,6 +6,7 @@ import io.minio.GetObjectArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import io.minio.SetBucketPolicyArgs;
 import io.minio.StatObjectArgs;
 import jakarta.annotation.PostConstruct;
@@ -72,6 +73,11 @@ public class MinioStorageService {
         } catch (Exception e) {
             log.warn("MinIO export bucket 启动时初始化失败（首次上传时将重试）: {}", e.getMessage());
         }
+        try {
+            ensureBucket(properties.getSttBucket(), false);
+        } catch (Exception e) {
+            log.warn("MinIO stt bucket 启动时初始化失败（首次上传时将重试）: {}", e.getMessage());
+        }
     }
 
     /**
@@ -133,6 +139,67 @@ public class MinioStorageService {
             return "";
         }
         return buildBucketObjectUrl(properties.getArticleBucket(), articleId + ".jpg");
+    }
+
+    /**
+     * 上传资讯朗读音频至 article bucket，对象名固定为 {@code {articleId}-audio.wav}
+     */
+    public String uploadArticleAudio(String articleId, InputStream inputStream, long size) {
+        if (articleId == null || articleId.isBlank()) {
+            throw new BusinessException(400, "资讯 ID 无效");
+        }
+        String objectName = articleId + "-audio.wav";
+        String bucket = properties.getArticleBucket();
+        try {
+            ensureBucket(bucket, true);
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(objectName)
+                    .stream(inputStream, size, -1)
+                    .contentType("audio/wav")
+                    .build());
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(500, "朗读音频上传失败: " + e.getMessage());
+        }
+        return buildArticleAudioUrl(articleId);
+    }
+
+    public String buildArticleAudioUrl(String articleId) {
+        if (articleId == null || articleId.isBlank()) {
+            return "";
+        }
+        return buildBucketObjectUrl(properties.getArticleBucket(), articleId + "-audio.wav");
+    }
+
+    public boolean articleAudioExists(String articleId) {
+        if (articleId == null || articleId.isBlank()) {
+            return false;
+        }
+        try {
+            minioClient.statObject(StatObjectArgs.builder()
+                    .bucket(properties.getArticleBucket())
+                    .object(articleId + "-audio.wav")
+                    .build());
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void deleteArticleAudio(String articleId) {
+        if (articleId == null || articleId.isBlank()) {
+            return;
+        }
+        try {
+            minioClient.removeObject(RemoveObjectArgs.builder()
+                    .bucket(properties.getArticleBucket())
+                    .object(articleId + "-audio.wav")
+                    .build());
+        } catch (Exception e) {
+            log.warn("删除资讯朗读音频失败: articleId={}, err={}", articleId, e.getMessage());
+        }
     }
 
     public String buildBannerImageUrl(String bannerId) {
@@ -321,6 +388,54 @@ public class MinioStorageService {
         return buildBucketObjectUrl(properties.getExportBucket(), userId + "/" + fileName.replaceAll("^/+", ""));
     }
 
+    /**
+     * 上传 STT 临时音频（供阿里云 Fun-ASR 通过公网 URL 拉取），Object Key：{@code temp/{uuid}/{filename}}
+     */
+    public SttAudioUploadResult uploadSttTempAudio(java.io.InputStream inputStream, long size,
+                                                    String filename, String contentType,
+                                                    String publicBaseUrl) {
+        if (filename == null || filename.isBlank()) {
+            throw new BusinessException(400, "文件名无效");
+        }
+        String safeName = filename.replaceAll("^/+", "").replaceAll(".*[/\\\\]", "");
+        if (safeName.isBlank()) {
+            safeName = "voice.wav";
+        }
+        String objectKey = "temp/" + java.util.UUID.randomUUID() + "/" + safeName;
+        String bucket = properties.getSttBucket();
+        try {
+            ensureBucket(bucket, true);
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(objectKey)
+                    .stream(inputStream, size, -1)
+                    .contentType(contentType != null ? contentType : "audio/wav")
+                    .build());
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(500, "音频临时上传失败: " + e.getMessage());
+        }
+        String base = publicBaseUrl == null || publicBaseUrl.isBlank()
+                ? properties.getPublicBaseUrl()
+                : publicBaseUrl;
+        return new SttAudioUploadResult(objectKey, buildBucketObjectUrl(base, bucket, objectKey));
+    }
+
+    public void deleteSttTempAudio(String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) {
+            return;
+        }
+        try {
+            minioClient.removeObject(RemoveObjectArgs.builder()
+                    .bucket(properties.getSttBucket())
+                    .object(objectKey)
+                    .build());
+        } catch (Exception e) {
+            log.warn("删除 STT 临时音频失败: key={}, err={}", objectKey, e.getMessage());
+        }
+    }
+
     private CheckinImageUploadResult uploadCheckinUserImage(String folder, String userId, String fileBaseName,
                                                             InputStream inputStream, long size, String contentType) {
         if (userId == null || userId.isBlank()) {
@@ -372,8 +487,12 @@ public class MinioStorageService {
     }
 
     private String buildBucketObjectUrl(String bucket, String objectKey) {
-        String base = properties.getPublicBaseUrl().replaceAll("/+$", "");
-        return base + "/" + bucket + "/" + objectKey;
+        return buildBucketObjectUrl(properties.getPublicBaseUrl(), bucket, objectKey);
+    }
+
+    private static String buildBucketObjectUrl(String publicBaseUrl, String bucket, String objectKey) {
+        String base = publicBaseUrl.replaceAll("/+$", "");
+        return base + "/" + bucket + "/" + objectKey.replaceAll("^/+", "");
     }
 
     private void ensureBucket(String bucket, boolean failOnError) {
@@ -395,6 +514,8 @@ public class MinioStorageService {
     }
 
     public record CheckinImageUploadResult(String objectKey, String imageUrl) {}
+
+    public record SttAudioUploadResult(String objectKey, String publicUrl) {}
 
     private String buildPublicReadPolicy(String bucket) {
         return """

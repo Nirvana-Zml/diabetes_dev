@@ -261,7 +261,7 @@ class MinioStorageServiceTest {
         MinioStorageService service = serviceWithMockClient(client, properties());
 
         assertDoesNotThrow(service::initBuckets);
-        verify(client, times(8)).bucketExists(any());
+        verify(client, times(9)).bucketExists(any());
     }
 
     @Test
@@ -276,6 +276,7 @@ class MinioStorageServiceTest {
         when(throwingProperties.getVideoBucket()).thenThrow(new RuntimeException("video-file down"));
         when(throwingProperties.getAvatarBucket()).thenThrow(new RuntimeException("avatar down"));
         when(throwingProperties.getExportBucket()).thenThrow(new RuntimeException("export down"));
+        when(throwingProperties.getSttBucket()).thenThrow(new RuntimeException("stt down"));
         MinioStorageService service = serviceWithMockClient(mock(MinioClient.class), properties());
         ReflectionTestUtils.setField(service, "properties", throwingProperties);
 

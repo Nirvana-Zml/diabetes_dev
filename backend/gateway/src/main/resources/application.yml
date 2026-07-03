@@ -6,6 +6,9 @@ spring:
     name: gateway
   cloud:
     gateway:
+      httpclient:
+        connect-timeout: 60000
+        response-timeout: 600s
       routes:
         - id: user-auth
           uri: http://${USER_SERVICE_HOST:user-service}:${USER_SERVICE_PORT:8081}

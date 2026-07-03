@@ -16,6 +16,23 @@ vi.mock('@/utils/sse', () => ({
   fetchBackendSSE: mocks.fetchBackendSSE,
 }))
 
+vi.mock('@/utils/request', () => ({
+  post: vi.fn(),
+}))
+
+vi.mock('@/utils/delay', () => ({
+  delay: vi.fn(() => Promise.resolve()),
+}))
+
+vi.mock('@/composables/useVoiceInput', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    normalizeVoiceBlob: vi.fn(async (blob) => new Blob([blob], { type: 'audio/wav' })),
+    voiceBlobFilename: actual.voiceBlobFilename,
+  }
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
 })
@@ -79,5 +96,19 @@ describe('chat api backend SSE mode', () => {
 
     await chatQA('结束', { onEnd })
     expect(onEnd).toHaveBeenCalledWith({ type: 'end', conversation_id: 'c9', metadata: undefined })
+  })
+})
+
+describe('voiceToText api', () => {
+  it('posts multipart audio to backend voice endpoint', async () => {
+    const { post } = await import('@/utils/request')
+    const { voiceToText } = await import('../chat')
+    const blob = new Blob(['audio'], { type: 'audio/webm' })
+    post.mockResolvedValue({ text: '你好', language: 'zh-CN' })
+
+    const result = await voiceToText(blob, { language: 'zh-CN' })
+
+    expect(post).toHaveBeenCalledWith('/chat/voice', expect.any(FormData), { timeout: 120000 })
+    expect(result).toEqual({ text: '你好', language: 'zh-CN' })
   })
 })

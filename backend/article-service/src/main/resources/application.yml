@@ -84,6 +84,16 @@ milvus:
     openai-api-key: ${EMBEDDING_API_KEY:}
     openai-model: ${EMBEDDING_MODEL:text-embedding-3-small}
 
+dashscope:
+  tts:
+    enabled: ${DASHSCOPE_TTS_ENABLED:true}
+    api-key: ${DASHSCOPE_API_KEY:}
+    model: ${DASHSCOPE_TTS_MODEL:qwen3-tts-flash}
+    base-http-api-url: ${DASHSCOPE_BASE_HTTP_API_URL:https://dashscope.aliyuncs.com/api/v1}
+    voice: ${DASHSCOPE_TTS_VOICE:CHERRY}
+    language-type: ${DASHSCOPE_TTS_LANGUAGE:Chinese}
+    max-chunk-chars: ${DASHSCOPE_TTS_MAX_CHUNK_CHARS:400}
+
 management:
   endpoints:
     web:

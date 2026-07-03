@@ -170,6 +170,7 @@ class ArticleServiceExtendedTest {
         when(redis.keys(anyString())).thenReturn(Set.of());
         service.update("art_1", Map.of("title", "新标题", "content", "c", "summary", "s", "category", 2));
         verify(articleVectorSyncService).syncArticle("art_1");
+        verify(minioStorageService).deleteArticleAudio("art_1");
     }
 
     @Test

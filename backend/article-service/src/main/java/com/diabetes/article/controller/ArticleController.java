@@ -4,6 +4,7 @@ import com.diabetes.article.config.OptionalJwtInterceptor;
 import com.diabetes.common.api.ApiResponse;
 import com.diabetes.common.auth.CurrentUserId;
 import com.diabetes.article.service.ArticleService;
+import com.diabetes.article.service.ArticleTtsService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,9 +15,11 @@ import java.util.Map;
 public class ArticleController {
 
     private final ArticleService articleService;
+    private final ArticleTtsService articleTtsService;
 
-    public ArticleController(ArticleService articleService) {
+    public ArticleController(ArticleService articleService, ArticleTtsService articleTtsService) {
         this.articleService = articleService;
+        this.articleTtsService = articleTtsService;
     }
 
     @GetMapping("/recommend/dify-workflow-spec")
@@ -76,6 +79,11 @@ public class ArticleController {
         }
         articleService.recordRead(userId, articleId, duration, source);
         return ApiResponse.ok(Map.of("recorded", true));
+    }
+
+    @GetMapping("/{articleId}/audio")
+    public ApiResponse<Map<String, Object>> audio(@PathVariable String articleId) {
+        return ApiResponse.ok(articleTtsService.getOrGenerateAudio(articleId));
     }
 
     @GetMapping("/{articleId}")

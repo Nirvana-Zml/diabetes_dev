@@ -2,6 +2,7 @@ package com.diabetes.article.controller;
 
 import com.diabetes.article.config.OptionalJwtInterceptor;
 import com.diabetes.article.service.ArticleService;
+import com.diabetes.article.service.ArticleTtsService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +20,9 @@ class ArticleControllerTest {
 
     @Mock
     private ArticleService articleService;
+
+    @Mock
+    private ArticleTtsService articleTtsService;
 
     @InjectMocks
     private ArticleController controller;
@@ -74,6 +78,13 @@ class ArticleControllerTest {
         Map<String, Object> favorites = Map.of("articles", java.util.List.of(), "total", 0);
         when(articleService.favorites("u1", 1, 10)).thenReturn(favorites);
         assertEquals(favorites, controller.favorites("u1", 1, 10).data());
+    }
+
+    @Test
+    void audio_delegatesToTtsService() {
+        Map<String, Object> audio = Map.of("audioUrl", "http://minio/art_1-audio.wav", "source", "cached");
+        when(articleTtsService.getOrGenerateAudio("art_1")).thenReturn(audio);
+        assertEquals(audio, controller.audio("art_1").data());
     }
 
     @Test

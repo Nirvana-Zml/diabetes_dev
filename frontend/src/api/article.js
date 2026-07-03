@@ -95,6 +95,18 @@ export async function getArticles(params = {}) {
   return { list: articles, total: data.total ?? articles.length, page: params.page || 1 }
 }
 
+/** GET /api/articles/{id}/audio — 获取或生成全文朗读音频（qwen3-tts-flash blocking，长文可需数分钟） */
+export async function getArticleAudio(articleId) {
+  return get(`/articles/${articleId}/audio`, {
+    timeout: 300000,
+    mockFn: async () => ({
+      article_id: articleId,
+      audio_url: '',
+      source: 'mock',
+    }),
+  })
+}
+
 /** GET /api/articles/{id} */
 export async function getArticleDetail(id) {
   const data = await get(`/articles/${id}`, {

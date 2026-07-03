@@ -95,6 +95,41 @@ class DifyClientTest {
     }
 
     @Test
+    @DisplayName("上传文件并调用带 files 的工作流")
+    void shouldUploadFileAndRunWorkflowWithFiles() throws Exception {
+        startServer(exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            if (path.endsWith("/v1/files/upload")) {
+                respond(exchange, 200, "{\"id\":\"file-123\",\"name\":\"voice.m4a\",\"mime_type\":\"audio/mp4\"}");
+                return;
+            }
+            requestBodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            respond(exchange, 200, "{\"data\":{\"status\":\"succeeded\",\"outputs\":{\"usertext\":\"你好\",\"valid\":true}}}");
+        });
+        DifyClient client = new DifyClient(baseUrl(), 5, objectMapper);
+
+        JsonNode upload = client.uploadFile("api-key", "u1", "audio-bytes".getBytes(StandardCharsets.UTF_8), "voice.m4a", "audio/mp4");
+        String fileId = upload.path("id").asText();
+        assertEquals("file-123", fileId);
+
+        List<Map<String, Object>> files = List.of(Map.of(
+                "variable", "audio",
+                "type", "audio",
+                "transfer_method", "local_file",
+                "upload_file_id", fileId
+        ));
+        JsonNode result = client.runWorkflowBlockingWithFiles(
+                "api-key", "u1", Map.of("language", "zh-CN"), files, "blocking");
+
+        assertEquals("succeeded", result.path("data").path("status").asText());
+        assertEquals("你好", result.path("data").path("outputs").path("usertext").asText());
+        JsonNode body = objectMapper.readTree(requestBodies.get(0));
+        assertEquals("zh-CN", body.path("inputs").path("language").asText());
+        assertEquals("audio", body.path("files").get(0).path("variable").asText());
+        assertEquals(fileId, body.path("files").get(0).path("upload_file_id").asText());
+    }
+
+    @Test
     @DisplayName("工作流忽略无法序列化的自定义输入字段")
     void shouldSkipInputWhenSerializationFails() throws Exception {
         startServer(exchange -> {

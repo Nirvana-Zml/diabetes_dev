@@ -17,7 +17,12 @@ import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.web.reactive.function.BodyInserters;
 
 @Component
 public class DifyClient {
@@ -79,6 +84,116 @@ public class DifyClient {
             log.error("Dify 工作流调用异常: {}", e.getMessage(), e);
             throw new BusinessException(500, "Dify 工作流调用失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 上传文件至 Dify（POST /v1/files/upload），返回完整响应（含 id、mime_type）。
+     */
+    public JsonNode uploadFile(String apiKey, String userId, byte[] fileBytes, String filename, String mimeType) {
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new BusinessException(400, "上传文件不能为空");
+        }
+        String uid = userId == null || userId.isBlank() ? "anonymous" : userId;
+        String safeName = filename == null || filename.isBlank() ? "voice.webm" : filename;
+        String contentType = mimeType == null || mimeType.isBlank() ? "application/octet-stream" : mimeType;
+
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", new ByteArrayResource(fileBytes) {
+            @Override
+            public String getFilename() {
+                return safeName;
+            }
+        }).contentType(MediaType.parseMediaType(contentType));
+        builder.part("user", uid);
+
+        try {
+            String response = webClient.post()
+                    .uri("/v1/files/upload")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(BodyInserters.fromMultipartData(builder.build()))
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block(timeout);
+            log.info("Dify 文件上传响应: {}", response);
+            JsonNode node = objectMapper.readTree(response);
+            String id = node.path("id").asText("");
+            if (id.isBlank()) {
+                throw new BusinessException(500, "Dify 文件上传未返回文件 ID");
+            }
+            return node;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (WebClientResponseException e) {
+            log.error("Dify 文件上传 HTTP 错误 status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new BusinessException(500, "Dify 文件上传失败(" + e.getStatusCode() + "): " + e.getResponseBodyAsString());
+        } catch (Exception e) {
+            log.error("Dify 文件上传异常: {}", e.getMessage(), e);
+            throw new BusinessException(500, "Dify 文件上传失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 调用带顶层 files 数组的 Dify Workflow（如 STT 工作流 userinput.files）。
+     */
+    public JsonNode runWorkflowBlockingWithFiles(String apiKey, String userId, Map<String, Object> inputs,
+                                                 List<Map<String, Object>> files, String responseMode) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("response_mode", responseMode == null || responseMode.isBlank() ? "blocking" : responseMode);
+        body.put("user", userId == null || userId.isBlank() ? "anonymous" : userId);
+        body.set("inputs", toWorkflowInputsNode(inputs != null ? inputs : Map.of()));
+        body.set("files", objectMapper.valueToTree(files != null ? files : List.of()));
+
+        try {
+            String bodyJson = objectMapper.writeValueAsString(body);
+            log.info("调用 Dify 工作流(含文件): user={}, body={}", body.get("user").asText(), bodyJson);
+        } catch (Exception e) {
+            log.info("调用 Dify 工作流(含文件): user={}", body.get("user").asText());
+        }
+
+        try {
+            String response = webClient.post()
+                    .uri("/v1/workflows/run")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block(timeout);
+            log.info("Dify 工作流响应: {}", response);
+            return objectMapper.readTree(response);
+        } catch (WebClientResponseException e) {
+            log.error("Dify 工作流 HTTP 错误 status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw toWorkflowBusinessException(e);
+        } catch (Exception e) {
+            log.error("Dify 工作流调用异常: {}", e.getMessage(), e);
+            throw new BusinessException(500, "Dify 工作流调用失败: " + e.getMessage());
+        }
+    }
+
+    private BusinessException toWorkflowBusinessException(WebClientResponseException e) {
+        int code = e.getStatusCode().is4xxClientError() ? 400 : 500;
+        String message = extractDifyErrorMessage(e.getResponseBodyAsString());
+        if (message.isBlank()) {
+            message = "Dify 工作流调用失败(" + e.getStatusCode() + ")";
+        }
+        return new BusinessException(code, message);
+    }
+
+    private String extractDifyErrorMessage(String body) {
+        if (body == null || body.isBlank()) {
+            return "";
+        }
+        try {
+            JsonNode node = objectMapper.readTree(body);
+            String message = node.path("message").asText("");
+            if (!message.isBlank()) {
+                return message;
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+        return body.length() > 200 ? body.substring(0, 200) : body;
     }
 
     /** Dify Webhook 触发器（POST /triggers/webhook/{id}） */

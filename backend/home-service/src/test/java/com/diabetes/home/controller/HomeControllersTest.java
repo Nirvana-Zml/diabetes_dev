@@ -8,7 +8,9 @@ import com.diabetes.home.config.QaChatProperties;
 import com.diabetes.home.dto.ChatQaRequest;
 import com.diabetes.home.knowledge.DocumentChunk;
 import com.diabetes.home.knowledge.KnowledgeRetrieval;
+import com.diabetes.home.dto.VoiceTranscriptionResult;
 import com.diabetes.home.service.AIChatService;
+import com.diabetes.home.service.VoiceSttService;
 import com.diabetes.home.service.HomeContentService;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.InputStreamResource;
@@ -32,9 +34,10 @@ class HomeControllersTest {
     @Test
     void chatControllerValidatesAndDelegates() {
         AIChatService service = mock(AIChatService.class);
+        VoiceSttService voiceSttService = mock(VoiceSttService.class);
         QaChatProperties props = new QaChatProperties();
         props.setQueryMaxLength(5);
-        ChatController controller = new ChatController(service, props);
+        ChatController controller = new ChatController(service, voiceSttService, props);
         when(service.getDifyWorkflowSpec()).thenReturn(Map.of("workflowUrl", "url"));
         SseEmitter emitter = new SseEmitter();
         when(service.processQuestion(eq("hi"), eq("c1"), eq("u1"))).thenReturn(emitter);
@@ -64,6 +67,23 @@ class HomeControllersTest {
         assertSame(emitter, controller.chatQa(guestRequest, null));
         assertEquals("c2", controller.chatHistory("c2").data().get("conversationId"));
         assertEquals(Collections.emptyList(), controller.chatHistory("c2").data().get("messages"));
+    }
+
+    @Test
+    void chatControllerVoiceEndpointDelegates() {
+        AIChatService service = mock(AIChatService.class);
+        VoiceSttService voiceSttService = mock(VoiceSttService.class);
+        ChatController controller = new ChatController(service, voiceSttService, new QaChatProperties());
+
+        MockMultipartFile audio = new MockMultipartFile("audio", "voice.m4a", "audio/mp4", "abc".getBytes());
+        when(voiceSttService.transcribe(eq(audio), startsWith("guest_"), isNull()))
+                .thenReturn(new VoiceTranscriptionResult("可以吃水果吗", "zh-CN"));
+        when(voiceSttService.getSttSpec()).thenReturn(Map.of("provider", "dashscope-fun-asr"));
+
+        ApiResponse<Map<String, String>> response = controller.voiceToText(audio, null, null);
+        assertEquals("可以吃水果吗", response.data().get("text"));
+        assertEquals("zh-CN", response.data().get("language"));
+        assertEquals("dashscope-fun-asr", controller.sttSpec().data().get("provider"));
     }
 
     @Test

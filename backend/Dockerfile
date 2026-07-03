@@ -28,7 +28,7 @@ COPY article-service article-service
 COPY audit-service audit-service
 
 ARG SERVICE=gateway
-RUN mvn -pl ${SERVICE} -am package -DskipTests -B
+RUN mvn -pl ${SERVICE} -am package -DskipTests -Djacoco.skip=true -B
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
