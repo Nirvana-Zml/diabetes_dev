@@ -1,0 +1,39 @@
+{
+  "type": "object",
+  "properties": {
+    "food_name": { "type": "string" },
+    "category_id": { "type": "string" },
+    "category_name": { "type": "string" },
+    "calories_per_gram": { "type": "number" },
+    "is_liquid": { "type": "boolean" },
+    "ml_to_g_ratio": { "type": "number" },
+    "suggested_input_unit": { "type": "integer" },
+    "suggested_input_amount": { "type": "number" },
+    "suggested_grams": { "type": "number" },
+    "suggested_total_calories": { "type": "integer" },
+    "matched_food_id": { "type": "string" },
+    "source_type": { "type": "integer" },
+    "confidence": { "type": "string" },
+    "gi_level": { "type": "string" },
+    "nutrition_tip": { "type": "string" },
+    "recognition_summary": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "food_name": { "type": "string" },
+          "category_name": { "type": "string" },
+          "calories_per_gram": { "type": "number" },
+          "estimated_grams": { "type": "number" }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    },
+    "has_error": { "type": "boolean" },
+    "error_message": { "type": "string" }
+  },
+  "required": [],
+  "additionalProperties": true
+}

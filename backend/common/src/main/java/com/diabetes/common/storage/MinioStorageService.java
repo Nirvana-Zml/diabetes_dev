@@ -349,10 +349,18 @@ public class MinioStorageService {
     }
 
     public String buildCheckinImageUrl(String objectKey) {
+        return buildCheckinImageUrl(objectKey, properties.getPublicBaseUrl());
+    }
+
+    /** 使用指定公网基址构建打卡图片 URL（如 ngrok 地址，供 Dify 等外部服务拉取）。 */
+    public String buildCheckinImageUrl(String objectKey, String publicBaseUrl) {
         if (objectKey == null || objectKey.isBlank()) {
             return "";
         }
-        return buildBucketObjectUrl(properties.getCheckinBucket(), objectKey.replaceAll("^/+", ""));
+        String base = publicBaseUrl == null || publicBaseUrl.isBlank()
+                ? properties.getPublicBaseUrl()
+                : publicBaseUrl;
+        return buildBucketObjectUrl(base, properties.getCheckinBucket(), objectKey.replaceAll("^/+", ""));
     }
 
     /**

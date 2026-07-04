@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "query": { "type": "string" },
+    "user_id": { "type": "string" },
+    "image_url": { "type": "string" },
+    "meal_period": { "type": "string" },
+    "food_categories": { "type": "string" },
+    "food_presets": { "type": "string" }
+  },
+  "required": [],
+  "additionalProperties": true
+}

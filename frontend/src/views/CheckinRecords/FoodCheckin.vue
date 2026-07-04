@@ -33,7 +33,7 @@
           <span class="ck-food-card__kcal">{{ Math.round(f.calories_per_gram * 100) }}千卡/100g</span>
         </div>
       </div>
-      <el-empty v-if="!presetsLoading && !foodPresets.length" description="暂无预设食物" />
+      <el-empty v-if="!presetsLoading && !foodPresets.length" :description="emptyPresetHint" />
     </template>
 
     <template v-else>
@@ -47,10 +47,29 @@
           <div v-if="customFood.uploading" class="upload-mask">上传中…</div>
         </div>
         <input ref="foodFileInput" type="file" accept="image/*" hidden @change="onFoodFileChange" />
+        <div v-if="customFood.image_object_key" class="ai-action-row">
+          <el-button
+            type="primary"
+            plain
+            round
+            :loading="recognizing"
+            :disabled="customFood.uploading"
+            @click="runFoodRecognition"
+          >AI 识别</el-button>
+        </div>
+        <div v-if="customFood.ai_summary || customFood.ai_tip" class="ai-hint-box">
+          <p v-if="customFood.ai_summary">{{ customFood.ai_summary }}</p>
+          <p v-if="customFood.ai_tip" class="ai-tip">{{ customFood.ai_tip }}</p>
+        </div>
         <el-form label-position="top" class="compact-form">
           <el-form-item label="食物分类" required>
             <el-select v-model="customFood.category_id" placeholder="选择分类" style="width:100%">
-              <el-option v-for="c in foodCategories" :key="c.category_id" :label="c.category_name" :value="c.category_id" />
+              <el-option
+                v-for="c in selectableFoodCategories"
+                :key="c.category_id"
+                :label="c.category_name"
+                :value="c.category_id"
+              />
             </el-select>
           </el-form-item>
           <el-form-item label="食物名称" required>
@@ -197,11 +216,11 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Camera } from '@element-plus/icons-vue'
 import CheckinTypeLayout from './components/CheckinTypeLayout.vue'
 import CheckinDateBar from './components/CheckinDateBar.vue'
-import { MEAL_PERIODS, CALORIE_TARGET } from './checkin/constants'
+import { MEAL_PERIODS, CALORIE_TARGET, CUSTOM_FOOD_CATEGORY_ID } from './checkin/constants'
 import {
   calcFoodCalories,
   calcPresetFoodCalories,
@@ -219,6 +238,7 @@ import {
   createFoodCheckin,
   getFoodRecords,
   uploadCheckinImage,
+  recognizeFoodImage,
 } from '@/api/checkin'
 
 const { checkinDate } = useCheckinDate()
@@ -226,6 +246,7 @@ const { checkinDate } = useCheckinDate()
 const foodMode = ref('preset')
 const presetsLoading = ref(false)
 const submitting = ref(false)
+const recognizing = ref(false)
 
 const foodCategories = ref([])
 const selectedCategoryId = ref('')
@@ -243,6 +264,7 @@ const customFood = ref({
   name: '', category_id: '', calories_per_gram: 1, is_liquid: false, ml_to_g_ratio: 1,
   input_unit: 1, input_amount: 100, image_object_key: '', image_url: '', uploading: false,
   meal_period: inferMealPeriod(), record_time: currentRecordTime(),
+  ai_summary: '', ai_tip: '', matched_food_id: '', ai_source_type: 2,
 })
 
 const foodFileInput = ref(null)
@@ -258,6 +280,16 @@ const foodCaloriePercent = computed(() =>
 
 const ringOffset = computed(() =>
   ringCircumference * (1 - foodCaloriePercent.value / 100),
+)
+
+const isCustomCategory = computed(() => selectedCategoryId.value === CUSTOM_FOOD_CATEGORY_ID)
+
+const emptyPresetHint = computed(() =>
+  isCustomCategory.value ? '暂无自定义食物，可通过右上角「自定义」录入' : '暂无预设食物',
+)
+
+const selectableFoodCategories = computed(() =>
+  foodCategories.value.filter((c) => c.category_id !== CUSTOM_FOOD_CATEGORY_ID),
 )
 
 onMounted(async () => {
@@ -315,10 +347,106 @@ async function handleUpload(file, target) {
     target.image_object_key = res.object_key
     target.image_url = res.image_url
     ElMessage.success('图片上传成功')
+    await runFoodRecognition(target)
   } catch (e) {
     ElMessage.error(e.message || '上传失败')
   } finally {
     target.uploading = false
+  }
+}
+
+function applyRecognitionResult(target, raw) {
+  const data = normalizeRecognitionPayload(raw)
+  if (data.has_error) {
+    ElMessage.warning(data.error_message || '未能识别食物，请手动填写')
+    target.ai_summary = ''
+    target.ai_tip = ''
+    return
+  }
+  if (data.food_name) target.name = data.food_name
+  if (data.category_id) target.category_id = data.category_id
+  if (data.calories_per_gram != null && data.calories_per_gram !== '') {
+    target.calories_per_gram = Number(data.calories_per_gram)
+  }
+  if (data.is_liquid != null) target.is_liquid = toBool(data.is_liquid)
+  if (data.ml_to_g_ratio != null && data.ml_to_g_ratio !== '') {
+    target.ml_to_g_ratio = Number(data.ml_to_g_ratio)
+  }
+  if (data.suggested_input_amount != null && data.suggested_input_amount !== '') {
+    target.input_amount = Number(data.suggested_input_amount)
+  }
+  if (data.suggested_input_unit != null && data.suggested_input_unit !== '') {
+    target.input_unit = Number(data.suggested_input_unit)
+  }
+  target.ai_summary = data.recognition_summary || ''
+  target.ai_tip = data.nutrition_tip || ''
+  target.matched_food_id = data.matched_food_id || ''
+  target.ai_source_type = data.source_type || 2
+  ElMessage.success('AI 识别完成，请确认信息后打卡')
+  if (target.matched_food_id && target.ai_source_type === 1) {
+    ElMessageBox.confirm('识别结果匹配系统预设食物，是否切换为预设模式快速打卡？', '匹配预设', {
+      confirmButtonText: '切换预设',
+      cancelButtonText: '继续自定义',
+      type: 'info',
+    }).then(() => {
+      foodMode.value = 'preset'
+      const preset = foodPresets.value.find((f) => f.food_id === target.matched_food_id)
+      if (preset) {
+        openFoodPreset(preset)
+      } else {
+        selectedCategoryId.value = data.category_id || selectedCategoryId.value
+        loadPresets().then(() => {
+          const loaded = foodPresets.value.find((f) => f.food_id === target.matched_food_id)
+          if (loaded) openFoodPreset(loaded)
+        })
+      }
+    }).catch(() => {})
+  }
+}
+
+function normalizeRecognitionPayload(raw) {
+  if (!raw || typeof raw !== 'object') return {}
+  if (Array.isArray(raw)) return normalizeRecognitionPayload(raw[0])
+  const data = { ...raw }
+  if (data.foodName && !data.food_name) data.food_name = data.foodName
+  if (data.categoryId && !data.category_id) data.category_id = data.categoryId
+  if (data.caloriesPerGram != null && data.calories_per_gram == null) data.calories_per_gram = data.caloriesPerGram
+  if (data.isLiquid != null && data.is_liquid == null) data.is_liquid = data.isLiquid
+  if (data.mlToGRatio != null && data.ml_to_g_ratio == null) data.ml_to_g_ratio = data.mlToGRatio
+  if (data.suggestedInputAmount != null && data.suggested_input_amount == null) {
+    data.suggested_input_amount = data.suggestedInputAmount
+  }
+  if (data.suggestedInputUnit != null && data.suggested_input_unit == null) {
+    data.suggested_input_unit = data.suggestedInputUnit
+  }
+  if (data.matchedFoodId && !data.matched_food_id) data.matched_food_id = data.matchedFoodId
+  if (data.sourceType != null && data.source_type == null) data.source_type = data.sourceType
+  if (data.nutritionTip && !data.nutrition_tip) data.nutrition_tip = data.nutritionTip
+  if (data.recognitionSummary && !data.recognition_summary) data.recognition_summary = data.recognitionSummary
+  if (data.hasError != null && data.has_error == null) data.has_error = data.hasError
+  if (data.errorMessage && !data.error_message) data.error_message = data.errorMessage
+  return data
+}
+
+function toBool(value) {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+  return value === 'true' || value === '1'
+}
+
+async function runFoodRecognition(target = customFood.value) {
+  if (!target.image_object_key) return ElMessage.warning('请先上传图片')
+  recognizing.value = true
+  try {
+    const data = await recognizeFoodImage({
+      image_object_key: target.image_object_key,
+      meal_period: target.meal_period,
+    })
+    applyRecognitionResult(target, data)
+  } catch (e) {
+    ElMessage.error(e.message || 'AI 识别失败')
+  } finally {
+    recognizing.value = false
   }
 }
 
@@ -337,20 +465,37 @@ async function submitFoodPreset() {
   if (!foodDialogTime.value) return ElMessage.warning('请选择具体时间')
   submitting.value = true
   try {
-    await createFoodCheckin({
-      checkin_date: checkinDate.value,
-      meal_period: foodDialogMealPeriod.value,
-      record_time: buildSubmitRecordTime(foodDialogTime.value),
-      source_type: 1,
-      food_id: f.food_id,
-      input_unit: foodDialogUnit.value,
-      input_amount: foodDialogAmount.value,
-      ml_to_g_ratio: f.ml_to_g_ratio,
-      image_object_key: f.image_object_key,
-    })
+    if (f.is_user_custom) {
+      await createFoodCheckin({
+        checkin_date: checkinDate.value,
+        meal_period: foodDialogMealPeriod.value,
+        record_time: buildSubmitRecordTime(foodDialogTime.value),
+        source_type: 2,
+        category_id: f.original_category_id,
+        food_name: f.food_name,
+        calories_per_gram: f.calories_per_gram,
+        is_liquid: f.is_liquid,
+        input_unit: f.is_liquid ? foodDialogUnit.value : 1,
+        input_amount: foodDialogAmount.value,
+        ml_to_g_ratio: f.is_liquid ? f.ml_to_g_ratio : 1,
+        image_object_key: f.image_object_key,
+      })
+    } else {
+      await createFoodCheckin({
+        checkin_date: checkinDate.value,
+        meal_period: foodDialogMealPeriod.value,
+        record_time: buildSubmitRecordTime(foodDialogTime.value),
+        source_type: 1,
+        food_id: f.food_id,
+        input_unit: foodDialogUnit.value,
+        input_amount: foodDialogAmount.value,
+        ml_to_g_ratio: f.ml_to_g_ratio,
+        image_object_key: f.image_object_key,
+      })
+    }
     ElMessage.success('打卡成功')
     foodDialogVisible.value = false
-    await loadRecords()
+    await Promise.all([loadPresets(), loadRecords()])
   } catch (e) {
     ElMessage.error(e.message || '打卡失败')
   } finally {
@@ -372,6 +517,10 @@ function resetCustomFood() {
     uploading: false,
     meal_period: inferMealPeriod(),
     record_time: currentRecordTime(),
+    ai_summary: '',
+    ai_tip: '',
+    matched_food_id: '',
+    ai_source_type: 2,
   }
 }
 
@@ -392,6 +541,7 @@ async function submitCustomFood() {
       category_id: c.category_id,
       food_name: c.name.trim(),
       calories_per_gram: c.calories_per_gram,
+      is_liquid: c.is_liquid,
       input_unit: c.is_liquid ? c.input_unit : 1,
       input_amount: c.input_amount,
       ml_to_g_ratio: c.is_liquid ? c.ml_to_g_ratio : 1,
@@ -400,7 +550,8 @@ async function submitCustomFood() {
     ElMessage.success('打卡成功')
     resetCustomFood()
     foodMode.value = 'preset'
-    await loadRecords()
+    selectedCategoryId.value = CUSTOM_FOOD_CATEGORY_ID
+    await Promise.all([loadPresets(), loadRecords()])
   } catch (e) {
     ElMessage.error(e.message || '打卡失败')
   } finally {
@@ -458,6 +609,26 @@ async function submitCustomFood() {
 }
 
 .submit-btn { width: 100%; }
+
+.ai-action-row {
+  margin: -8px 0 12px;
+}
+
+.ai-hint-box {
+  background: #ecfdf5;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--ck-text-muted);
+  line-height: 1.5;
+}
+
+.ai-hint-box .ai-tip {
+  margin-top: 6px;
+  color: var(--ck-emerald);
+  font-weight: 600;
+}
 
 .compact-form :deep(.el-button--primary) {
   --el-button-bg-color: var(--ck-emerald);

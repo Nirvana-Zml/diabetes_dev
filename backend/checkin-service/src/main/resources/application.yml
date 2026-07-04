@@ -36,6 +36,11 @@ dify:
       api-key: ${DIFY_CHECKIN_API_KEY:app-kFnPhD8YUmCfG2DeHubp1Scc}
       # 开始节点 7 个独立变量平铺传入 API inputs：query/user_id/start_date/end_date/checkin_stats/trend_data/user_profile
       response-mode: ${DIFY_CHECKIN_RESPONSE_MODE:blocking}
+    food-recognition:
+      api-key: ${DIFY_FOOD_RECOGNITION_API_KEY:}
+      response-mode: ${DIFY_FOOD_RECOGNITION_RESPONSE_MODE:blocking}
+      # Dify 拉取图片用公网 URL（本地开发可用 ngrok 暴露 MinIO 9000 端口）
+      image-public-base-url: ${DIFY_FOOD_RECOGNITION_IMAGE_PUBLIC_BASE_URL:${STT_AUDIO_PUBLIC_BASE_URL:${MINIO_PUBLIC_URL:http://localhost:9000}}}
 
 services:
   health:

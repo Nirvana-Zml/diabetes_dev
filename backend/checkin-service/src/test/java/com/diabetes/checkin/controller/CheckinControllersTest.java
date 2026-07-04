@@ -13,6 +13,7 @@ import com.diabetes.checkin.service.CheckinPresetService;
 import com.diabetes.checkin.service.CheckinService;
 import com.diabetes.checkin.service.ExerciseCheckinService;
 import com.diabetes.checkin.service.FoodCheckinService;
+import com.diabetes.checkin.service.FoodRecognitionService;
 import com.diabetes.checkin.service.GlucoseCheckinService;
 import com.diabetes.checkin.service.MedicationCheckinService;
 import com.diabetes.common.exception.BusinessException;
@@ -50,17 +51,21 @@ class CheckinControllersTest {
         MedicationCheckinService medicationService = mock(MedicationCheckinService.class);
         ExerciseCheckinService exerciseService = mock(ExerciseCheckinService.class);
         GlucoseCheckinService glucoseService = mock(GlucoseCheckinService.class);
+        FoodRecognitionService foodRecognitionService = mock(FoodRecognitionService.class);
         CheckinModuleController controller = new CheckinModuleController(
-                imageService, presetService, foodService, medicationService, exerciseService, glucoseService);
+                imageService, presetService, foodService, medicationService, exerciseService, glucoseService,
+                foodRecognitionService);
         MultipartFile file = mock(MultipartFile.class);
 
         when(imageService.upload("u1", "food", file)).thenReturn(new ImageUploadResponse("id", "key", "url"));
-        when(presetService.listFoodCategories()).thenReturn(List.of(Map.of("categoryId", "cat")));
-        when(presetService.listFoodPresets("cat")).thenReturn(List.of(Map.of("foodId", "food")));
-        when(presetService.listMedicationPresets()).thenReturn(List.of(Map.of("drugId", "drug")));
+        when(presetService.listFoodCategories("u1")).thenReturn(List.of(Map.of("categoryId", "cat")));
+        when(presetService.listFoodPresets("u1", "cat")).thenReturn(List.of(Map.of("foodId", "food")));
+        when(presetService.listMedicationPresets("u1")).thenReturn(List.of(Map.of("drugId", "drug")));
         when(presetService.listExercisePresets()).thenReturn(List.of(Map.of("exerciseId", "ex")));
         when(foodService.createCheckin(eq("u1"), any(FoodCheckinRequest.class))).thenReturn(Map.of("checkinId", "food"));
         when(foodService.listRecords("u1", "2024-01-01")).thenReturn(List.of(Map.of("checkinId", "food")));
+        when(foodRecognitionService.recognize(eq("u1"), any())).thenReturn(Map.of("foodName", "苹果", "hasError", false));
+        when(foodRecognitionService.getDifyWorkflowSpec()).thenReturn(Map.of("outputKey", "food_recognition"));
         when(medicationService.createCheckin(eq("u1"), any(MedicationCheckinRequest.class))).thenReturn(Map.of("checkinId", "med"));
         when(medicationService.listRecords("u1", "2024-01-01")).thenReturn(List.of(Map.of("checkinId", "med")));
         when(exerciseService.createCheckin(eq("u1"), any(ExerciseCheckinRequest.class))).thenReturn(Map.of("checkinId", "ex"));
@@ -70,11 +75,13 @@ class CheckinControllersTest {
         when(glucoseService.getHistory(eq("u1"), any(LocalDate.class), any(LocalDate.class))).thenReturn(Map.of("records", List.of()));
 
         assertEquals("key", controller.uploadImage("u1", "food", file).data().getObjectKey());
-        assertEquals("cat", controller.foodCategories().data().get(0).get("categoryId"));
-        assertEquals("food", controller.foodPresets("cat").data().get(0).get("foodId"));
+        assertEquals("cat", controller.foodCategories("u1").data().get(0).get("categoryId"));
+        assertEquals("food", controller.foodPresets("u1", "cat").data().get(0).get("foodId"));
         assertEquals("food", controller.createFoodCheckin("u1", new FoodCheckinRequest()).data().get("checkinId"));
         assertEquals("food", controller.foodRecords("u1", "2024-01-01").data().get(0).get("checkinId"));
-        assertEquals("drug", controller.medicationPresets().data().get(0).get("drugId"));
+        assertEquals("苹果", controller.recognizeFood("u1", new com.diabetes.checkin.dto.FoodRecognitionRequest()).data().get("foodName"));
+        assertEquals("food_recognition", controller.foodDifyWorkflowSpec().data().get("outputKey"));
+        assertEquals("drug", controller.medicationPresets("u1").data().get(0).get("drugId"));
         assertEquals("med", controller.createMedicationCheckin("u1", new MedicationCheckinRequest()).data().get("checkinId"));
         assertEquals("med", controller.medicationRecords("u1", "2024-01-01").data().get(0).get("checkinId"));
         assertEquals("ex", controller.exercisePresets().data().get(0).get("exerciseId"));

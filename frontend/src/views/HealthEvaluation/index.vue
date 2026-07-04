@@ -51,52 +51,27 @@
         </div>
 
         <!-- 用户信息概览 -->
-        <div v-if="userProfile && !showResult" class="section-card he-user-card animate-fade-in">
-          <div class="he-user-row">
-            <div class="he-user-items">
-              <div class="he-user-item">
-                <div class="he-user-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <div>
-                  <p class="he-user-label">昵称</p>
-                  <p class="he-user-value">{{ userProfile.nickname || userProfile.username || '-' }}</p>
-                </div>
-              </div>
-              <div class="he-divider" />
-              <div class="he-user-item">
-                <div class="he-user-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <p class="he-user-label">性别</p>
-                  <p class="he-user-value">{{ genderLabel(userProfile.gender) }}</p>
-                </div>
-              </div>
-              <div class="he-divider" />
-              <div class="he-user-item">
-                <div class="he-user-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <p class="he-user-label">年龄</p>
-                  <p class="he-user-value">{{ userAge ?? '未填写' }} 岁</p>
-                </div>
-              </div>
+        <div v-if="userProfile && !showResult" class="section-card he-user-strip animate-fade-in">
+          <div class="he-user-strip__items">
+            <div class="he-user-chip">
+              <span class="he-user-chip__label">昵称</span>
+              <span class="he-user-chip__value">{{ userProfile.nickname || userProfile.username || '-' }}</span>
             </div>
-            <div class="he-user-tip">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>年龄与性别由个人资料自动读取，无需重复填写</span>
+            <div class="he-user-chip">
+              <span class="he-user-chip__label">性别</span>
+              <span class="he-user-chip__value">{{ genderLabel(userProfile.gender) }}</span>
+            </div>
+            <div class="he-user-chip">
+              <span class="he-user-chip__label">年龄</span>
+              <span class="he-user-chip__value">{{ userAge ?? '未填写' }} 岁</span>
             </div>
           </div>
+          <p class="he-user-strip__hint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            年龄与性别由个人资料自动读取，无需重复填写
+          </p>
         </div>
 
         <template v-if="!showResult">
@@ -153,32 +128,22 @@
             <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="step-form" :class="{ 'step-form--mobile': isMobile }">
               <!-- Step 0: 基本信息提示 -->
               <div v-show="currentStep === 0" class="step-panel">
-                <div class="he-info-banner">
-                  <div class="he-info-banner-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                <div class="he-info-grid">
+                  <div class="he-info-cell">
+                    <span class="he-info-cell__label">用户名</span>
+                    <span class="he-info-cell__value">{{ userProfile?.username || '-' }}</span>
                   </div>
-                  <span>以下信息已从您的账户自动获取</span>
-                </div>
-                <div class="he-info-table">
-                  <div class="he-info-header">
-                    <div>项目</div>
-                    <div>值</div>
-                    <div>项目</div>
-                    <div>值</div>
+                  <div class="he-info-cell">
+                    <span class="he-info-cell__label">性别</span>
+                    <span class="he-info-cell__value">{{ genderLabel(userProfile?.gender) }}</span>
                   </div>
-                  <div class="he-info-row">
-                    <div class="he-info-label">用户名</div>
-                    <div class="he-info-value">{{ userProfile?.username || '-' }}</div>
-                    <div class="he-info-label">性别</div>
-                    <div class="he-info-value">{{ genderLabel(userProfile?.gender) }}</div>
+                  <div class="he-info-cell">
+                    <span class="he-info-cell__label">出生日期</span>
+                    <span class="he-info-cell__value">{{ userProfile?.birth_date || '未设置' }}</span>
                   </div>
-                  <div class="he-info-row">
-                    <div class="he-info-label">出生日期</div>
-                    <div class="he-info-value">{{ userProfile?.birth_date || '未设置' }}</div>
-                    <div class="he-info-label">年龄</div>
-                    <div class="he-info-value">{{ userAge ?? '-' }} 岁</div>
+                  <div class="he-info-cell">
+                    <span class="he-info-cell__label">年龄</span>
+                    <span class="he-info-cell__value">{{ userAge ?? '-' }} 岁</span>
                   </div>
                 </div>
                 <p class="he-footnote">
@@ -197,47 +162,47 @@
                 <el-row :gutter="isMobile ? 0 : 16">
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="身高 (cm)" prop="height">
-                      <el-input-number v-model="form.height" :min="100" :max="250" :step="0.5" :size="isMobile ? 'large' : 'default'" style="width:100%" />
+                      <el-input-number v-model="form.height" :min="100" :max="250" :step="0.5" style="width:100%" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="体重 (kg)" prop="weight">
-                      <el-input-number v-model="form.weight" :min="30" :max="300" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
+                      <el-input-number v-model="form.weight" :min="30" :max="300" :step="0.1" style="width:100%" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="空腹血糖 (mmol/L)" prop="fasting_glucose">
-                      <el-input-number v-model="form.fasting_glucose" :min="2" :max="30" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
+                      <el-input-number v-model="form.fasting_glucose" :min="2" :max="30" :step="0.1" style="width:100%" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="餐后2h血糖 (mmol/L)">
-                      <el-input-number v-model="form.postprandial_glucose" :min="2" :max="30" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
+                      <el-input-number v-model="form.postprandial_glucose" :min="2" :max="30" :step="0.1" style="width:100%" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="随机血糖 (mmol/L)">
-                      <el-input-number v-model="form.random_glucose" :min="2" :max="30" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
+                      <el-input-number v-model="form.random_glucose" :min="2" :max="30" :step="0.1" style="width:100%" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="糖化血红蛋白 HbA1c (%)">
-                      <el-input-number v-model="form.hba1c" :min="4" :max="15" :step="0.1" :size="isMobile ? 'large' : 'default'" style="width:100%" />
+                      <el-input-number v-model="form.hba1c" :min="4" :max="15" :step="0.1" style="width:100%" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="收缩压 (mmHg)" prop="systolic_bp">
-                      <el-input-number v-model="form.systolic_bp" :min="60" :max="250" :size="isMobile ? 'large' : 'default'" style="width:100%" />
+                      <el-input-number v-model="form.systolic_bp" :min="60" :max="250" style="width:100%" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="舒张压 (mmHg)" prop="diastolic_bp">
-                      <el-input-number v-model="form.diastolic_bp" :min="30" :max="150" :size="isMobile ? 'large' : 'default'" style="width:100%" />
+                      <el-input-number v-model="form.diastolic_bp" :min="30" :max="150" style="width:100%" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="数据来源">
-                      <el-select v-model="form.test_source" :size="isMobile ? 'large' : 'default'" style="width:100%">
+                      <el-select v-model="form.test_source" style="width:100%">
                         <el-option v-for="o in TEST_SOURCE_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
@@ -251,28 +216,28 @@
                 <el-row :gutter="isMobile ? 0 : 16">
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="吸烟状况">
-                      <el-select v-model="form.smoking" :size="isMobile ? 'large' : 'default'" style="width:100%">
+                      <el-select v-model="form.smoking" style="width:100%">
                         <el-option v-for="o in SMOKING_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="饮酒状况">
-                      <el-select v-model="form.alcohol" :size="isMobile ? 'large' : 'default'" style="width:100%">
+                      <el-select v-model="form.alcohol" style="width:100%">
                         <el-option v-for="o in ALCOHOL_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="运动频率">
-                      <el-select v-model="form.exercise_freq" :size="isMobile ? 'large' : 'default'" style="width:100%">
+                      <el-select v-model="form.exercise_freq" style="width:100%">
                         <el-option v-for="o in EXERCISE_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="饮食习惯">
-                      <el-select v-model="form.diet_type" :size="isMobile ? 'large' : 'default'" style="width:100%">
+                      <el-select v-model="form.diet_type" style="width:100%">
                         <el-option v-for="o in DIET_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
@@ -293,14 +258,14 @@
                 <el-row :gutter="isMobile ? 0 : 16">
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="糖尿病分型">
-                      <el-select v-model="form.diabetes_type" :size="isMobile ? 'large' : 'default'" style="width:100%">
+                      <el-select v-model="form.diabetes_type" style="width:100%">
                         <el-option v-for="o in DIABETES_TYPE_OPTIONS" :key="o.value" :label="o.label" :value="o.value" />
                       </el-select>
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
                     <el-form-item label="确诊日期">
-                      <el-date-picker v-model="form.diagnosed_date" type="date" value-format="YYYY-MM-DD" :size="isMobile ? 'large' : 'default'" style="width:100%" placeholder="如已确诊请填写" />
+                      <el-date-picker v-model="form.diagnosed_date" type="date" value-format="YYYY-MM-DD" style="width:100%" placeholder="如已确诊请填写" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="isMobile ? 24 : 12">
@@ -455,7 +420,6 @@
             <div class="he-step-actions" :class="{ 'he-step-actions--sticky': isMobile }">
               <el-button
                 v-if="currentStep > 0"
-                :size="isMobile ? 'large' : 'large'"
                 class="he-btn-secondary"
                 @click="currentStep--"
               >
@@ -464,7 +428,6 @@
               <el-button
                 v-if="currentStep < QUESTIONNAIRE_STEPS.length - 1"
                 type="primary"
-                size="large"
                 class="he-btn-primary"
                 @click="nextStep"
               >
@@ -476,7 +439,6 @@
               <el-button
                 v-else
                 type="primary"
-                size="large"
                 class="he-btn-primary"
                 :loading="submitting"
                 @click="submitAssess"
@@ -554,7 +516,7 @@
           </ul>
 
           <div class="he-report-actions">
-            <el-button type="primary" size="large" class="he-btn-primary" @click="$router.push('/living-plans')">
+            <el-button type="primary" class="he-btn-primary" @click="$router.push('/living-plans')">
               生成健康方案
             </el-button>
           </div>
@@ -1020,7 +982,14 @@ async function viewHistory(row) {
   --he-border: #e2e8f0;
   --he-border-light: #f1f5f9;
   --he-bg: #f8fafc;
-  --he-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.he-page :deep(.section-card) {
+  padding: 16px 18px;
+  border-radius: 14px;
+  margin-bottom: 12px;
 }
 
 @keyframes heFadeInUp {
@@ -1032,72 +1001,85 @@ async function viewHistory(row) {
   animation: heFadeInUp 0.5s ease-out forwards;
 }
 
-.he-page-header { margin-bottom: 32px; }
+.he-page-header { margin-bottom: 20px; }
 .he-page-title {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--he-text);
   letter-spacing: -0.02em;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 .he-page-desc {
-  font-size: 15px;
+  font-size: 13px;
   color: var(--he-text-secondary);
-  line-height: 1.6;
+  line-height: 1.55;
   margin: 0;
 }
 
-/* Tabs */
+/* Tabs — 分段式切换 */
 .he-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--he-border);
-  margin-bottom: 32px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--he-bg);
+  border: 1px solid var(--he-border-light);
+  border-radius: 10px;
+  margin-bottom: 16px;
 }
 .he-tabs--mobile {
-  margin-bottom: 16px;
-  border-bottom: 2px solid var(--he-border);
+  display: flex;
+  width: 100%;
+  margin-bottom: 12px;
 }
 .he-tab {
   position: relative;
-  padding: 16px 32px;
-  font-size: 16px;
+  padding: 7px 18px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--he-text-muted);
   background: none;
   border: none;
+  border-radius: 7px;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.he-tabs--mobile .he-tab {
+  flex: 1;
+  text-align: center;
+  padding: 8px 10px;
+  font-size: 14px;
+  min-height: 40px;
 }
 .he-tab:hover { color: var(--he-text-secondary); }
-.he-tab.active { color: var(--he-primary); font-weight: 600; }
+.he-tab.active {
+  color: var(--he-primary);
+  font-weight: 600;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
 .he-tab-dot {
   position: absolute;
-  top: 12px;
-  right: 18px;
-  width: 8px;
-  height: 8px;
+  top: 6px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
   background: #ef4444;
   border-radius: 50%;
-  box-shadow: 0 0 0 2px #fff;
 }
-.he-tab-indicator {
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: var(--he-primary);
-  border-radius: 3px 3px 0 0;
+.he-tabs--mobile .he-tab-dot {
+  top: 8px;
+  right: calc(50% - 28px);
 }
+.he-tab-indicator { display: none; }
 
 .he-new-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  font-size: 11px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1;
   color: #fff;
@@ -1106,112 +1088,98 @@ async function viewHistory(row) {
   flex-shrink: 0;
 }
 .he-new-badge--lg {
-  min-width: 28px;
-  height: 28px;
-  font-size: 13px;
+  min-width: 22px;
+  height: 22px;
+  font-size: 11px;
 }
 .he-new-badge--inline {
-  margin-left: 8px;
+  margin-left: 6px;
   vertical-align: middle;
 }
 .he-new-report-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 20px 24px;
-  margin-bottom: 24px;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
   border: 1px solid #fecaca;
   background: linear-gradient(135deg, #fff7ed, #fff1f2);
+  border-radius: 12px;
 }
 .he-new-report-banner__main {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
 }
 .he-new-report-banner__title {
-  margin: 0 0 4px;
-  font-size: 16px;
+  margin: 0 0 2px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--he-text);
 }
 .he-new-report-banner__meta {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--he-text-secondary);
 }
 .he-report-title-row {
   display: flex;
   align-items: center;
+  gap: 8px;
+}
+
+/* 用户信息条 */
+.he-user-strip {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
-
-/* User overview card */
-.he-user-card { padding: 32px; }
-.he-user-row {
+.he-user-strip__items {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
   flex-wrap: wrap;
+  gap: 8px;
 }
-.he-user-items {
+.he-user-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--he-bg);
+  border: 1px solid var(--he-border-light);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.he-user-chip__label {
+  color: var(--he-text-muted);
+  font-size: 12px;
+}
+.he-user-chip__value {
+  color: var(--he-text);
+  font-weight: 600;
+}
+.he-user-strip__hint {
   display: flex;
   align-items: center;
-  gap: 48px;
-  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--he-primary);
 }
-.he-user-item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.he-user-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: var(--he-primary-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.he-user-strip__hint svg {
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
-.he-user-icon svg { width: 24px; height: 24px; color: var(--he-primary); }
-.he-user-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--he-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 4px;
-}
-.he-user-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--he-text);
-  margin: 0;
-}
-.he-divider { width: 1px; height: 48px; background: var(--he-border); }
-.he-user-tip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--he-primary-bg);
-  border-radius: 12px;
-  font-size: 14px;
-  color: var(--he-primary);
-  font-weight: 500;
-}
-.he-user-tip svg { width: 16px; height: 16px; flex-shrink: 0; }
 
 /* Steps */
-.he-steps-card { padding: 40px 32px; }
+.he-steps-card { padding: 14px 12px 10px; }
 .he-steps {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 4px;
 }
 .he-step {
   position: relative;
@@ -1221,11 +1189,12 @@ async function viewHistory(row) {
   align-items: center;
   cursor: pointer;
   z-index: 1;
+  min-width: 0;
 }
 .he-step.pending { cursor: default; }
 .he-step-connector {
   position: absolute;
-  top: 20px;
+  top: 14px;
   left: 50%;
   right: -50%;
   height: 2px;
@@ -1234,133 +1203,99 @@ async function viewHistory(row) {
 }
 .he-step-connector.completed { background: var(--he-primary); }
 .he-step-circle {
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   position: relative;
   z-index: 1;
   transition: all 0.2s;
 }
-.he-step-circle svg { width: 20px; height: 20px; }
+.he-step-circle svg { width: 14px; height: 14px; }
 .he-step.active .he-step-circle {
   background: var(--he-primary);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.3);
-  outline: 4px solid var(--he-primary-bg);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+  outline: 3px solid var(--he-primary-bg);
 }
 .he-step.completed .he-step-circle {
   background: var(--he-primary);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.2);
 }
 .he-step.pending .he-step-circle {
   background: #fff;
-  border: 2px solid var(--he-border);
+  border: 1.5px solid var(--he-border);
   color: var(--he-text-muted);
 }
-.he-step.completed:hover .he-step-circle {
-  border-color: var(--he-primary);
-  color: var(--he-primary);
-}
 .he-step-title {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 600;
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   text-align: center;
   color: var(--he-text-secondary);
+  line-height: 1.3;
+  max-width: 72px;
 }
 .he-step.active .he-step-title,
 .he-step.completed .he-step-title { color: var(--he-primary); }
 .he-step-desc {
-  font-size: 12px;
-  color: var(--he-text-muted);
-  margin: 0;
-  text-align: center;
+  display: none;
 }
 
 /* Form card */
-.he-form-card { padding: 32px; }
-.step-form { min-height: 280px; }
-.step-panel { padding: 4px 0; }
-
-.he-info-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  background: var(--he-primary-bg);
-  border-radius: 12px;
-  margin-bottom: 24px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--he-primary);
+.he-form-card { padding: 16px 18px; }
+.step-form { min-height: 200px; }
+.step-form :deep(.el-form-item) {
+  margin-bottom: 14px;
 }
-.he-info-banner-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(13, 148, 136, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.he-info-banner-icon svg { width: 16px; height: 16px; }
-
-.he-info-table {
-  border: 1px solid var(--he-border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-.he-info-header,
-.he-info-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  align-items: center;
-}
-.he-info-header {
-  background: var(--he-bg);
-  border-bottom: 1px solid var(--he-border);
-}
-.he-info-header > div {
-  padding: 16px 24px;
+.step-form :deep(.el-form-item__label) {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--he-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.he-info-row { border-bottom: 1px solid var(--he-border-light); }
-.he-info-row:last-child { border-bottom: none; }
-.he-info-row:nth-child(even) { background: var(--he-bg); }
-.he-info-row:hover { background: var(--he-primary-bg); }
-.he-info-label {
-  padding: 20px 24px;
-  font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--he-text);
+  padding-bottom: 4px;
+  line-height: 1.4;
 }
-.he-info-value {
-  padding: 20px 24px;
-  font-size: 14px;
-  color: var(--he-text-secondary);
+.step-panel { padding: 2px 0; }
+
+.he-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.he-info-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--he-bg);
+  border: 1px solid var(--he-border-light);
+  border-radius: 8px;
+}
+.he-info-cell__label {
+  font-size: 11px;
+  color: var(--he-text-muted);
+}
+.he-info-cell__value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--he-text);
 }
 
 .he-footnote {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 20px 0 0;
-  font-size: 14px;
+  gap: 4px;
+  margin: 10px 0 0;
+  font-size: 12px;
   color: var(--he-text-muted);
 }
-.he-footnote svg { width: 16px; height: 16px; flex-shrink: 0; }
+.he-footnote svg { width: 14px; height: 14px; flex-shrink: 0; }
 .he-link {
   color: var(--he-primary);
   font-weight: 500;
@@ -1369,184 +1304,212 @@ async function viewHistory(row) {
 }
 .he-link:hover { text-decoration: underline; }
 
-.field-hint { font-size: 12px; color: var(--he-text-muted); margin: 4px 0 0; }
+.he-radio-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.he-radio-cards :deep(.el-radio) {
+  margin-right: 0;
+  height: auto;
+  padding: 6px 14px;
+  border: 1px solid var(--he-border);
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.2s, background 0.2s;
+}
+.he-radio-cards :deep(.el-radio.is-checked) {
+  border-color: var(--he-primary);
+  background: var(--he-primary-bg);
+}
+.he-radio-cards :deep(.el-radio__label) {
+  font-size: 13px;
+  padding-left: 6px;
+}
+
 .list-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--he-border-light);
 }
-.list-title { font-weight: 600; font-size: 16px; color: var(--he-text); }
+.list-title { font-weight: 600; font-size: 14px; color: var(--he-text); }
 .list-item-card {
   border: 1px solid var(--he-border);
-  border-radius: 12px;
-  padding: 16px 20px 8px;
-  margin-bottom: 12px;
+  border-radius: 10px;
+  padding: 12px 14px 4px;
+  margin-bottom: 8px;
   background: var(--he-bg);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s;
 }
 .list-item-card:hover {
-  border-color: rgba(13, 148, 136, 0.3);
-  box-shadow: 0 2px 12px rgba(13, 148, 136, 0.08);
+  border-color: rgba(13, 148, 136, 0.25);
 }
 
 .he-step-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 32px;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--he-border-light);
 }
 .he-btn-primary {
   display: inline-flex !important;
   align-items: center;
-  gap: 8px;
-  padding: 12px 40px !important;
-  border-radius: 12px !important;
+  gap: 6px;
+  padding: 8px 22px !important;
+  border-radius: 8px !important;
   font-weight: 600 !important;
-  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.25) !important;
+  font-size: 13px !important;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.2) !important;
 }
-.he-btn-primary svg { width: 20px; height: 20px; }
+.he-btn-primary svg { width: 16px; height: 16px; }
 .he-btn-secondary {
-  padding: 12px 28px !important;
-  border-radius: 12px !important;
+  padding: 8px 18px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
 }
 
 /* Report */
-.he-report-card { padding: 32px; }
+.he-report-card { padding: 16px 18px; }
 .he-report-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24px;
+  margin-bottom: 14px;
+  gap: 12px;
 }
 .he-report-title {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--he-text);
-  margin: 0 0 4px;
+  margin: 0 0 2px;
 }
-.he-report-sub { font-size: 14px; color: var(--he-text-secondary); margin: 0; }
+.he-report-sub { font-size: 12px; color: var(--he-text-secondary); margin: 0; }
 
 .he-risk-banner {
-  padding: 24px 28px;
-  border-radius: 16px;
-  margin-bottom: 24px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin-bottom: 14px;
 }
 .he-risk-banner--low { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1px solid #a7f3d0; }
 .he-risk-banner--medium { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; }
 .he-risk-banner--high { background: linear-gradient(135deg, #fef2f2, #fecaca); border: 1px solid #fca5a5; }
-.he-risk-banner-main { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; }
-.he-risk-level { font-size: 24px; font-weight: 700; color: var(--he-text); }
-.he-risk-score { font-size: 18px; font-weight: 600; color: var(--he-text-secondary); }
-.he-risk-summary { font-size: 14px; color: var(--he-text-secondary); line-height: 1.6; margin: 0; }
+.he-risk-banner-main { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.he-risk-level { font-size: 18px; font-weight: 700; color: var(--he-text); }
+.he-risk-score { font-size: 14px; font-weight: 600; color: var(--he-text-secondary); }
+.he-risk-summary { font-size: 13px; color: var(--he-text-secondary); line-height: 1.55; margin: 0; }
 
-.he-charts-row { margin-bottom: 24px; }
+.he-charts-row { margin-bottom: 14px; }
 .he-chart-box {
   background: var(--he-bg);
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--he-border-light);
+  height: 220px;
 }
 
 .he-metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 28px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 .he-metric-item {
-  padding: 16px 20px;
+  padding: 10px 12px;
   background: var(--he-bg);
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--he-border-light);
 }
 .he-metric-label {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--he-text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 3px;
 }
 .he-metric-value {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--he-text);
 }
-.he-metric-value small { font-weight: 400; color: var(--he-text-secondary); }
+.he-metric-value small { font-weight: 400; color: var(--he-text-secondary); font-size: 12px; }
 
 .he-sub-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--he-text);
-  margin: 0 0 16px;
+  margin: 0 0 10px;
 }
-.he-factor-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+.he-factor-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .he-factor-item {
-  padding: 16px 20px;
+  padding: 10px 12px;
   background: var(--he-bg);
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--he-border-light);
 }
-.he-factor-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.he-factor-name { font-weight: 600; color: var(--he-text); }
+.he-factor-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 8px; }
+.he-factor-name { font-weight: 600; font-size: 13px; color: var(--he-text); }
 .he-factor-level {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 2px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
+  flex-shrink: 0;
 }
 .he-factor-level--high { background: #fef2f2; color: #dc2626; }
 .he-factor-level--medium { background: #fffbeb; color: #d97706; }
 .he-factor-level--low { background: #ecfdf5; color: #059669; }
-.he-factor-desc { font-size: 14px; color: var(--he-text-secondary); margin: 0; line-height: 1.5; }
+.he-factor-desc { font-size: 12px; color: var(--he-text-secondary); margin: 0; line-height: 1.5; }
 
 .he-suggestion-list {
   list-style: none;
   padding: 0;
-  margin: 0 0 28px;
+  margin: 0 0 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 .he-suggestion-list li {
   position: relative;
-  padding: 12px 16px 12px 36px;
+  padding: 8px 12px 8px 28px;
   background: var(--he-primary-bg);
-  border-radius: 10px;
-  font-size: 14px;
+  border-radius: 8px;
+  font-size: 13px;
   color: var(--he-text);
   line-height: 1.5;
 }
 .he-suggestion-list li::before {
   content: '';
   position: absolute;
-  left: 14px;
-  top: 18px;
-  width: 8px;
-  height: 8px;
+  left: 12px;
+  top: 14px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--he-primary);
 }
 
-.he-report-actions { margin-bottom: 16px; }
-.he-disclaimer { margin-top: 8px; }
+.he-report-actions { margin-bottom: 10px; }
+.he-disclaimer { margin-top: 6px; }
 
 /* History */
-.he-history-card { padding: 8px; }
+.he-history-card { padding: 4px; }
 .he-empty {
   text-align: center;
-  padding: 64px 20px;
+  padding: 40px 16px;
   color: var(--he-text-muted);
 }
-.he-empty svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.5; }
-.he-empty p { margin: 0; font-size: 15px; }
-.he-history-list { display: flex; flex-direction: column; }
+.he-empty svg { width: 36px; height: 36px; margin-bottom: 8px; opacity: 0.5; }
+.he-empty p { margin: 0; font-size: 13px; }
+.he-history-list { display: flex; flex-direction: column; gap: 4px; }
 .he-history-item {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px 24px;
-  border-radius: 12px;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -1559,43 +1522,33 @@ async function viewHistory(row) {
   font-weight: 600;
   color: #c2410c;
 }
-.he-history-time { flex: 1; font-size: 14px; color: var(--he-text); }
-.he-history-meta { display: flex; align-items: center; gap: 12px; }
+.he-history-time { flex: 1; font-size: 13px; color: var(--he-text); }
+.he-history-meta { display: flex; align-items: center; gap: 8px; }
 .he-history-level {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 4px 12px;
+  padding: 3px 8px;
   border-radius: 999px;
 }
 .he-history-level--low { background: #ecfdf5; color: #059669; }
 .he-history-level--medium { background: #fffbeb; color: #d97706; }
 .he-history-level--high { background: #fef2f2; color: #dc2626; }
-.he-history-score { font-size: 14px; font-weight: 600; color: var(--he-text-secondary); }
-.he-history-arrow { width: 20px; height: 20px; color: var(--he-text-muted); }
+.he-history-score { font-size: 13px; font-weight: 600; color: var(--he-text-secondary); }
+.he-history-arrow { width: 16px; height: 16px; color: var(--he-text-muted); flex-shrink: 0; }
 
 @media (max-width: 1024px) {
-  .he-user-items { gap: 24px; }
-  .he-divider { display: none; }
   .he-steps-card { overflow-x: auto; }
-  .he-steps { min-width: 700px; }
+  .he-steps { min-width: 560px; }
   .he-metrics-grid { grid-template-columns: repeat(2, 1fr); }
-  .he-info-header,
-  .he-info-row { grid-template-columns: 1fr 1fr; }
-  .he-info-header > div:nth-child(3),
-  .he-info-header > div:nth-child(4) { display: none; }
 }
 
 @media (max-width: 640px) {
-  .he-page-title { font-size: 22px; }
-  .he-tab { padding: 12px 20px; font-size: 14px; }
-  .he-user-card,
-  .he-form-card,
-  .he-steps-card,
-  .he-report-card { padding: 20px; }
-  .he-metrics-grid { grid-template-columns: 1fr; }
+  .he-page-title { font-size: 18px; }
+  .he-metrics-grid { grid-template-columns: 1fr 1fr; }
+  .he-info-grid { grid-template-columns: 1fr; }
 }
 
-/* ── 手机端 / 老年友好样式 ── */
+/* ── 手机端样式（适度紧凑，保留触控友好） ── */
 .he-page--mobile {
   --he-text: #1c1917;
   --he-text-secondary: #44403c;
@@ -1608,53 +1561,33 @@ async function viewHistory(row) {
   transform: none;
 }
 
-/* 标签页：等宽、大触控区 */
-.he-tabs--mobile .he-tab {
-  flex: 1;
-  text-align: center;
-  padding: 18px 12px;
-  font-size: 17px;
-  font-weight: 600;
-  min-height: 52px;
-}
-.he-tabs--mobile .he-tab-dot {
-  top: 10px;
-  right: calc(50% - 36px);
-  width: 10px;
-  height: 10px;
-}
-.he-tabs--mobile .he-tab-indicator {
-  height: 4px;
-}
-
-/* 手机端进度条 */
 .he-mobile-progress {
-  padding: 20px 18px;
-  border-left: 4px solid var(--he-primary);
+  padding: 14px;
+  border-left: 3px solid var(--he-primary);
 }
 .he-mobile-progress__top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 .he-mobile-progress__label {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--he-text-secondary);
 }
 .he-mobile-progress__percent {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--he-primary);
   font-variant-numeric: tabular-nums;
 }
 .he-mobile-progress__track {
-  height: 10px;
+  height: 6px;
   background: #e7e5e4;
   border-radius: 999px;
   overflow: hidden;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .he-mobile-progress__fill {
   height: 100%;
@@ -1663,220 +1596,119 @@ async function viewHistory(row) {
   transition: width 0.35s ease;
 }
 .he-mobile-progress__title {
-  margin: 0 0 6px;
-  font-size: 22px;
+  margin: 0 0 4px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--he-text);
   line-height: 1.35;
 }
 .he-mobile-progress__desc {
-  margin: 0 0 14px;
-  font-size: 16px;
+  margin: 0 0 10px;
+  font-size: 13px;
   color: var(--he-text-secondary);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 .he-mobile-progress__dots {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 .he-mobile-progress__dot {
-  width: 10px;
-  height: 10px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: #d6d3d1;
   transition: background 0.2s, transform 0.2s;
 }
 .he-mobile-progress__dot.active {
   background: var(--he-primary);
-  transform: scale(1.3);
+  transform: scale(1.25);
 }
 .he-mobile-progress__dot.completed {
   background: #99f6e4;
 }
 
 .he-step-hint {
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  font-size: 15px;
-  line-height: 1.65;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--he-text-secondary);
   background: #fafaf9;
-  border-radius: 12px;
+  border-radius: 8px;
   border-left: 3px solid var(--he-primary-light);
 }
 
-/* 用户概览卡片 */
-.he-page--mobile .he-user-card {
-  padding: 18px;
-}
-.he-page--mobile .he-user-row {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 16px;
-}
-.he-page--mobile .he-user-items {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 14px;
-}
-.he-page--mobile .he-user-item {
-  padding: 14px 16px;
-  background: var(--he-primary-bg);
-  border-radius: 14px;
-  gap: 14px;
-}
-.he-page--mobile .he-user-icon {
-  width: 44px;
-  height: 44px;
-}
-.he-page--mobile .he-user-label {
-  font-size: 13px;
-  text-transform: none;
-  letter-spacing: 0;
-  color: var(--he-text-muted);
-}
-.he-page--mobile .he-user-value {
-  font-size: 20px;
-}
-.he-page--mobile .he-user-tip {
-  font-size: 15px;
-  line-height: 1.6;
-  padding: 12px 14px;
-  border-radius: 12px;
-}
-.he-page--mobile .he-user-tip svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* 表单：大字号、大触控区 */
 .he-form-card--mobile {
-  padding: 18px 16px 0;
+  padding: 14px 14px 0;
   margin-bottom: 0;
 }
 .he-page--mobile .step-form--mobile {
   min-height: auto;
 }
 .he-page--mobile .step-form--mobile :deep(.el-form-item) {
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 .he-page--mobile .step-form--mobile :deep(.el-col) {
   max-width: 100%;
   flex: 0 0 100%;
 }
 .he-page--mobile .step-form--mobile :deep(.el-form-item__label) {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--he-text);
-  line-height: 1.5;
-  padding-bottom: 8px;
-}
-.he-page--mobile .step-form--mobile :deep(.el-input-number),
-.he-page--mobile .step-form--mobile :deep(.el-select),
-.he-page--mobile .step-form--mobile :deep(.el-date-editor) {
-  width: 100%;
+  padding-bottom: 6px;
 }
 .he-page--mobile .step-form--mobile :deep(.el-input-number .el-input__inner),
 .he-page--mobile .step-form--mobile :deep(.el-select .el-select__wrapper),
 .he-page--mobile .step-form--mobile :deep(.el-input__inner),
 .he-page--mobile .step-form--mobile :deep(.el-textarea__inner) {
-  font-size: 17px;
-  min-height: 48px;
+  font-size: 15px;
+  min-height: 40px;
 }
 .he-page--mobile .step-form--mobile :deep(.el-input-number__decrease),
 .he-page--mobile .step-form--mobile :deep(.el-input-number__increase) {
-  width: 44px;
-  font-size: 18px;
+  width: 36px;
 }
 
-/* 单选卡片式按钮，便于点击 */
 .he-page--mobile .he-radio-cards {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
 }
 .he-page--mobile .he-radio-cards :deep(.el-radio) {
   display: flex;
   align-items: center;
-  height: auto;
-  min-height: 52px;
+  min-height: 44px;
   margin-right: 0;
-  padding: 14px 18px;
-  border: 2px solid var(--he-border);
-  border-radius: 14px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--he-border);
+  border-radius: 10px;
   background: #fff;
-  transition: border-color 0.2s, background 0.2s;
 }
 .he-page--mobile .he-radio-cards :deep(.el-radio.is-checked) {
   border-color: var(--he-primary);
   background: var(--he-primary-bg);
 }
 .he-page--mobile .he-radio-cards :deep(.el-radio__label) {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 500;
-  color: var(--he-text);
-  padding-left: 10px;
-}
-.he-page--mobile .he-radio-cards :deep(.el-radio__inner) {
-  width: 22px;
-  height: 22px;
-  border-width: 2px;
-}
-.he-page--mobile .he-radio-cards :deep(.el-radio__inner::after) {
-  width: 10px;
-  height: 10px;
+  padding-left: 8px;
 }
 
-/* 信息表格 */
-.he-page--mobile .he-info-banner {
-  font-size: 16px;
-  padding: 16px;
-  border-radius: 14px;
-}
-.he-page--mobile .he-info-label,
-.he-page--mobile .he-info-value {
-  padding: 16px 18px;
-  font-size: 16px;
-}
-.he-page--mobile .he-info-label {
-  font-weight: 600;
-  color: var(--he-text);
-}
-.he-page--mobile .he-info-value {
-  color: var(--he-text-secondary);
-}
 .he-page--mobile .he-footnote {
-  font-size: 15px;
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.5;
   flex-wrap: wrap;
 }
 
-/* 列表卡片 */
-.he-page--mobile .list-title {
-  font-size: 18px;
-}
-.he-page--mobile .list-toolbar {
-  margin-bottom: 18px;
-}
-.he-page--mobile .list-toolbar :deep(.el-button) {
-  font-size: 16px;
-  min-height: 44px;
-}
+.he-page--mobile .list-title { font-size: 15px; }
 .he-page--mobile .list-item-card {
-  padding: 16px;
-  border-radius: 14px;
-  margin-bottom: 14px;
-}
-.he-page--mobile .list-item-card :deep(.el-button) {
-  font-size: 16px;
-  min-height: 44px;
-  margin-top: 4px;
+  padding: 12px;
+  border-radius: 10px;
 }
 
-/* 底部固定操作栏 */
 .he-step-actions--sticky {
   position: fixed;
   left: 0;
@@ -1884,119 +1716,44 @@ async function viewHistory(row) {
   bottom: calc(var(--bottom-nav-height, 64px) + env(safe-area-inset-bottom, 0));
   z-index: 20;
   flex-direction: column-reverse;
-  gap: 10px;
+  gap: 8px;
   margin-top: 0;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: rgba(255, 255, 255, 0.96);
   border-top: 1px solid var(--he-border);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(8px);
 }
 .he-step-actions--sticky .he-btn-primary,
 .he-step-actions--sticky .he-btn-secondary {
   width: 100%;
-  min-height: 52px !important;
-  font-size: 17px !important;
-  border-radius: 14px !important;
+  min-height: 44px !important;
+  font-size: 15px !important;
+  border-radius: 10px !important;
   justify-content: center;
 }
 .he-step-actions-spacer {
-  height: calc(120px + var(--bottom-nav-height, 64px));
+  height: calc(100px + var(--bottom-nav-height, 64px));
 }
 
-/* 新报告横幅 */
 .he-page--mobile .he-new-report-banner {
   flex-direction: column;
   align-items: stretch;
-  gap: 14px;
-  padding: 18px;
-}
-.he-page--mobile .he-new-report-banner__title {
-  font-size: 17px;
-}
-.he-page--mobile .he-new-report-banner__meta {
-  font-size: 15px;
+  gap: 10px;
+  padding: 12px;
 }
 .he-page--mobile .he-new-report-banner :deep(.el-button) {
   width: 100%;
-  min-height: 48px;
-  font-size: 16px;
 }
 
-/* 评估报告 */
-.he-page--mobile .he-report-card {
-  padding: 18px 16px;
-}
-.he-page--mobile .he-report-title {
-  font-size: 22px;
-}
-.he-page--mobile .he-report-sub {
-  font-size: 15px;
-}
-.he-page--mobile .he-risk-level {
-  font-size: 28px;
-}
-.he-page--mobile .he-risk-score {
-  font-size: 20px;
-}
-.he-page--mobile .he-risk-summary {
-  font-size: 16px;
-  line-height: 1.75;
-}
-.he-page--mobile .he-metric-label {
-  font-size: 14px;
-}
-.he-page--mobile .he-metric-value {
-  font-size: 18px;
-}
-.he-page--mobile .he-sub-title {
-  font-size: 18px;
-  margin-bottom: 14px;
-}
-.he-page--mobile .he-factor-name {
-  font-size: 17px;
-}
-.he-page--mobile .he-factor-desc {
-  font-size: 16px;
-  line-height: 1.65;
-}
-.he-page--mobile .he-factor-level {
-  font-size: 14px;
-  padding: 4px 12px;
-}
-.he-page--mobile .he-suggestion-list li {
-  font-size: 16px;
-  line-height: 1.7;
-  padding: 14px 16px 14px 38px;
+.he-page--mobile .he-risk-level { font-size: 20px; }
+.he-page--mobile .he-chart-box { height: 200px; }
+.he-page--mobile .he-history-item {
+  padding: 12px;
+  min-height: 56px;
 }
 .he-page--mobile .he-report-actions :deep(.el-button) {
   width: 100%;
-  min-height: 52px;
-  font-size: 17px;
-}
-
-/* 历史记录 */
-.he-page--mobile .he-history-item {
-  padding: 18px 16px;
-  min-height: 72px;
-  border-radius: 14px;
-  margin-bottom: 8px;
-  border: 1px solid var(--he-border-light);
-}
-.he-page--mobile .he-history-time {
-  font-size: 16px;
-}
-.he-page--mobile .he-history-level {
-  font-size: 14px;
-  padding: 6px 14px;
-}
-.he-page--mobile .he-history-score {
-  font-size: 16px;
-}
-.he-page--mobile .he-empty {
-  padding: 48px 20px;
-}
-.he-page--mobile .he-empty p {
-  font-size: 17px;
+  min-height: 44px;
 }
 </style>

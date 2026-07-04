@@ -2,6 +2,7 @@ package com.diabetes.checkin.controller;
 
 import com.diabetes.checkin.dto.ExerciseCheckinRequest;
 import com.diabetes.checkin.dto.FoodCheckinRequest;
+import com.diabetes.checkin.dto.FoodRecognitionRequest;
 import com.diabetes.checkin.dto.GlucoseCheckinRequest;
 import com.diabetes.checkin.dto.ImageUploadResponse;
 import com.diabetes.checkin.dto.MedicationCheckinRequest;
@@ -32,19 +33,22 @@ public class CheckinModuleController {
     private final MedicationCheckinService medicationCheckinService;
     private final ExerciseCheckinService exerciseCheckinService;
     private final GlucoseCheckinService glucoseCheckinService;
+    private final FoodRecognitionService foodRecognitionService;
 
     public CheckinModuleController(CheckinImageService checkinImageService,
                                    CheckinPresetService checkinPresetService,
                                    FoodCheckinService foodCheckinService,
                                    MedicationCheckinService medicationCheckinService,
                                    ExerciseCheckinService exerciseCheckinService,
-                                   GlucoseCheckinService glucoseCheckinService) {
+                                   GlucoseCheckinService glucoseCheckinService,
+                                   FoodRecognitionService foodRecognitionService) {
         this.checkinImageService = checkinImageService;
         this.checkinPresetService = checkinPresetService;
         this.foodCheckinService = foodCheckinService;
         this.medicationCheckinService = medicationCheckinService;
         this.exerciseCheckinService = exerciseCheckinService;
         this.glucoseCheckinService = glucoseCheckinService;
+        this.foodRecognitionService = foodRecognitionService;
     }
 
     @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -55,13 +59,14 @@ public class CheckinModuleController {
     }
 
     @GetMapping("/food/categories")
-    public ApiResponse<List<Map<String, Object>>> foodCategories() {
-        return ApiResponse.ok(checkinPresetService.listFoodCategories());
+    public ApiResponse<List<Map<String, Object>>> foodCategories(@CurrentUserId String userId) {
+        return ApiResponse.ok(checkinPresetService.listFoodCategories(userId));
     }
 
     @GetMapping("/food/presets")
-    public ApiResponse<List<Map<String, Object>>> foodPresets(@RequestParam(required = false) String categoryId) {
-        return ApiResponse.ok(checkinPresetService.listFoodPresets(categoryId));
+    public ApiResponse<List<Map<String, Object>>> foodPresets(@CurrentUserId String userId,
+                                                              @RequestParam(required = false) String categoryId) {
+        return ApiResponse.ok(checkinPresetService.listFoodPresets(userId, categoryId));
     }
 
     @PostMapping("/food")
@@ -76,9 +81,20 @@ public class CheckinModuleController {
         return ApiResponse.ok(foodCheckinService.listRecords(userId, date));
     }
 
+    @PostMapping("/food/recognize")
+    public ApiResponse<Map<String, Object>> recognizeFood(@CurrentUserId String userId,
+                                                          @Valid @RequestBody FoodRecognitionRequest request) {
+        return ApiResponse.ok(foodRecognitionService.recognize(userId, request));
+    }
+
+    @GetMapping("/food/dify-workflow-spec")
+    public ApiResponse<Map<String, Object>> foodDifyWorkflowSpec() {
+        return ApiResponse.ok(foodRecognitionService.getDifyWorkflowSpec());
+    }
+
     @GetMapping("/medication/presets")
-    public ApiResponse<List<Map<String, Object>>> medicationPresets() {
-        return ApiResponse.ok(checkinPresetService.listMedicationPresets());
+    public ApiResponse<List<Map<String, Object>>> medicationPresets(@CurrentUserId String userId) {
+        return ApiResponse.ok(checkinPresetService.listMedicationPresets(userId));
     }
 
     @PostMapping("/medication")

@@ -26,15 +26,18 @@ public class FoodCheckinService {
     private final CheckinDietDetailMapper dietDetailMapper;
     private final PresetMapper presetMapper;
     private final MinioStorageService minioStorageService;
+    private final UserCustomPresetService userCustomPresetService;
 
     public FoodCheckinService(CheckinRecordWriter recordWriter,
                               CheckinDietDetailMapper dietDetailMapper,
                               PresetMapper presetMapper,
-                              MinioStorageService minioStorageService) {
+                              MinioStorageService minioStorageService,
+                              UserCustomPresetService userCustomPresetService) {
         this.recordWriter = recordWriter;
         this.dietDetailMapper = dietDetailMapper;
         this.presetMapper = presetMapper;
         this.minioStorageService = minioStorageService;
+        this.userCustomPresetService = userCustomPresetService;
     }
 
     @Transactional
@@ -68,6 +71,10 @@ public class FoodCheckinService {
                 userId, CheckinConstants.TYPE_DIET, date, parseRecordTime(request.getCheckinDate(), request.getRecordTime()));
         detail.setCheckinId(checkinId);
         dietDetailMapper.insert(detail);
+
+        if (request.getSourceType() == CheckinConstants.SOURCE_CUSTOM) {
+            userCustomPresetService.saveFoodTemplate(userId, request);
+        }
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("checkinId", checkinId);

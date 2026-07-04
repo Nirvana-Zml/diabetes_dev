@@ -194,7 +194,7 @@ class CheckinMgmtServiceTest {
         triggerAnalysisIntervention.invoke(service, "u1", start, end, Map.of("anomalies", List.of()));
         triggerAnalysisIntervention.invoke(service, "u1", start, end,
                 Map.of("anomalies", List.of(Map.of("date", "2024-01-01")), "improvements", List.of("x")));
-        verify(userServiceClient).evaluateIntervention(eq("internal"), anyMap());
+        verify(userServiceClient).evaluateIntervention(eq("internal"), org.mockito.ArgumentMatchers.<Map<String, Object>>any());
     }
 
     private CheckinMgmtService service(String apiKey) {

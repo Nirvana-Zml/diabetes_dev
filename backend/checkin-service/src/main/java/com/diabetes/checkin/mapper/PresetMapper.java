@@ -12,6 +12,8 @@ public interface PresetMapper {
 
     List<FoodPreset> findFoodPresets(@Param("categoryId") String categoryId);
 
+    List<FoodPreset> findAllFoodPresets(@Param("limit") int limit);
+
     FoodPreset findFoodPresetById(@Param("foodId") String foodId);
 
     String findCategoryNameById(@Param("categoryId") String categoryId);

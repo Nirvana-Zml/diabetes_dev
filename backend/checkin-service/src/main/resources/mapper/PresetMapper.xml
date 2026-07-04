@@ -21,6 +21,15 @@
         ORDER BY FOOD_NAME ASC
     </select>
 
+    <select id="findAllFoodPresets" resultType="com.diabetes.checkin.entity.FoodPreset">
+        SELECT FOOD_ID AS foodId, CATEGORY_ID AS categoryId, FOOD_NAME AS foodName,
+               CALORIES_PER_GRAM AS caloriesPerGram, IS_LIQUID AS isLiquid, ML_TO_G_RATIO AS mlToGRatio
+        FROM FOOD_PRESETS
+        WHERE DEL_FLAG = 0
+        ORDER BY FOOD_NAME ASC
+        LIMIT #{limit}
+    </select>
+
     <select id="findFoodPresetById" resultType="com.diabetes.checkin.entity.FoodPreset">
         SELECT FOOD_ID AS foodId, CATEGORY_ID AS categoryId, FOOD_NAME AS foodName,
                CALORIES_PER_GRAM AS caloriesPerGram, IS_LIQUID AS isLiquid, ML_TO_G_RATIO AS mlToGRatio

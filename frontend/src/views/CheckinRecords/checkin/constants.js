@@ -2,6 +2,9 @@ import { Dish, FirstAidKit, Odometer, TrendCharts } from '@element-plus/icons-vu
 
 export const CALORIE_TARGET = 1800
 
+/** 用户自定义食物分类 ID，与后端 UserCustomPresetService.CUSTOM_CATEGORY_ID 一致 */
+export const CUSTOM_FOOD_CATEGORY_ID = 'cat_custom'
+
 export const MEAL_PERIODS = [
   { value: 1, label: '早餐' },
   { value: 2, label: '午餐' },

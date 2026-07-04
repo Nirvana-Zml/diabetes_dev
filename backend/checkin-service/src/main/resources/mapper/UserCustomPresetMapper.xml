@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.diabetes.checkin.mapper.UserCustomPresetMapper">
+
+    <select id="findUserFoodPresets" resultType="com.diabetes.checkin.entity.UserFoodPreset">
+        SELECT FOOD_ID AS foodId, USER_ID AS userId, CATEGORY_ID AS categoryId,
+               FOOD_NAME AS foodName, CALORIES_PER_GRAM AS caloriesPerGram,
+               IS_LIQUID AS isLiquid, ML_TO_G_RATIO AS mlToGRatio, IMAGE_OBJECT_KEY AS imageObjectKey
+        FROM USER_FOOD_PRESETS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+        ORDER BY FOOD_NAME ASC
+    </select>
+
+    <select id="findUserFoodByName" resultType="com.diabetes.checkin.entity.UserFoodPreset">
+        SELECT FOOD_ID AS foodId, USER_ID AS userId, CATEGORY_ID AS categoryId,
+               FOOD_NAME AS foodName, CALORIES_PER_GRAM AS caloriesPerGram,
+               IS_LIQUID AS isLiquid, ML_TO_G_RATIO AS mlToGRatio, IMAGE_OBJECT_KEY AS imageObjectKey
+        FROM USER_FOOD_PRESETS
+        WHERE USER_ID = #{userId} AND FOOD_NAME = #{foodName} AND DEL_FLAG = 0
+        LIMIT 1
+    </select>
+
+    <insert id="insertUserFood">
+        INSERT INTO USER_FOOD_PRESETS (
+            FOOD_ID, USER_ID, CATEGORY_ID, FOOD_NAME, CALORIES_PER_GRAM,
+            IS_LIQUID, ML_TO_G_RATIO, IMAGE_OBJECT_KEY
+        ) VALUES (
+            #{foodId}, #{userId}, #{categoryId}, #{foodName}, #{caloriesPerGram},
+            #{isLiquid}, #{mlToGRatio}, #{imageObjectKey}
+        )
+    </insert>
+
+    <update id="updateUserFood">
+        UPDATE USER_FOOD_PRESETS
+        SET CATEGORY_ID = #{categoryId},
+            CALORIES_PER_GRAM = #{caloriesPerGram},
+            IS_LIQUID = #{isLiquid},
+            ML_TO_G_RATIO = #{mlToGRatio},
+            IMAGE_OBJECT_KEY = #{imageObjectKey},
+            UPDATED_AT = CURRENT_TIMESTAMP
+        WHERE FOOD_ID = #{foodId} AND USER_ID = #{userId} AND DEL_FLAG = 0
+    </update>
+
+    <select id="findUserMedicationPresets" resultType="com.diabetes.checkin.entity.UserMedicationPreset">
+        SELECT DRUG_ID AS drugId, USER_ID AS userId, DRUG_NAME AS drugName,
+               DEFAULT_DOSAGE AS defaultDosage, IMAGE_OBJECT_KEY AS imageObjectKey
+        FROM USER_MEDICATION_PRESETS
+        WHERE USER_ID = #{userId} AND DEL_FLAG = 0
+        ORDER BY DRUG_NAME ASC
+    </select>
+
+    <select id="findUserMedicationByName" resultType="com.diabetes.checkin.entity.UserMedicationPreset">
+        SELECT DRUG_ID AS drugId, USER_ID AS userId, DRUG_NAME AS drugName,
+               DEFAULT_DOSAGE AS defaultDosage, IMAGE_OBJECT_KEY AS imageObjectKey
+        FROM USER_MEDICATION_PRESETS
+        WHERE USER_ID = #{userId} AND DRUG_NAME = #{drugName} AND DEL_FLAG = 0
+        LIMIT 1
+    </select>
+
+    <insert id="insertUserMedication">
+        INSERT INTO USER_MEDICATION_PRESETS (
+            DRUG_ID, USER_ID, DRUG_NAME, DEFAULT_DOSAGE, IMAGE_OBJECT_KEY
+        ) VALUES (
+            #{drugId}, #{userId}, #{drugName}, #{defaultDosage}, #{imageObjectKey}
+        )
+    </insert>
+
+    <update id="updateUserMedication">
+        UPDATE USER_MEDICATION_PRESETS
+        SET DEFAULT_DOSAGE = #{defaultDosage},
+            IMAGE_OBJECT_KEY = #{imageObjectKey},
+            UPDATED_AT = CURRENT_TIMESTAMP
+        WHERE DRUG_ID = #{drugId} AND USER_ID = #{userId} AND DEL_FLAG = 0
+    </update>
+</mapper>

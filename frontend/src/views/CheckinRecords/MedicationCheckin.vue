@@ -11,8 +11,19 @@
     </template>
 
     <template v-if="medMode === 'preset'">
+      <div class="ck-chip-row">
+        <button
+          v-for="tab in medPresetTabs"
+          :key="tab.key"
+          type="button"
+          class="ck-chip"
+          :class="{ active: medPresetTab === tab.key }"
+          @click="medPresetTab = tab.key"
+        >{{ tab.label }}</button>
+      </div>
+
       <div v-loading="presetsLoading" class="ck-med-grid">
-        <div v-for="d in medicationPresets" :key="d.drug_id" class="ck-med-card" @click="openMedPreset(d)">
+        <div v-for="d in filteredMedicationPresets" :key="d.drug_id" class="ck-med-card" @click="openMedPreset(d)">
           <div class="ck-med-card__thumb">
             <img v-if="d.image_url" :src="d.image_url" :alt="d.drug_name" @error="onImgError" />
             <span v-else>💊</span>
@@ -21,7 +32,7 @@
           <span class="ck-med-card__name">{{ d.drug_name }}</span>
         </div>
       </div>
-      <el-empty v-if="!presetsLoading && !medicationPresets.length" description="暂无预设药品" />
+      <el-empty v-if="!presetsLoading && !filteredMedicationPresets.length" :description="medEmptyHint" />
     </template>
 
     <template v-else>
@@ -89,7 +100,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Camera } from '@element-plus/icons-vue'
 import CheckinTypeLayout from './components/CheckinTypeLayout.vue'
@@ -106,10 +117,28 @@ import {
 const { checkinDate } = useCheckinDate()
 
 const medMode = ref('preset')
+const medPresetTab = ref('system')
 const presetsLoading = ref(false)
 const submitting = ref(false)
 const medicationPresets = ref([])
 const medicationRecords = ref([])
+
+const medPresetTabs = [
+  { key: 'system', label: '系统药品' },
+  { key: 'custom', label: '自定义' },
+]
+
+const filteredMedicationPresets = computed(() =>
+  medicationPresets.value.filter((d) =>
+    medPresetTab.value === 'custom' ? d.is_user_custom : !d.is_user_custom,
+  ),
+)
+
+const medEmptyHint = computed(() =>
+  medPresetTab.value === 'custom'
+    ? '暂无自定义药品，可通过右上角「自定义」录入'
+    : '暂无预设药品',
+)
 
 const medDialogVisible = ref(false)
 const medDialogDrug = ref(null)
@@ -143,7 +172,7 @@ async function loadRecords() {
 
 function openMedPreset(d) {
   medDialogDrug.value = d
-  medDialogDosage.value = ''
+  medDialogDosage.value = d.default_dosage || ''
   medDialogTaken.value = true
   medDialogVisible.value = true
 }
@@ -173,17 +202,28 @@ async function submitMedPreset() {
   if (!d || !medDialogDosage.value?.trim()) return ElMessage.warning('请填写剂量')
   submitting.value = true
   try {
-    await createMedicationCheckin({
-      checkin_date: checkinDate.value,
-      source_type: 1,
-      drug_id: d.drug_id,
-      dosage: medDialogDosage.value.trim(),
-      taken: medDialogTaken.value,
-      image_object_key: d.image_object_key,
-    })
+    if (d.is_user_custom) {
+      await createMedicationCheckin({
+        checkin_date: checkinDate.value,
+        source_type: 2,
+        drug_name: d.drug_name,
+        dosage: medDialogDosage.value.trim(),
+        taken: medDialogTaken.value,
+        image_object_key: d.image_object_key,
+      })
+    } else {
+      await createMedicationCheckin({
+        checkin_date: checkinDate.value,
+        source_type: 1,
+        drug_id: d.drug_id,
+        dosage: medDialogDosage.value.trim(),
+        taken: medDialogTaken.value,
+        image_object_key: d.image_object_key,
+      })
+    }
     ElMessage.success('打卡成功')
     medDialogVisible.value = false
-    await loadRecords()
+    await Promise.all([loadPresets(), loadRecords()])
   } catch (e) {
     ElMessage.error(e.message || '打卡失败')
   } finally {
@@ -208,7 +248,8 @@ async function submitCustomMed() {
     ElMessage.success('打卡成功')
     customMed.value = { name: '', dosage: '', taken: true, image_object_key: '', image_url: '', uploading: false }
     medMode.value = 'preset'
-    await loadRecords()
+    medPresetTab.value = 'custom'
+    await Promise.all([loadPresets(), loadRecords()])
   } catch (e) {
     ElMessage.error(e.message || '打卡失败')
   } finally {

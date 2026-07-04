@@ -42,6 +42,8 @@ public class FoodCheckinRequest {
 
     private String categoryId;
     private String imageObjectKey;
+    /** 自定义食物：是否液体 */
+    private Boolean isLiquid;
     /** 可选，格式 HH:mm 或 ISO 日期时间 */
     private String recordTime;
 
@@ -67,6 +69,8 @@ public class FoodCheckinRequest {
     public void setCategoryId(String categoryId) { this.categoryId = categoryId; }
     public String getImageObjectKey() { return imageObjectKey; }
     public void setImageObjectKey(String imageObjectKey) { this.imageObjectKey = imageObjectKey; }
+    public Boolean getIsLiquid() { return isLiquid; }
+    public void setIsLiquid(Boolean isLiquid) { this.isLiquid = isLiquid; }
     public String getRecordTime() { return recordTime; }
     public void setRecordTime(String recordTime) { this.recordTime = recordTime; }
 }

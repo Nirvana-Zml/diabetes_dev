@@ -23,15 +23,18 @@ public class MedicationCheckinService {
     private final CheckinMedicationDetailMapper medicationDetailMapper;
     private final PresetMapper presetMapper;
     private final MinioStorageService minioStorageService;
+    private final UserCustomPresetService userCustomPresetService;
 
     public MedicationCheckinService(CheckinRecordWriter recordWriter,
                                     CheckinMedicationDetailMapper medicationDetailMapper,
                                     PresetMapper presetMapper,
-                                    MinioStorageService minioStorageService) {
+                                    MinioStorageService minioStorageService,
+                                    UserCustomPresetService userCustomPresetService) {
         this.recordWriter = recordWriter;
         this.medicationDetailMapper = medicationDetailMapper;
         this.presetMapper = presetMapper;
         this.minioStorageService = minioStorageService;
+        this.userCustomPresetService = userCustomPresetService;
     }
 
     @Transactional
@@ -77,6 +80,10 @@ public class MedicationCheckinService {
         String checkinId = recordWriter.createRecord(userId, CheckinConstants.TYPE_MEDICATION, date);
         detail.setCheckinId(checkinId);
         medicationDetailMapper.insert(detail);
+
+        if (request.getSourceType() == CheckinConstants.SOURCE_CUSTOM) {
+            userCustomPresetService.saveMedicationTemplate(userId, request);
+        }
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("checkinId", checkinId);

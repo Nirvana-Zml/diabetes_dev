@@ -10,6 +10,7 @@ const mockFoodCategories = [
   { category_id: 'cat_fruit', category_name: '水果' },
   { category_id: 'cat_grain', category_name: '主食' },
   { category_id: 'cat_protein', category_name: '蛋白' },
+  { category_id: 'cat_custom', category_name: '自定义' },
 ]
 
 const mockFoodPresets = [
@@ -36,8 +37,8 @@ const mockFoodPresets = [
 ]
 
 const mockMedicationPresets = [
-  { drug_id: 'drug_metformin_001', drug_name: '二甲双胍片', image_object_key: 'medical/drug_metformin_001.jpg', image_url: '' },
-  { drug_id: 'drug_glimepiride_001', drug_name: '格列美脲片', image_object_key: 'medical/drug_glimepiride_001.jpg', image_url: '' },
+  { drug_id: 'drug_metformin_001', drug_name: '二甲双胍片', image_object_key: 'medical/drug_metformin_001.jpg', image_url: '', is_user_custom: false },
+  { drug_id: 'drug_glimepiride_001', drug_name: '格列美脲片', image_object_key: 'medical/drug_glimepiride_001.jpg', image_url: '', is_user_custom: false },
 ]
 
 const mockExercisePresets = [
@@ -69,9 +70,22 @@ export function getFoodCategories() {
 export function getFoodPresets(categoryId) {
   return get('/checkin/food/presets', {
     params: categoryId ? { categoryId } : undefined,
-    mockFn: async () => (categoryId
-      ? mockFoodPresets.filter((f) => f.category_id === categoryId)
-      : mockFoodPresets),
+    mockFn: async () => (categoryId === 'cat_custom'
+      ? [{
+          food_id: 'uf_mock_001',
+          category_id: 'cat_custom',
+          original_category_id: 'cat_grain',
+          food_name: '我的全麦面包',
+          calories_per_gram: 2.65,
+          is_liquid: false,
+          ml_to_g_ratio: 1,
+          image_object_key: 'food/usr_mock/upload_mock.jpg',
+          image_url: '',
+          is_user_custom: true,
+        }]
+      : categoryId
+        ? mockFoodPresets.filter((f) => f.category_id === categoryId)
+        : mockFoodPresets),
   }).then((data) => (Array.isArray(data) ? data.map(toSnakeCase) : []))
 }
 
@@ -88,6 +102,41 @@ export function getFoodRecords(date) {
     params: { date },
     mockFn: async () => [],
   }).then((data) => (Array.isArray(data) ? data.map(toSnakeCase) : []))
+}
+
+/** POST /checkin/food/recognize — AI 识别自定义食物图片 */
+export function recognizeFoodImage(payload) {
+  return post('/checkin/food/recognize', toCamelCase(payload), {
+    timeout: 120000,
+    mockFn: async () => ({
+      foodName: '糙米饭',
+      categoryId: 'cat_grain',
+      categoryName: '主食',
+      caloriesPerGram: 1.16,
+      isLiquid: false,
+      mlToGRatio: 1,
+      suggestedInputUnit: 1,
+      suggestedInputAmount: 150,
+      suggestedGrams: 150,
+      suggestedTotalCalories: 174,
+      matchedFoodId: 'food_rice_001',
+      sourceType: 1,
+      confidence: 'high',
+      giLevel: 'medium',
+      nutritionTip: '糙米饭升糖较白米饭慢，建议控制在一碗以内并搭配蔬菜。',
+      recognitionSummary: '识别为一碗糙米饭，估算约 150g。',
+      items: [],
+      hasError: false,
+      errorMessage: '',
+    }),
+  }).then(toSnakeCase)
+}
+
+/** GET /checkin/food/dify-workflow-spec */
+export function getFoodRecognitionWorkflowSpec() {
+  return get('/checkin/food/dify-workflow-spec', {
+    mockFn: async () => ({ outputKey: 'food_recognition' }),
+  }).then(toSnakeCase)
 }
 
 /** GET /checkin/medication/presets */

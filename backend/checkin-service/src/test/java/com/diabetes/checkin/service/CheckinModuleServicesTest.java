@@ -43,11 +43,12 @@ class CheckinModuleServicesTest {
     private final CheckinRecordWriter writer = mock(CheckinRecordWriter.class);
     private final PresetMapper presetMapper = mock(PresetMapper.class);
     private final MinioStorageService minio = mock(MinioStorageService.class);
+    private final UserCustomPresetService userCustomPresetService = mock(UserCustomPresetService.class);
 
     @Test
     void foodCheckin_supportsPresetAndCustomRecords() {
         CheckinDietDetailMapper detailMapper = mock(CheckinDietDetailMapper.class);
-        FoodCheckinService service = new FoodCheckinService(writer, detailMapper, presetMapper, minio);
+        FoodCheckinService service = new FoodCheckinService(writer, detailMapper, presetMapper, minio, userCustomPresetService);
         when(writer.createRecord(anyString(), eq(CheckinConstants.TYPE_DIET), any(), any())).thenReturn("chk_food");
         when(presetMapper.findFoodPresetById("food_1")).thenReturn(foodPreset("food_1", "cat_1", "米饭", "1.16", "0.95"));
         when(presetMapper.findFoodPresetById("food_2")).thenReturn(foodPreset("food_2", "cat_1", "米饭", "1.16", null), null);
@@ -94,7 +95,7 @@ class CheckinModuleServicesTest {
     @Test
     void foodCheckin_parsesRecordTimeFormats() {
         CheckinDietDetailMapper detailMapper = mock(CheckinDietDetailMapper.class);
-        FoodCheckinService service = new FoodCheckinService(writer, detailMapper, presetMapper, minio);
+        FoodCheckinService service = new FoodCheckinService(writer, detailMapper, presetMapper, minio, userCustomPresetService);
         when(writer.createRecord(anyString(), eq(CheckinConstants.TYPE_DIET), any(), any())).thenReturn("chk_food");
         when(presetMapper.findFoodPresetById("food_1")).thenReturn(foodPreset("food_1", "cat_1", "米饭", "1.16", "0.95"));
         when(presetMapper.findCategoryNameById("cat_1")).thenReturn("主食");
@@ -118,7 +119,7 @@ class CheckinModuleServicesTest {
     @Test
     void foodCheckin_validatesInvalidInputs() {
         CheckinDietDetailMapper detailMapper = mock(CheckinDietDetailMapper.class);
-        FoodCheckinService service = new FoodCheckinService(writer, detailMapper, presetMapper, minio);
+        FoodCheckinService service = new FoodCheckinService(writer, detailMapper, presetMapper, minio, userCustomPresetService);
         when(presetMapper.findFoodPresetById("food_1")).thenReturn(foodPreset("food_1", "cat_1", "米饭", "1", null));
         when(presetMapper.findCategoryNameById("cat_1")).thenReturn("主食");
 
@@ -182,7 +183,7 @@ class CheckinModuleServicesTest {
     @Test
     void medicationCheckin_supportsPresetCustomAndValidation() {
         CheckinMedicationDetailMapper detailMapper = mock(CheckinMedicationDetailMapper.class);
-        MedicationCheckinService service = new MedicationCheckinService(writer, detailMapper, presetMapper, minio);
+        MedicationCheckinService service = new MedicationCheckinService(writer, detailMapper, presetMapper, minio, userCustomPresetService);
         when(writer.createRecord(anyString(), eq(CheckinConstants.TYPE_MEDICATION), any())).thenReturn("chk_med");
         when(presetMapper.findMedicationPresetById("drug_1")).thenReturn(medicationPreset("drug_1"));
 

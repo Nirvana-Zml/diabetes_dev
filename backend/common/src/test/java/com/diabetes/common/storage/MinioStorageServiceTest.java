@@ -74,6 +74,9 @@ class MinioStorageServiceTest {
         assertEquals("http://public/video-cover/v_001.jpg", service.buildVideoCoverUrl("v_001"));
         assertEquals("http://public/avatar/d_001.jpg", service.buildDoctorAvatarUrl("d_001"));
         assertEquals("http://public/checkin/food/u_001.jpg", service.buildCheckinImageUrl("/food/u_001.jpg"));
+        assertEquals("https://ngrok/checkin/food/u_001.jpg", service.buildCheckinImageUrl("/food/u_001.jpg", "https://ngrok"));
+        assertEquals("http://public/video/v_001.mp4", service.buildVideoUrl("v_001"));
+        assertEquals("http://public/export/u_001/report.pdf", service.buildExportFileUrl("u_001", "/report.pdf"));
         assertEquals("", service.buildArticleCoverUrl(null));
         assertEquals("", service.buildArticleCoverUrl(" "));
         assertEquals("", service.buildBannerImageUrl(null));

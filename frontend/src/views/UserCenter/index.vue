@@ -246,13 +246,6 @@
             </div>
             <el-switch v-model="privacy.message_notify" @change="savePrivacy" />
           </div>
-          <div class="switch-row">
-            <div>
-              <div class="switch-label">健康资讯推送</div>
-              <div class="switch-desc">接收个性化健康资讯</div>
-            </div>
-            <el-switch v-model="privacy.marketing_notify" @change="savePrivacy" />
-          </div>
         </div>
       </div>
 
@@ -447,7 +440,6 @@ const privacy = reactive({
   data_visible: true,
   checkin_notify: true,
   message_notify: true,
-  marketing_notify: false,
 })
 
 const quickStats = computed(() => [
@@ -520,7 +512,6 @@ async function loadPage() {
       privacy.data_visible = ps.data_visible ?? true
       privacy.checkin_notify = ps.checkin_notify ?? true
       privacy.message_notify = ps.message_notify ?? ps.consult_notify ?? true
-      privacy.marketing_notify = ps.marketing_notify ?? false
       applyTrendCache(profileRes.value?.user_id)
     } else {
       console.error('加载用户资料失败', profileRes.reason)
