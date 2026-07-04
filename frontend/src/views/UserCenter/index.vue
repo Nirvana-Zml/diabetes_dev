@@ -1,7 +1,7 @@
 <template>
   <SiteLayout title="个人中心">
 
-    <div class="page-container uc-page" v-loading="pageLoading">
+    <div class="page-container uc-page">
       <!-- AI 异常指标预警 -->
       <div
         v-if="healthAlert?.has_alert"
@@ -24,7 +24,7 @@
       <div class="uc-layout">
         <!-- 左侧：个人信息与统计 -->
         <aside class="uc-sidebar">
-          <div class="profile-hero">
+          <div class="profile-hero" v-loading="profileLoading">
             <button type="button" class="profile-edit-btn" aria-label="编辑资料" @click="showProfileEdit = true">
               <el-icon><Edit /></el-icon>
             </button>
@@ -46,7 +46,7 @@
             </div>
           </div>
 
-          <div class="stat-stack">
+          <div class="stat-stack" v-loading="statsLoading">
             <div
               v-for="stat in quickStats"
               :key="stat.label"
@@ -79,7 +79,7 @@
       </div>
 
       <!-- 健康档案 -->
-      <div class="section-card">
+      <div class="section-card" v-loading="healthLoading">
         <div class="section-header">
           <h3 class="section-title">健康档案</h3>
           <button type="button" class="text-link" @click="showHealthEdit = true">编辑</button>
@@ -420,7 +420,9 @@ async function enableBrowserNotify() {
   }
 }
 
-const pageLoading = ref(false)
+const profileLoading = ref(false)
+const statsLoading = ref(false)
+const healthLoading = ref(false)
 const profile = ref(null)
 const health = ref({})
 const healthAlert = ref(null)
@@ -495,49 +497,69 @@ onMounted(async () => {
 })
 
 async function loadPage() {
-  pageLoading.value = true
+  await Promise.allSettled([
+    loadProfile(),
+    loadHealth(),
+    loadHealthAlert(),
+    loadStats(),
+  ])
+}
+
+async function loadProfile() {
+  profileLoading.value = true
   try {
-    const [profileRes, healthRes, alertRes, consultRes, statsRes] = await Promise.allSettled([
-      getUserProfile(),
-      getHealthRecord(),
-      getHealthAlert(),
+    const data = await getUserProfile()
+    profile.value = data
+    userStore.profile = data
+    const ps = data.privacy_settings || {}
+    privacy.data_visible = ps.data_visible ?? true
+    privacy.checkin_notify = ps.checkin_notify ?? true
+    privacy.message_notify = ps.message_notify ?? ps.consult_notify ?? true
+    applyTrendCache(data?.user_id)
+    refreshHealthTrend()
+  } catch (e) {
+    console.error('加载用户资料失败', e)
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+async function loadHealth() {
+  healthLoading.value = true
+  try {
+    health.value = await getHealthRecord()
+  } catch (e) {
+    console.error('加载健康档案失败', e)
+  } finally {
+    healthLoading.value = false
+  }
+}
+
+async function loadHealthAlert() {
+  try {
+    healthAlert.value = await getHealthAlert()
+  } catch {
+    /* 预警可选，失败不阻塞页面 */
+  }
+}
+
+async function loadStats() {
+  statsLoading.value = true
+  try {
+    const [consultRes, statsRes] = await Promise.allSettled([
       getUserConsultations(),
       getCheckinStats(),
     ])
-
-    if (profileRes.status === 'fulfilled') {
-      profile.value = profileRes.value
-      userStore.profile = profileRes.value
-      const ps = profileRes.value.privacy_settings || {}
-      privacy.data_visible = ps.data_visible ?? true
-      privacy.checkin_notify = ps.checkin_notify ?? true
-      privacy.message_notify = ps.message_notify ?? ps.consult_notify ?? true
-      applyTrendCache(profileRes.value?.user_id)
-    } else {
-      console.error('加载用户资料失败', profileRes.reason)
-    }
-
-    if (healthRes.status === 'fulfilled') {
-      health.value = healthRes.value
-    } else {
-      console.error('加载健康档案失败', healthRes.reason)
-    }
-
-    if (alertRes.status === 'fulfilled') {
-      healthAlert.value = alertRes.value
-    }
-
     if (consultRes.status === 'fulfilled') {
       consultCount.value = consultRes.value?.total ?? 0
     }
-
     if (statsRes.status === 'fulfilled') {
       checkinStats.value = statsRes.value
     } else {
       console.error('加载打卡统计失败', statsRes.reason)
     }
   } finally {
-    pageLoading.value = false
+    statsLoading.value = false
   }
 }
 
@@ -865,6 +887,8 @@ async function handleLogout() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  min-height: 80px;
 }
 
 .stat-card {

@@ -69,44 +69,65 @@ public class HealthTrendAnalysisService {
         String fingerprint = computeFingerprint(history);
         String cacheKey = cacheKey(userId, limit);
         CachedTrendAnalysis cached = trendCache.get(cacheKey);
-        boolean dataChanged = cached != null && !fingerprint.equals(cached.fingerprint());
 
         if (!forceRefresh && cached != null && fingerprint.equals(cached.fingerprint())) {
             result.putAll(cached.aiResult());
             result.put("cached", true);
+            sanitizeUnavailableSummary(result, history);
             return result;
         }
 
-        boolean shouldCallDify = forceRefresh || dataChanged;
+        boolean shouldCallDify = forceRefresh || cached == null || !fingerprint.equals(cached.fingerprint());
         Map<String, Object> difyTrend = null;
         if (shouldCallDify && difyApiKey != null && !difyApiKey.isBlank()) {
             try {
                 difyTrend = callDify(userId, history, baseline);
                 mergeDifyResult(result, difyTrend);
                 result.put("source", "dify");
+                sanitizeUnavailableSummary(result, history);
                 trendCache.put(cacheKey, new CachedTrendAnalysis(fingerprint, copyAiResult(result)));
             } catch (Exception e) {
                 log.warn("健康趋势 Dify 调用失败 userId={} error={}", userId, e.getMessage());
-                result.put("summary", cached != null
-                        ? String.valueOf(cached.aiResult().getOrDefault("summary", "趋势数据已更新，AI 解读暂不可用。"))
-                        : "趋势数据已更新，AI 解读暂不可用。");
-                result.put("riskLevel", cached != null
-                        ? cached.aiResult().getOrDefault("riskLevel", "normal")
-                        : "normal");
-                result.put("source", cached != null ? cached.aiResult().getOrDefault("source", "local") : "local");
+                if (cached != null && !HealthTrendSummaryHelper.isUnavailablePlaceholder(
+                        String.valueOf(cached.aiResult().getOrDefault("summary", "")))) {
+                    result.put("summary", cached.aiResult().get("summary"));
+                    result.put("riskLevel", cached.aiResult().getOrDefault("riskLevel", "normal"));
+                    result.put("source", cached.aiResult().getOrDefault("source", "local"));
+                } else {
+                    applyLocalAnalysis(result, history);
+                }
             }
         } else if (cached != null) {
             result.putAll(cached.aiResult());
             result.put("source", cached.aiResult().getOrDefault("source", "local"));
             result.put("cached", true);
+            sanitizeUnavailableSummary(result, history);
             return result;
         } else {
-            result.put("summary", buildLocalSummary(history));
-            result.put("riskLevel", "normal");
-            result.put("source", "local");
+            applyLocalAnalysis(result, history);
         }
+        sanitizeUnavailableSummary(result, history);
         result.put("cached", false);
         return result;
+    }
+
+    private void applyLocalAnalysis(Map<String, Object> result, List<Map<String, Object>> history) {
+        LocalHealthTrendAnalyzer.LocalTrendResult local = LocalHealthTrendAnalyzer.analyze(history);
+        result.put("summary", local.summary());
+        result.put("riskLevel", local.riskLevel());
+        result.put("anomalies", local.anomalies());
+        result.put("source", "local");
+    }
+
+    private void sanitizeUnavailableSummary(Map<String, Object> result, List<Map<String, Object>> history) {
+        String summary = String.valueOf(result.getOrDefault("summary", ""));
+        if (HealthTrendSummaryHelper.isUnavailablePlaceholder(summary)) {
+            applyLocalAnalysis(result, history);
+        }
+    }
+
+    public Map<String, Object> buildLocalDefaultAnalysis(List<Map<String, Object>> history) {
+        return LocalHealthTrendAnalyzer.toTrendMap(LocalHealthTrendAnalyzer.analyze(history));
     }
 
     public void invalidateCache(String userId) {
@@ -152,10 +173,14 @@ public class HealthTrendAnalysisService {
             return Map.of();
         }
         try {
-            return callDify(userId, history, history.get(0));
+            Map<String, Object> difyTrend = callDify(userId, history, history.get(0));
+            if (HealthTrendSummaryHelper.isUnavailablePlaceholder(String.valueOf(difyTrend.get("summary")))) {
+                return buildLocalDefaultAnalysis(history);
+            }
+            return difyTrend;
         } catch (Exception e) {
             log.warn("Dify trend only failed: {}", e.getMessage());
-            return Map.of();
+            return buildLocalDefaultAnalysis(history);
         }
     }
 
@@ -177,10 +202,7 @@ public class HealthTrendAnalysisService {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> parseTrendAnalysis(JsonNode response) {
-        JsonNode node = response.path("data").path("outputs").path(DifyHealthTrendWorkflowContract.OUTPUT_KEY);
-        if (node.isMissingNode() || node.isNull()) {
-            node = response.path("outputs").path(DifyHealthTrendWorkflowContract.OUTPUT_KEY);
-        }
+        JsonNode node = extractTrendAnalysisNode(response);
         if (node.isMissingNode() || node.isNull()) {
             throw new IllegalStateException("缺少 trend_analysis 输出");
         }
@@ -193,6 +215,64 @@ public class HealthTrendAnalysisService {
         result.put("bpTrend", bpTrendObject(raw.get("bp_trend"), raw.get("bpTrend")));
         result.put("anomalies", normalizeAnomalies(raw.get("anomalies")));
         return result;
+    }
+
+    private JsonNode extractTrendAnalysisNode(JsonNode response) {
+        if (response == null || response.isNull()) {
+            return objectMapper.missingNode();
+        }
+        for (JsonNode candidate : java.util.List.of(
+                response.path("data").path("outputs").path(DifyHealthTrendWorkflowContract.OUTPUT_KEY),
+                response.path("outputs").path(DifyHealthTrendWorkflowContract.OUTPUT_KEY),
+                response.path(DifyHealthTrendWorkflowContract.OUTPUT_KEY))) {
+            JsonNode parsed = unwrapJsonNode(candidate);
+            if (!parsed.isMissingNode() && parsed.isObject()) {
+                return parsed;
+            }
+        }
+
+        for (JsonNode outputs : java.util.List.of(
+                response.path("data").path("outputs"),
+                response.path("outputs"))) {
+            if (!outputs.isMissingNode() && outputs.has("summary")) {
+                return outputs;
+            }
+        }
+
+        JsonNode text = response.path("data").path("outputs").path("text");
+        if (text.isMissingNode()) {
+            text = response.path("outputs").path("text");
+        }
+        if (text.isTextual()) {
+            try {
+                JsonNode parsed = objectMapper.readTree(text.asText());
+                JsonNode fromText = parsed.path(DifyHealthTrendWorkflowContract.OUTPUT_KEY);
+                if (!fromText.isMissingNode()) {
+                    return unwrapJsonNode(fromText);
+                }
+                if (parsed.has("summary")) {
+                    return parsed;
+                }
+            } catch (Exception e) {
+                log.debug("无法从 Dify text 输出解析 trend_analysis: {}", e.getMessage());
+            }
+        }
+        return objectMapper.missingNode();
+    }
+
+    private JsonNode unwrapJsonNode(JsonNode node) {
+        if (node.isMissingNode() || node.isNull()) {
+            return objectMapper.missingNode();
+        }
+        if (node.isTextual()) {
+            try {
+                return objectMapper.readTree(node.asText());
+            } catch (Exception e) {
+                log.debug("无法解析 trend_analysis JSON 字符串: {}", e.getMessage());
+                return objectMapper.missingNode();
+            }
+        }
+        return node;
     }
 
     @SuppressWarnings("unchecked")
@@ -239,10 +319,7 @@ public class HealthTrendAnalysisService {
     }
 
     private String buildLocalSummary(List<Map<String, Object>> history) {
-        double first = numberValue(history.get(history.size() - 1).get("fastingGlucose"),
-                history.get(history.size() - 1).get("fasting_glucose"));
-        double last = numberValue(history.get(0).get("fastingGlucose"), history.get(0).get("fasting_glucose"));
-        return String.format("近 %d 次记录：空腹血糖从 %.1f 变化至 %.1f mmol/L。", history.size(), first, last);
+        return LocalHealthTrendAnalyzer.analyze(history).summary();
     }
 
     @SuppressWarnings("unchecked")
@@ -302,6 +379,9 @@ public class HealthTrendAnalysisService {
     }
 
     private void assertWorkflowSucceeded(JsonNode response) {
+        if (response == null || response.isNull()) {
+            throw new IllegalStateException("Dify 工作流响应为空");
+        }
         String status = response.path("data").path("status").asText(null);
         if (status == null || status.isBlank()) {
             status = response.path("status").asText(null);

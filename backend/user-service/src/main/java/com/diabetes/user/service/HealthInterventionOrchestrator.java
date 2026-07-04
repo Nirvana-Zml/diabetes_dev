@@ -129,13 +129,14 @@ public class HealthInterventionOrchestrator {
         if (active == null) {
             return Map.of("active", false, "has_alert", false);
         }
+        String message = resolveAlertMessage(userId, active.getSummary());
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("active", true);
         result.put("has_alert", true);
         result.put("severity", active.getSeverity());
         result.put("level", "critical".equals(active.getSeverity()) ? "error" : "warning");
         result.put("title", "critical".equals(active.getSeverity()) ? "健康指标异常" : "健康指标需关注");
-        result.put("message", active.getSummary());
+        result.put("message", message);
         result.put("plan_id", active.getPlanId());
         result.put("planId", active.getPlanId());
         result.put("link_path", "/user-center");
@@ -224,6 +225,23 @@ public class HealthInterventionOrchestrator {
         return interventionLogMapper.countSince(userId, since) > 0;
     }
 
+    private String resolveAlertMessage(String userId, String storedSummary) {
+        if (!HealthTrendSummaryHelper.isUnavailablePlaceholder(storedSummary)) {
+            return storedSummary;
+        }
+        try {
+            Map<String, Object> trend = trendAnalysisService.analyze(userId, 30, false);
+            String freshSummary = trend.get("summary") == null ? "" : String.valueOf(trend.get("summary"));
+            if (!freshSummary.isBlank() && !HealthTrendSummaryHelper.isUnavailablePlaceholder(freshSummary)) {
+                return freshSummary.length() > 300 ? freshSummary.substring(0, 300) : freshSummary;
+            }
+        } catch (Exception e) {
+            log.debug("刷新预警摘要失败 userId={} error={}", userId, e.getMessage());
+        }
+        List<Map<String, Object>> history = trendAnalysisService.fetchHistory(userId, 30);
+        return HealthTrendSummaryHelper.resolveSummary(storedSummary, history);
+    }
+
     private void parseSuggestion(HealthInterventionLog active, Map<String, Object> result) {
         try {
             if (active.getEvidence() != null) {
@@ -238,6 +256,11 @@ public class HealthInterventionOrchestrator {
             }
         } catch (Exception ignored) {
             // optional
+        }
+        List<Map<String, Object>> history = trendAnalysisService.fetchHistory(active.getUserId(), 30);
+        if (HealthTrendSummaryHelper.isUnavailablePlaceholder(active.getSummary())) {
+            result.put("suggestion", LocalHealthTrendAnalyzer.analyze(history).suggestion());
+            return;
         }
         result.put("suggestion", "建议复查相关指标，必要时咨询内分泌科医生。");
     }

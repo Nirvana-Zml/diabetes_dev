@@ -42,7 +42,7 @@ public class InterventionPolicyEngine {
             return null;
         }
 
-        String summary = buildSummary(difyTrend, latestRecord, anomalies, severity);
+        String summary = buildSummary(difyTrend, latestRecord, history, anomalies, severity);
         String suggestion = firstSuggestion(anomalies, difyTrend);
 
         Map<String, Object> plan = new LinkedHashMap<>();
@@ -222,15 +222,22 @@ public class InterventionPolicyEngine {
     }
 
     private String buildSummary(Map<String, Object> difyTrend, Map<String, Object> latest,
+                                List<Map<String, Object>> history,
                                 List<Map<String, Object>> anomalies, String severity) {
         if (difyTrend != null) {
             String summary = stringValue(difyTrend.get("summary"));
-            if (!summary.isBlank()) {
+            if (!summary.isBlank() && !HealthTrendSummaryHelper.isUnavailablePlaceholder(summary)) {
                 return summary.length() > 300 ? summary.substring(0, 300) : summary;
             }
         }
         if (!anomalies.isEmpty()) {
             return String.valueOf(anomalies.get(0).get("description"));
+        }
+        if (history != null && !history.isEmpty()) {
+            String localSummary = LocalHealthTrendAnalyzer.analyze(history).summary();
+            if (!localSummary.isBlank()) {
+                return localSummary.length() > 300 ? localSummary.substring(0, 300) : localSummary;
+            }
         }
         double fasting = latest == null ? 0 : numberValue(latest.get("fastingGlucose"), latest.get("fasting_glucose"));
         if ("critical".equals(severity)) {

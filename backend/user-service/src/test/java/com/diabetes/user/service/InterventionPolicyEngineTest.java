@@ -26,6 +26,23 @@ class InterventionPolicyEngineTest {
     }
 
     @Test
+    void buildPlan_ignoresUnavailableDifySummary() {
+        Map<String, Object> latest = new LinkedHashMap<>();
+        latest.put("fastingGlucose", 7.2);
+        latest.put("systolicBp", 120);
+        latest.put("diastolicBp", 80);
+        Map<String, Object> difyTrend = Map.of(
+                "summary", "已记录7条健康数据，但AI分析暂时不可用，请稍后重试或查看原始数据。",
+                "riskLevel", "warning");
+
+        Map<String, Object> plan = engine.buildPlan("u1", "health_record_saved", List.of(latest), latest, difyTrend, Map.of());
+
+        assertNotNull(plan);
+        assertTrue(String.valueOf(plan.get("summary")).contains("空腹血糖"));
+        assertFalse(String.valueOf(plan.get("summary")).contains("AI分析暂时不可用"));
+    }
+
+    @Test
     void buildPlan_warningWhenFastingGlucoseHigh() {
         Map<String, Object> latest = new LinkedHashMap<>();
         latest.put("fastingGlucose", 7.2);
@@ -201,7 +218,7 @@ class InterventionPolicyEngineTest {
         Map<String, Object> latest = Map.of("fastingGlucose", 5.0);
         Map<String, Object> difyTrend = Map.of("riskLevel", "warning", "summary", "");
         Map<String, Object> plan = engine.buildPlan("u1", "trigger", List.of(latest), latest, difyTrend, Map.of());
-        assertEquals("检测到健康指标需关注，建议加强自我监测。", plan.get("summary"));
+        assertTrue(String.valueOf(plan.get("summary")).contains("根据近"));
     }
 
     @Test
@@ -209,7 +226,8 @@ class InterventionPolicyEngineTest {
         Map<String, Object> latest = Map.of("fastingGlucose", 5.0);
         Map<String, Object> difyTrend = Map.of("riskLevel", "critical", "summary", "");
         Map<String, Object> plan = engine.buildPlan("u1", "trigger", List.of(latest), latest, difyTrend, Map.of());
-        assertTrue(String.valueOf(plan.get("summary")).contains("检测到健康指标异常"));
+        assertTrue(String.valueOf(plan.get("summary")).contains("根据近"));
+        assertEquals("critical", plan.get("severity"));
     }
 
     @Test
@@ -330,9 +348,9 @@ class InterventionPolicyEngineTest {
     @Test
     void buildPlan_criticalSummaryWithNullLatest() throws Exception {
         var method = InterventionPolicyEngine.class.getDeclaredMethod(
-                "buildSummary", Map.class, Map.class, List.class, String.class);
+                "buildSummary", Map.class, Map.class, List.class, List.class, String.class);
         method.setAccessible(true);
-        String summary = (String) method.invoke(engine, null, null, List.of(), "critical");
+        String summary = (String) method.invoke(engine, null, null, List.of(), List.of(), "critical");
         assertTrue(summary.contains("检测到健康指标异常"));
     }
 

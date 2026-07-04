@@ -279,6 +279,43 @@ class HealthInterventionOrchestratorTest {
     }
 
     @Test
+    void getActiveAlert_refreshesUnavailablePlaceholderSummary() {
+        HealthInterventionLog active = activeLog("warning",
+                "已记录7条健康数据，但AI分析暂时不可用，请稍后重试或查看原始数据。");
+        when(interventionLogMapper.findActiveByUserId("u1")).thenReturn(active);
+        when(trendAnalysisService.analyze("u1", 30, false)).thenReturn(Map.of(
+                "summary", "您的空腹血糖近期持续偏高，建议加强监测。",
+                "source", "dify",
+                "riskLevel", "warning"));
+        when(trendAnalysisService.fetchHistory("u1", 30)).thenReturn(List.of(
+                Map.of("fastingGlucose", 7.2, "bmi", 21.3, "systolicBp", 128, "diastolicBp", 82)));
+
+        Map<String, Object> result = orchestrator.getActiveAlert("u1");
+
+        assertEquals(true, result.get("has_alert"));
+        assertTrue(String.valueOf(result.get("message")).contains("空腹血糖"));
+        assertFalse(String.valueOf(result.get("message")).contains("AI分析暂时不可用"));
+    }
+
+    @Test
+    void getActiveAlert_fallsBackToLocalWhenTrendUnavailable() {
+        HealthInterventionLog active = activeLog("warning",
+                "已记录7条健康数据，但AI分析暂时不可用，请稍后重试或查看原始数据。");
+        when(interventionLogMapper.findActiveByUserId("u1")).thenReturn(active);
+        when(trendAnalysisService.analyze("u1", 30, false)).thenReturn(Map.of(
+                "summary", "已记录7条健康数据，但AI分析暂时不可用，请稍后重试或查看原始数据。",
+                "source", "local"));
+        when(trendAnalysisService.fetchHistory("u1", 30)).thenReturn(List.of(
+                Map.of("fastingGlucose", 8.0, "bmi", 21.3, "systolicBp", 128, "diastolicBp", 82),
+                Map.of("fastingGlucose", 7.3)));
+
+        Map<String, Object> result = orchestrator.getActiveAlert("u1");
+
+        assertTrue(String.valueOf(result.get("message")).contains("根据近"));
+        assertFalse(String.valueOf(result.get("message")).contains("AI分析暂时不可用"));
+    }
+
+    @Test
     void getActiveAlert_critical() {
         HealthInterventionLog active = activeLog("critical", "血糖异常");
         when(interventionLogMapper.findActiveByUserId("u1")).thenReturn(active);

@@ -32,15 +32,23 @@ class HealthTrendAnalysisServiceTest {
     }
 
     @Test
-    void analyze_withoutForce_usesLocalSummaryWhenNoCache() {
+    void analyze_withoutForce_callsDifyWhenNoCache() throws Exception {
         when(healthServiceClient.getHealthHistory(eq("u1"), anyString(), eq(30))).thenReturn(sampleHistory());
+        when(difyClient.runWorkflowBlocking(anyString(), anyString(), anyMap(), anyString()))
+                .thenReturn(new ObjectMapper().readTree("""
+                        {"data":{"status":"succeeded","outputs":{"trend_analysis":{
+                          "summary":"首次AI趋势",
+                          "risk_level":"normal",
+                          "anomalies":[]
+                        }}}}
+                        """));
 
         Map<String, Object> result = service.analyze("u1", 30, false);
 
-        assertEquals("local", result.get("source"));
-        assertTrue(String.valueOf(result.get("summary")).contains("空腹血糖"));
+        assertEquals("dify", result.get("source"));
+        assertEquals("首次AI趋势", result.get("summary"));
         assertEquals(false, result.get("cached"));
-        verifyNoInteractions(difyClient);
+        verify(difyClient, times(1)).runWorkflowBlocking(anyString(), anyString(), anyMap(), anyString());
     }
 
     @Test
@@ -92,8 +100,8 @@ class HealthTrendAnalysisServiceTest {
 
         Map<String, Object> result = service.analyze("u1", 30, true);
 
-        assertTrue(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
-        assertEquals("normal", result.get("riskLevel"));
+        assertTrue(String.valueOf(result.get("summary")).contains("根据近"));
+        assertFalse(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
         assertEquals("local", result.get("source"));
     }
 
@@ -152,7 +160,9 @@ class HealthTrendAnalysisServiceTest {
 
         Map<String, Object> result = service.analyze("u1", 30, true);
 
-        assertTrue(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
+        assertTrue(String.valueOf(result.get("summary")).contains("根据近"));
+        assertFalse(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
+        assertEquals("local", result.get("source"));
     }
 
     @Test
@@ -218,12 +228,16 @@ class HealthTrendAnalysisServiceTest {
     }
 
     @Test
-    void callDifyTrendOnly_returnsEmptyOnFailure() throws Exception {
+    void callDifyTrendOnly_returnsLocalOnFailure() throws Exception {
         when(healthServiceClient.getHealthHistory(eq("u1"), anyString(), eq(30))).thenReturn(sampleHistory());
         when(difyClient.runWorkflowBlocking(anyString(), anyString(), anyMap(), anyString()))
                 .thenThrow(new RuntimeException("fail"));
 
-        assertTrue(service.callDifyTrendOnly("u1", 30).isEmpty());
+        Map<String, Object> result = service.callDifyTrendOnly("u1", 30);
+
+        assertFalse(result.isEmpty());
+        assertTrue(String.valueOf(result.get("summary")).contains("根据近"));
+        assertEquals("local", result.get("source"));
     }
 
     @Test
@@ -489,6 +503,25 @@ class HealthTrendAnalysisServiceTest {
     }
 
     @Test
+    void analyze_difyPlaceholderSummaryUsesLocalDefault() throws Exception {
+        when(healthServiceClient.getHealthHistory(eq("u1"), anyString(), eq(30))).thenReturn(sampleHistory());
+        when(difyClient.runWorkflowBlocking(anyString(), anyString(), anyMap(), anyString()))
+                .thenReturn(new ObjectMapper().readTree("""
+                        {"data":{"status":"succeeded","outputs":{"trend_analysis":{
+                          "summary":"已记录7条健康数据，但AI分析暂时不可用，请稍后重试或查看原始数据。",
+                          "risk_level":"warning",
+                          "anomalies":[]
+                        }}}}
+                        """));
+
+        Map<String, Object> result = service.analyze("u1", 30, true);
+
+        assertTrue(String.valueOf(result.get("summary")).contains("根据近"));
+        assertFalse(String.valueOf(result.get("summary")).contains("AI分析暂时不可用"));
+        assertEquals("local", result.get("source"));
+    }
+
+    @Test
     void analyze_difyTrendAnalysisNullNode() throws Exception {
         when(healthServiceClient.getHealthHistory(eq("u1"), anyString(), eq(30))).thenReturn(sampleHistory());
         when(difyClient.runWorkflowBlocking(anyString(), anyString(), anyMap(), anyString()))
@@ -498,7 +531,9 @@ class HealthTrendAnalysisServiceTest {
 
         Map<String, Object> result = service.analyze("u1", 30, true);
 
-        assertTrue(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
+        assertTrue(String.valueOf(result.get("summary")).contains("根据近"));
+        assertFalse(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
+        assertEquals("local", result.get("source"));
     }
 
     @Test
@@ -511,7 +546,9 @@ class HealthTrendAnalysisServiceTest {
 
         Map<String, Object> result = service.analyze("u1", 30, true);
 
-        assertTrue(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
+        assertTrue(String.valueOf(result.get("summary")).contains("根据近"));
+        assertFalse(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
+        assertEquals("local", result.get("source"));
     }
 
     @Test
@@ -701,6 +738,41 @@ class HealthTrendAnalysisServiceTest {
     }
 
     @Test
+    void analyze_parsesTrendAnalysisFromTextOutput() throws Exception {
+        when(healthServiceClient.getHealthHistory(eq("u1"), anyString(), eq(30))).thenReturn(sampleHistory());
+        ObjectMapper mapper = new ObjectMapper();
+        var root = mapper.createObjectNode();
+        var data = root.putObject("data");
+        data.put("status", "succeeded");
+        data.putObject("outputs").put("text",
+                "{\"trend_analysis\":{\"summary\":\"text输出\",\"risk_level\":\"normal\",\"anomalies\":[]}}");
+        when(difyClient.runWorkflowBlocking(anyString(), anyString(), anyMap(), anyString()))
+                .thenReturn(root);
+
+        Map<String, Object> result = service.analyze("u1", 30, true);
+
+        assertEquals("text输出", result.get("summary"));
+        assertEquals("dify", result.get("source"));
+    }
+
+    @Test
+    void analyze_parsesTrendAnalysisJsonString() throws Exception {
+        when(healthServiceClient.getHealthHistory(eq("u1"), anyString(), eq(30))).thenReturn(sampleHistory());
+        ObjectMapper mapper = new ObjectMapper();
+        var root = mapper.createObjectNode();
+        var data = root.putObject("data");
+        data.put("status", "succeeded");
+        data.putObject("outputs").put("trend_analysis",
+                "{\"summary\":\"字符串输出\",\"risk_level\":\"attention\",\"anomalies\":[]}");
+        when(difyClient.runWorkflowBlocking(anyString(), anyString(), anyMap(), anyString()))
+                .thenReturn(root);
+
+        Map<String, Object> result = service.analyze("u1", 30, true);
+
+        assertEquals("字符串输出", result.get("summary"));
+    }
+
+    @Test
     void analyze_difyMissingTrendOutput() throws Exception {
         when(healthServiceClient.getHealthHistory(eq("u1"), anyString(), eq(30))).thenReturn(sampleHistory());
         when(difyClient.runWorkflowBlocking(anyString(), anyString(), anyMap(), anyString()))
@@ -710,7 +782,9 @@ class HealthTrendAnalysisServiceTest {
 
         Map<String, Object> result = service.analyze("u1", 30, true);
 
-        assertTrue(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
+        assertTrue(String.valueOf(result.get("summary")).contains("根据近"));
+        assertFalse(String.valueOf(result.get("summary")).contains("AI 解读暂不可用"));
+        assertEquals("local", result.get("source"));
     }
 
     @Test
