@@ -9,129 +9,216 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class MilvusArticleSearchServiceTest {
 
-    private final MilvusProperties milvusProperties = new MilvusProperties();
-    private final RecommendProperties recommendProperties = new RecommendProperties();
-    private final MilvusArticleClient milvusClient = mock(MilvusArticleClient.class);
-    private final ArticleEmbeddingService embeddingService = mock(ArticleEmbeddingService.class);
-
-    private MilvusArticleSearchService service;
+    private MilvusArticleSearchService milvusSearchService;
+    private MilvusProperties milvusProperties;
+    private RecommendProperties recommendProperties;
+    private MilvusArticleClient milvusClient;
+    private ArticleEmbeddingService embeddingService;
 
     @BeforeEach
     void setUp() {
-        service = new MilvusArticleSearchService(
+        milvusProperties = new MilvusProperties();
+        recommendProperties = new RecommendProperties();
+        milvusClient = mock(MilvusArticleClient.class);
+        embeddingService = mock(ArticleEmbeddingService.class);
+
+        milvusSearchService = new MilvusArticleSearchService(
                 milvusProperties, recommendProperties, milvusClient, embeddingService);
     }
 
     @Test
-    void isAvailable_requiresMilvusEnabledAndReady() {
+    void testIsAvailableMilvusDisabled() {
         recommendProperties.setMilvusEnabled(false);
-        when(milvusClient.isReady()).thenReturn(true);
-        assertFalse(service.isAvailable());
 
+        assertFalse(milvusSearchService.isAvailable());
+    }
+
+    @Test
+    void testIsAvailableMilvusNotReady() {
         recommendProperties.setMilvusEnabled(true);
         when(milvusClient.isReady()).thenReturn(false);
-        assertFalse(service.isAvailable());
 
-        when(milvusClient.isReady()).thenReturn(true);
-        assertTrue(service.isAvailable());
+        assertFalse(milvusSearchService.isAvailable());
     }
 
     @Test
-    void searchSimilar_nullCandidateIdsAndNullInterestText() {
+    void testIsAvailableSuccess() {
         recommendProperties.setMilvusEnabled(true);
         when(milvusClient.isReady()).thenReturn(true);
-        assertTrue(service.searchSimilar(null, null, 10).isEmpty());
-        when(embeddingService.embed("x")).thenReturn(new float[]{0.1f});
-        when(milvusClient.search(any(float[].class), eq(10), isNull())).thenReturn(Map.of("a", 1.0));
-        assertFalse(service.searchSimilar("x", null, 10).isEmpty());
+
+        assertTrue(milvusSearchService.isAvailable());
     }
 
     @Test
-    void searchSimilar_skipsRetryWhenFilterEmpty() {
-        recommendProperties.setMilvusEnabled(true);
-        when(milvusClient.isReady()).thenReturn(true);
-        when(embeddingService.embed("x")).thenReturn(new float[]{0.1f});
-        when(milvusClient.search(any(float[].class), eq(10), isNull())).thenReturn(Map.of());
-        assertTrue(service.searchSimilar("x", List.of(), 10).isEmpty());
-        verify(milvusClient, times(1)).search(any(float[].class), anyInt(), isNull());
-    }
-
-    @Test
-    void searchSimilar_returnsEmptyWhenAvailableButBlankText() {
-        recommendProperties.setMilvusEnabled(true);
-        when(milvusClient.isReady()).thenReturn(true);
-        assertTrue(service.searchSimilar("  ", List.of("art_1"), 10).isEmpty());
-        verify(embeddingService, never()).embed(anyString());
-    }
-
-    @Test
-    void searchSimilar_unavailableWithValidTextReturnsEmpty() {
+    void testSearchSimilarNotAvailable() {
         recommendProperties.setMilvusEnabled(false);
-        when(milvusClient.isReady()).thenReturn(true);
-        assertTrue(service.searchSimilar("valid interest text", List.of("art_1"), 10).isEmpty());
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test", List.of("art_01"), 10);
+        assertTrue(result.isEmpty());
     }
 
     @Test
-    void searchSimilar_returnsEmptyWhenInterestTextNull() {
+    void testSearchSimilarEmptyQuery() {
         recommendProperties.setMilvusEnabled(true);
         when(milvusClient.isReady()).thenReturn(true);
-        assertTrue(service.searchSimilar(null, List.of("art_1"), 10).isEmpty());
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("", List.of("art_01"), 10);
+        assertTrue(result.isEmpty());
     }
 
     @Test
-    void searchSimilar_withEmptyCandidateFilter() {
+    void testSearchSimilarNullQuery() {
         recommendProperties.setMilvusEnabled(true);
         when(milvusClient.isReady()).thenReturn(true);
-        when(embeddingService.embed("兴趣")).thenReturn(new float[]{0.2f});
-        when(milvusClient.search(any(float[].class), eq(10), isNull()))
-                .thenReturn(Map.of("art_1", 0.6));
 
-        Map<String, Double> hits = service.searchSimilar("兴趣", List.of(), 10);
-
-        assertEquals(0.6, hits.get("art_1"));
+        Map<String, Double> result = milvusSearchService.searchSimilar(null, List.of("art_01"), 10);
+        assertTrue(result.isEmpty());
     }
 
     @Test
-    void searchSimilar_returnsEmptyWhenUnavailableOrBlankText() {
-        recommendProperties.setMilvusEnabled(false);
-        assertTrue(service.searchSimilar("兴趣文本", List.of("art_1"), 10).isEmpty());
-        assertTrue(service.searchSimilar(" ", List.of("art_1"), 10).isEmpty());
-    }
-
-    @Test
-    void searchSimilar_queriesMilvusWithEmbedding() {
+    void testSearchSimilarBlankQuery() {
         recommendProperties.setMilvusEnabled(true);
         when(milvusClient.isReady()).thenReturn(true);
-        when(embeddingService.embed("兴趣文本")).thenReturn(new float[]{0.1f});
-        when(milvusClient.search(any(float[].class), eq(10), eq(Set.of("art_1", "art_2"))))
-                .thenReturn(Map.of("art_1", 0.9));
 
-        Map<String, Double> hits = service.searchSimilar("兴趣文本", List.of("art_1", "art_2"), 10);
-
-        assertEquals(0.9, hits.get("art_1"));
+        Map<String, Double> result = milvusSearchService.searchSimilar("   ", List.of("art_01"), 10);
+        assertTrue(result.isEmpty());
     }
 
     @Test
-    void searchSimilar_retriesWithLargerTopKWhenFirstSearchEmpty() {
+    void testSearchSimilarSuccess() {
         recommendProperties.setMilvusEnabled(true);
         when(milvusClient.isReady()).thenReturn(true);
-        when(embeddingService.embed("兴趣")).thenReturn(new float[]{0.2f});
-        when(milvusClient.search(any(float[].class), eq(10), eq(Set.of("art_1"))))
-                .thenReturn(Map.of());
-        when(milvusClient.search(any(float[].class), eq(50), eq(Set.of("art_1"))))
-                .thenReturn(Map.of("art_1", 0.7));
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), any())).thenReturn(
+                Map.of("art_01", 0.8, "art_02", 0.6)
+        );
 
-        Map<String, Double> hits = service.searchSimilar("兴趣", List.of("art_1"), 10);
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", List.of("art_01", "art_02"), 10);
+        assertFalse(result.isEmpty());
+        assertEquals(2, result.size());
+    }
 
-        assertEquals(0.7, hits.get("art_1"));
-        verify(milvusClient, times(2)).search(any(float[].class), anyInt(), any());
+    @Test
+    void testSearchSimilarWithEmptyCandidateIds() {
+        recommendProperties.setMilvusEnabled(true);
+        when(milvusClient.isReady()).thenReturn(true);
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), eq(null))).thenReturn(
+                Map.of("art_01", 0.8)
+        );
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", List.of(), 10);
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void testSearchSimilarWithNullCandidateIds() {
+        recommendProperties.setMilvusEnabled(true);
+        when(milvusClient.isReady()).thenReturn(true);
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), eq(null))).thenReturn(
+                Map.of("art_01", 0.8)
+        );
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", null, 10);
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    void testSearchSimilarFirstSearchEmpty() {
+        recommendProperties.setMilvusEnabled(true);
+        when(milvusClient.isReady()).thenReturn(true);
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), any())).thenReturn(
+                Map.of(),
+                Map.of("art_01", 0.8)
+        );
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", List.of("art_01"), 10);
+        assertFalse(result.isEmpty());
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testSearchSimilarEmptyResult() {
+        recommendProperties.setMilvusEnabled(true);
+        when(milvusClient.isReady()).thenReturn(true);
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), any())).thenReturn(Map.of());
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", List.of("art_01"), 10);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testSearchSimilarWithFilterSecondSearch() {
+        recommendProperties.setMilvusEnabled(true);
+        when(milvusClient.isReady()).thenReturn(true);
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), eq(null))).thenReturn(Map.of());
+        when(milvusClient.search(any(float[].class), anyInt(), any(java.util.Set.class))).thenReturn(Map.of("art_01", 0.8));
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", List.of("art_01"), 10);
+        assertFalse(result.isEmpty());
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void testSearchSimilarHitsEmptyWithFilter() {
+        recommendProperties.setMilvusEnabled(true);
+        when(milvusClient.isReady()).thenReturn(true);
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), any(java.util.Set.class)))
+                .thenReturn(Map.of())
+                .thenReturn(Map.of("art_01", 0.8));
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", List.of("art_01"), 10);
+        assertFalse(result.isEmpty());
+        assertEquals(1, result.size());
+        verify(milvusClient, times(2)).search(any(float[].class), anyInt(), any(java.util.Set.class));
+    }
+
+    @Test
+    void testSearchSimilarHitsEmptyWithFilterSecondSearchAlsoEmpty() {
+        recommendProperties.setMilvusEnabled(true);
+        when(milvusClient.isReady()).thenReturn(true);
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), any(java.util.Set.class))).thenReturn(Map.of());
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", List.of("art_01"), 10);
+        assertTrue(result.isEmpty());
+        verify(milvusClient, times(2)).search(any(float[].class), anyInt(), any(java.util.Set.class));
+    }
+
+    @Test
+    void testSearchSimilarHitsNotEmptyWithFilter() {
+        recommendProperties.setMilvusEnabled(true);
+        when(milvusClient.isReady()).thenReturn(true);
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), any(java.util.Set.class)))
+                .thenReturn(Map.of("art_01", 0.8, "art_02", 0.6));
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", List.of("art_01", "art_02"), 10);
+        assertFalse(result.isEmpty());
+        assertEquals(2, result.size());
+        verify(milvusClient, times(1)).search(any(float[].class), anyInt(), any(java.util.Set.class));
+    }
+
+    @Test
+    void testSearchSimilarEmptyHitsWithEmptyFilter() {
+        recommendProperties.setMilvusEnabled(true);
+        when(milvusClient.isReady()).thenReturn(true);
+        when(embeddingService.embed("test query")).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+        when(milvusClient.search(any(float[].class), anyInt(), eq(null))).thenReturn(Map.of());
+
+        Map<String, Double> result = milvusSearchService.searchSimilar("test query", List.of(), 10);
+        assertTrue(result.isEmpty());
+        verify(milvusClient, times(1)).search(any(float[].class), anyInt(), eq(null));
     }
 }

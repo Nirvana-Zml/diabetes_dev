@@ -9,37 +9,65 @@ import static org.mockito.Mockito.*;
 class MilvusStartupSyncListenerTest {
 
     @Test
-    void onReady_skipsWhenDisabledOrNotReady() {
-        MilvusProperties properties = new MilvusProperties();
-        MilvusArticleClient client = mock(MilvusArticleClient.class);
-        ArticleVectorSyncService syncService = mock(ArticleVectorSyncService.class);
-        MilvusStartupSyncListener listener = new MilvusStartupSyncListener(properties, client, syncService);
-
+    void testOnReadyWhenMilvusDisabled() {
+        MilvusProperties properties = mock(MilvusProperties.class);
+        when(properties.isEnabled()).thenReturn(false);
+        
+        MilvusArticleClient milvusClient = mock(MilvusArticleClient.class);
+        ArticleVectorSyncService vectorSyncService = mock(ArticleVectorSyncService.class);
+        
+        MilvusStartupSyncListener listener = new MilvusStartupSyncListener(properties, milvusClient, vectorSyncService);
         listener.onReady();
-        verifyNoInteractions(syncService);
-
-        properties.setEnabled(true);
-        properties.setSyncOnStartup(false);
-        listener.onReady();
-        verifyNoInteractions(syncService);
-
-        properties.setSyncOnStartup(true);
-        when(client.isReady()).thenReturn(false);
-        listener.onReady();
-        verifyNoInteractions(syncService);
+        
+        verify(vectorSyncService, never()).syncAllPublished();
     }
 
     @Test
-    void onReady_syncsWhenMilvusReady() {
-        MilvusProperties properties = new MilvusProperties();
-        properties.setEnabled(true);
-        properties.setSyncOnStartup(true);
-        MilvusArticleClient client = mock(MilvusArticleClient.class);
-        ArticleVectorSyncService syncService = mock(ArticleVectorSyncService.class);
-        when(client.isReady()).thenReturn(true);
+    void testOnReadyWhenSyncOnStartupDisabled() {
+        MilvusProperties properties = mock(MilvusProperties.class);
+        when(properties.isEnabled()).thenReturn(true);
+        when(properties.isSyncOnStartup()).thenReturn(false);
+        
+        MilvusArticleClient milvusClient = mock(MilvusArticleClient.class);
+        ArticleVectorSyncService vectorSyncService = mock(ArticleVectorSyncService.class);
+        
+        MilvusStartupSyncListener listener = new MilvusStartupSyncListener(properties, milvusClient, vectorSyncService);
+        listener.onReady();
+        
+        verify(vectorSyncService, never()).syncAllPublished();
+    }
 
-        new MilvusStartupSyncListener(properties, client, syncService).onReady();
+    @Test
+    void testOnReadyWhenMilvusNotReady() {
+        MilvusProperties properties = mock(MilvusProperties.class);
+        when(properties.isEnabled()).thenReturn(true);
+        when(properties.isSyncOnStartup()).thenReturn(true);
+        
+        MilvusArticleClient milvusClient = mock(MilvusArticleClient.class);
+        when(milvusClient.isReady()).thenReturn(false);
+        
+        ArticleVectorSyncService vectorSyncService = mock(ArticleVectorSyncService.class);
+        
+        MilvusStartupSyncListener listener = new MilvusStartupSyncListener(properties, milvusClient, vectorSyncService);
+        listener.onReady();
+        
+        verify(vectorSyncService, never()).syncAllPublished();
+    }
 
-        verify(syncService).syncAllPublished();
+    @Test
+    void testOnReadyWhenAllConditionsMet() {
+        MilvusProperties properties = mock(MilvusProperties.class);
+        when(properties.isEnabled()).thenReturn(true);
+        when(properties.isSyncOnStartup()).thenReturn(true);
+        
+        MilvusArticleClient milvusClient = mock(MilvusArticleClient.class);
+        when(milvusClient.isReady()).thenReturn(true);
+        
+        ArticleVectorSyncService vectorSyncService = mock(ArticleVectorSyncService.class);
+        
+        MilvusStartupSyncListener listener = new MilvusStartupSyncListener(properties, milvusClient, vectorSyncService);
+        listener.onReady();
+        
+        verify(vectorSyncService, times(1)).syncAllPublished();
     }
 }

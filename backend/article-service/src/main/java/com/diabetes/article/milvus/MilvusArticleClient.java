@@ -1,6 +1,7 @@
 package com.diabetes.article.milvus;
 
 import com.diabetes.article.config.MilvusProperties;
+import com.diabetes.common.exception.BusinessException;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.common.clientenum.ConsistencyLevelEnum;
 import io.milvus.grpc.DataType;
@@ -131,13 +132,13 @@ public class MilvusArticleClient {
             return Map.of();
         }
 
+        return processSearchResults(scores, metric, candidateFilter);
+    }
+
+    private Map<String, Double> processSearchResults(List<SearchResultsWrapper.IDScore> scores, MetricType metric, Set<String> candidateFilter) {
         Map<String, Double> result = new LinkedHashMap<>();
         for (SearchResultsWrapper.IDScore score : scores) {
-            String articleId = score.getStrID();
-            if (articleId == null || articleId.isBlank()) {
-                Object idField = score.get("article_id");
-                articleId = idField != null ? idField.toString() : null;
-            }
+            String articleId = extractArticleId(score);
             if (articleId == null || articleId.isBlank()) {
                 continue;
             }
@@ -148,6 +149,15 @@ public class MilvusArticleClient {
             result.put(articleId, sim);
         }
         return result;
+    }
+
+    private String extractArticleId(SearchResultsWrapper.IDScore score) {
+        String articleId = score.getStrID();
+        if (articleId == null || articleId.isBlank()) {
+            Object idField = score.get("article_id");
+            articleId = idField != null ? idField.toString() : null;
+        }
+        return articleId;
     }
 
     private void ensureCollection() {
@@ -260,11 +270,11 @@ public class MilvusArticleClient {
 
     private static void checkResponse(R<?> response, String op) {
         if (response == null) {
-            throw new IllegalStateException("Milvus " + op + " 无响应");
+            throw new BusinessException(500, "Milvus " + op + " 无响应");
         }
         if (response.getStatus() == R.Status.Success.getCode()) {
             return;
         }
-        throw new IllegalStateException("Milvus " + op + " 失败: " + response.getMessage());
+        throw new BusinessException(500, "Milvus " + op + " 失败: " + response.getMessage());
     }
 }

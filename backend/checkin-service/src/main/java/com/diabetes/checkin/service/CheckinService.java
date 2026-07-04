@@ -5,7 +5,7 @@ import com.diabetes.checkin.mapper.CheckinRecordMapper;
 import com.diabetes.common.redis.RedisKeys;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -20,11 +20,11 @@ public class CheckinService {
     private static final Duration STATS_CACHE_TTL = Duration.ofMinutes(5);
 
     private final CheckinRecordMapper checkinRecordMapper;
-    private final StringRedisTemplate redisTemplate;
+    private final RedisOperations<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
     public CheckinService(CheckinRecordMapper checkinRecordMapper,
-                          StringRedisTemplate redisTemplate,
+                          RedisOperations<String, String> redisTemplate,
                           ObjectMapper objectMapper) {
         this.checkinRecordMapper = checkinRecordMapper;
         this.redisTemplate = redisTemplate;

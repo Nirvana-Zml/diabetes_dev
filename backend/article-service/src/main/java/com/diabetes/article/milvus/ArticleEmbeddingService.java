@@ -1,6 +1,7 @@
 package com.diabetes.article.milvus;
 
 import com.diabetes.article.config.MilvusProperties;
+import com.diabetes.common.exception.BusinessException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -65,7 +66,7 @@ public class ArticleEmbeddingService {
         JsonNode root = objectMapper.readTree(response);
         JsonNode embedding = root.path("data").path(0).path("embedding");
         if (!embedding.isArray() || embedding.isEmpty()) {
-            throw new IllegalStateException("Embedding 响应无效");
+            throw new BusinessException(500, "Embedding 响应无效");
         }
         float[] vec = new float[embedding.size()];
         for (int i = 0; i < embedding.size(); i++) {

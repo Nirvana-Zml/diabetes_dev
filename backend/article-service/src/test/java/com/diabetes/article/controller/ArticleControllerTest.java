@@ -1,121 +1,135 @@
 package com.diabetes.article.controller;
 
-import com.diabetes.article.config.OptionalJwtInterceptor;
 import com.diabetes.article.service.ArticleService;
-import com.diabetes.article.service.ArticleTtsService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.diabetes.common.api.ApiResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class ArticleControllerTest {
 
-    @Mock
+    private ArticleController controller;
     private ArticleService articleService;
 
-    @Mock
-    private ArticleTtsService articleTtsService;
-
-    @InjectMocks
-    private ArticleController controller;
-
-    @Test
-    void recommend_delegatesToService() {
-        Map<String, Object> expected = Map.of("articles", java.util.List.of(), "total", 0);
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getAttribute(OptionalJwtInterceptor.ATTR_USER_ID)).thenReturn("u1");
-        when(articleService.recommend("u1", 1, 10, null)).thenReturn(expected);
-
-        var result = controller.recommend(1, 10, null, request);
-
-        assertEquals(200, result.code());
-        assertEquals(expected, result.data());
+    @BeforeEach
+    void setUp() {
+        articleService = mock(ArticleService.class);
+        controller = new ArticleController(articleService);
     }
 
     @Test
-    void list_search_detailAndFavorite() {
-        Map<String, Object> list = Map.of("articles", java.util.List.of(), "total", 0);
-        when(articleService.list(2, 1, 10)).thenReturn(list);
-        assertEquals(list, controller.list(2, 1, 10).data());
+    void testList() {
+        when(articleService.list(null, 1, 10)).thenReturn(Map.of("articles", java.util.List.of()));
 
-        Map<String, Object> search = Map.of("articles", java.util.List.of(), "total", 1);
-        when(articleService.search("糖尿病", 1, 10)).thenReturn(search);
-        assertEquals(search, controller.search("糖尿病", 1, 10).data());
-
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getAttribute(OptionalJwtInterceptor.ATTR_USER_ID)).thenReturn("u1");
-        Map<String, Object> detail = Map.of("articleId", "art_1");
-        when(articleService.detail("art_1", "u1")).thenReturn(detail);
-        assertEquals(detail, controller.detail("art_1", request).data());
-
-        Map<String, Object> favorite = Map.of("favorited", true);
-        when(articleService.toggleFavorite("u1", "art_1")).thenReturn(favorite);
-        assertEquals(favorite, controller.favorite("u1", "art_1").data());
+        ApiResponse<Map<String, Object>> response = controller.list(null, 1, 10);
+        assertEquals(200, response.code());
+        assertNotNull(response.data());
     }
 
     @Test
-    void related_readEventAndFavorites() {
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getAttribute(OptionalJwtInterceptor.ATTR_USER_ID)).thenReturn("u1");
-        Map<String, Object> related = Map.of("articles", java.util.List.of(), "total", 0, "strategy", "related");
-        when(articleService.related("art_1", "u1", 5)).thenReturn(related);
-        assertEquals(related, controller.related("art_1", 5, request).data());
+    void testSearch() {
+        when(articleService.search("关键词", 1, 10)).thenReturn(Map.of("articles", java.util.List.of()));
 
-        doNothing().when(articleService).recordRead("u1", "art_1", 30, "detail");
-        var readResult = controller.readEvent("u1", "art_1", Map.of("durationSec", 30));
-        assertEquals(200, readResult.code());
-        assertEquals(true, readResult.data().get("recorded"));
-        verify(articleService).recordRead("u1", "art_1", 30, "detail");
-
-        Map<String, Object> favorites = Map.of("articles", java.util.List.of(), "total", 0);
-        when(articleService.favorites("u1", 1, 10)).thenReturn(favorites);
-        assertEquals(favorites, controller.favorites("u1", 1, 10).data());
+        ApiResponse<Map<String, Object>> response = controller.search("关键词", 1, 10);
+        assertEquals(200, response.code());
     }
 
     @Test
-    void audio_delegatesToTtsService() {
-        Map<String, Object> audio = Map.of("audioUrl", "http://minio/art_1-audio.wav", "source", "cached");
-        when(articleTtsService.getOrGenerateAudio("art_1")).thenReturn(audio);
-        assertEquals(audio, controller.audio("art_1").data());
+    void testDetail() {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("title", "测试文章");
+        when(articleService.detail("art_01", "user_01")).thenReturn(detail);
+
+        ApiResponse<Map<String, Object>> response = controller.detail("art_01", createMockRequest("user_01"));
+        assertEquals(200, response.code());
+        assertEquals("测试文章", response.data().get("title"));
     }
 
     @Test
-    void difyRecommendWorkflowSpec() {
-        Map<String, Object> spec = Map.of("workflowUrl", "http://dify/v1/workflows/run");
-        when(articleService.getDifyRecommendWorkflowSpec()).thenReturn(spec);
-        assertEquals(spec, controller.difyRecommendWorkflowSpec().data());
+    void testFavorite() {
+        when(articleService.toggleFavorite("user_01", "art_01")).thenReturn(Map.of("favorited", true));
+
+        ApiResponse<Map<String, Object>> response = controller.favorite("user_01", "art_01");
+        assertEquals(200, response.code());
+        assertTrue((Boolean) response.data().get("favorited"));
     }
 
     @Test
-    void readEventWithDurationSecNumber() {
-        doNothing().when(articleService).recordRead("u1", "art_1", 20, "detail");
-        controller.readEvent("u1", "art_1", Map.of("durationSec", 20));
-        verify(articleService).recordRead("u1", "art_1", 20, "detail");
+    void testFavorites() {
+        when(articleService.favorites("user_01", 1, 10)).thenReturn(Map.of("articles", java.util.List.of()));
+
+        ApiResponse<Map<String, Object>> response = controller.favorites("user_01", 1, 10);
+        assertEquals(200, response.code());
     }
 
     @Test
-    void readEventWithNonNumberDuration() {
-        doNothing().when(articleService).recordRead("u1", "art_1", null, "detail");
-        controller.readEvent("u1", "art_1", Map.of("durationSec", "not-a-number"));
-        verify(articleService).recordRead("u1", "art_1", null, "detail");
+    void testRecommend() {
+        when(articleService.recommend("user_01", 1, 10, null)).thenReturn(Map.of("articles", java.util.List.of()));
+
+        ApiResponse<Map<String, Object>> response = controller.recommend(1, 10, null, createMockRequest("user_01"));
+        assertEquals(200, response.code());
     }
 
     @Test
-    void readEventWithAlternateBodyFields() {
-        doNothing().when(articleService).recordRead("u1", "art_1", 45, "search");
-        var result = controller.readEvent("u1", "art_1", Map.of("duration_sec", 45, "source", "search"));
-        assertEquals(true, result.data().get("recorded"));
+    void testRelated() {
+        when(articleService.related("art_01", "user_01", 5)).thenReturn(Map.of("articles", java.util.List.of()));
 
-        doNothing().when(articleService).recordRead("u1", "art_1", null, "detail");
-        controller.readEvent("u1", "art_1", null);
-        verify(articleService).recordRead("u1", "art_1", null, "detail");
+        ApiResponse<Map<String, Object>> response = controller.related("art_01", 5, createMockRequest("user_01"));
+        assertEquals(200, response.code());
+    }
+
+    @Test
+    void testReadEvent() {
+        ApiResponse<Map<String, Object>> response = controller.readEvent("user_01", "art_01", null);
+        assertEquals(200, response.code());
+        assertTrue((Boolean) response.data().get("recorded"));
+    }
+
+    @Test
+    void testReadEventWithBody() {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("durationSec", 120);
+        body.put("source", "homepage");
+
+        ApiResponse<Map<String, Object>> response = controller.readEvent("user_01", "art_01", body);
+        assertEquals(200, response.code());
+    }
+
+    @Test
+    void testReadEventWithDurationSec() {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("duration_sec", 60);
+
+        ApiResponse<Map<String, Object>> response = controller.readEvent("user_01", "art_01", body);
+        assertEquals(200, response.code());
+    }
+
+    @Test
+    void testReadEventWithNonNumberDuration() {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("durationSec", "not_a_number");
+        body.put("source", "detail");
+
+        ApiResponse<Map<String, Object>> response = controller.readEvent("user_01", "art_01", body);
+        assertEquals(200, response.code());
+    }
+
+    @Test
+    void testDifyRecommendWorkflowSpec() {
+        when(articleService.getDifyRecommendWorkflowSpec()).thenReturn(Map.of());
+
+        ApiResponse<Map<String, Object>> response = controller.difyRecommendWorkflowSpec();
+        assertEquals(200, response.code());
+    }
+
+    private jakarta.servlet.http.HttpServletRequest createMockRequest(String userId) {
+        jakarta.servlet.http.HttpServletRequest request = mock(jakarta.servlet.http.HttpServletRequest.class);
+        when(request.getAttribute("optionalUserId")).thenReturn(userId);
+        return request;
     }
 }

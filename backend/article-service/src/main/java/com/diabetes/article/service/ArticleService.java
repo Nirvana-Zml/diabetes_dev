@@ -10,7 +10,7 @@ import com.diabetes.common.util.IdGenerator;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,7 +29,7 @@ public class ArticleService {
     private static final long MAX_COVER_BYTES = 5 * 1024 * 1024;
 
     private final ArticleMapper articleMapper;
-    private final StringRedisTemplate redisTemplate;
+    private final RedisOperations<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
     private final ArticleRecommendService articleRecommendService;
     private final ArticleVectorSyncService articleVectorSyncService;
@@ -39,7 +39,7 @@ public class ArticleService {
     private final String difyApiKey;
 
     public ArticleService(ArticleMapper articleMapper,
-                          StringRedisTemplate redisTemplate,
+                          RedisOperations<String, String> redisTemplate,
                           ObjectMapper objectMapper,
                           MinioStorageService minioStorageService,
                           ArticleRecommendService articleRecommendService,

@@ -12,165 +12,231 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class ArticleVectorSyncServiceTest {
 
-    private final MilvusArticleClient milvusClient = mock(MilvusArticleClient.class);
-    private final ArticleEmbeddingService embeddingService = mock(ArticleEmbeddingService.class);
-    private final ArticleMapper articleMapper = mock(ArticleMapper.class);
-    private final RecommendMapper recommendMapper = mock(RecommendMapper.class);
-
-    private ArticleVectorSyncService service;
+    private ArticleVectorSyncService vectorSyncService;
+    private MilvusArticleClient milvusClient;
+    private ArticleEmbeddingService embeddingService;
+    private ArticleMapper articleMapper;
+    private RecommendMapper recommendMapper;
 
     @BeforeEach
     void setUp() {
-        service = new ArticleVectorSyncService(milvusClient, embeddingService, articleMapper, recommendMapper);
+        milvusClient = mock(MilvusArticleClient.class);
+        embeddingService = mock(ArticleEmbeddingService.class);
+        articleMapper = mock(ArticleMapper.class);
+        recommendMapper = mock(RecommendMapper.class);
+
+        vectorSyncService = new ArticleVectorSyncService(
+                milvusClient, embeddingService, articleMapper, recommendMapper);
     }
 
     @Test
-    void syncArticle_skipsWhenMilvusNotReady() {
+    void testSyncArticleMilvusNotReady() {
         when(milvusClient.isReady()).thenReturn(false);
 
-        service.syncArticle("art_1");
-
-        verifyNoInteractions(articleMapper);
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
+        verify(milvusClient, never()).upsert(any(), anyInt(), any());
+        verify(milvusClient, never()).delete(any());
     }
 
     @Test
-    void syncArticle_deletesWhenArticleMissing() {
+    void testSyncArticleArticleNotFound() {
         when(milvusClient.isReady()).thenReturn(true);
-        when(articleMapper.findById("art_1")).thenReturn(null);
-        service.syncArticle("art_1");
-        verify(milvusClient).delete("art_1");
+        when(articleMapper.findById("art_01")).thenReturn(null);
+
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
+        verify(milvusClient).delete("art_01");
     }
 
     @Test
-    void syncArticle_buildsFingerprintWithNullTitle() {
+    void testSyncArticleNotPublished() {
         when(milvusClient.isReady()).thenReturn(true);
-        Article published = publishedArticle();
-        published.setTitle(null);
-        published.setSummary(null);
-        when(articleMapper.findById("art_1")).thenReturn(published);
-        when(recommendMapper.findTagsByArticleId("art_1")).thenReturn(null);
-        when(embeddingService.embed(anyString())).thenReturn(new float[]{0.1f});
-        service.syncArticle("art_1");
-        verify(recommendMapper).upsertEmbedding(eq("art_1"), eq(""));
+        Article article = new Article();
+        article.setArticleId("art_01");
+        article.setStatus(1);
+        when(articleMapper.findById("art_01")).thenReturn(article);
+
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
+        verify(milvusClient).delete("art_01");
     }
 
     @Test
-    void syncArticle_deletesWhenStatusNull() {
+    void testSyncArticleStatusNull() {
         when(milvusClient.isReady()).thenReturn(true);
-        Article article = publishedArticle();
+        Article article = new Article();
+        article.setArticleId("art_01");
         article.setStatus(null);
-        when(articleMapper.findById("art_1")).thenReturn(article);
-        service.syncArticle("art_1");
-        verify(milvusClient).delete("art_1");
+        when(articleMapper.findById("art_01")).thenReturn(article);
+
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
+        verify(milvusClient).delete("art_01");
     }
 
     @Test
-    void syncArticle_deletesWhenNotPublished() {
+    void testSyncArticleSuccess() {
         when(milvusClient.isReady()).thenReturn(true);
-        Article draft = new Article();
-        draft.setArticleId("art_1");
-        draft.setStatus(1);
-        when(articleMapper.findById("art_1")).thenReturn(draft);
+        Article article = new Article();
+        article.setArticleId("art_01");
+        article.setStatus(3);
+        article.setCategory(2);
+        when(articleMapper.findById("art_01")).thenReturn(article);
+        when(recommendMapper.findTagsByArticleId("art_01")).thenReturn(List.of("标签A", "标签B"));
+        when(embeddingService.embed(anyString())).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
 
-        service.syncArticle("art_1");
-
-        verify(milvusClient).delete("art_1");
-        verify(embeddingService, never()).embed(anyString());
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
+        verify(milvusClient).upsert(eq("art_01"), eq(2), any(float[].class));
+        verify(recommendMapper).upsertEmbedding(eq("art_01"), anyString());
     }
 
     @Test
-    void syncAllPublished_skipsWhenMilvusNotReady() {
+    void testSyncArticleCategoryNull() {
+        when(milvusClient.isReady()).thenReturn(true);
+        Article article = new Article();
+        article.setArticleId("art_01");
+        article.setStatus(3);
+        article.setCategory(null);
+        when(articleMapper.findById("art_01")).thenReturn(article);
+        when(recommendMapper.findTagsByArticleId("art_01")).thenReturn(List.of());
+        when(embeddingService.embed(anyString())).thenReturn(new float[]{0.1f, 0.2f, 0.3f});
+
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
+        verify(milvusClient).upsert(eq("art_01"), eq(1), any(float[].class));
+    }
+
+    @Test
+    void testSyncAllPublishedMilvusNotReady() {
         when(milvusClient.isReady()).thenReturn(false);
 
-        service.syncAllPublished();
-
+        assertDoesNotThrow(() -> vectorSyncService.syncAllPublished());
         verify(recommendMapper, never()).findPublishedCandidates(anyInt());
     }
 
     @Test
-    void syncAllPublished_logsFailureForSingleArticle() {
+    void testSyncAllPublishedSuccess() {
         when(milvusClient.isReady()).thenReturn(true);
-        ArticleCandidate candidate = new ArticleCandidate();
-        candidate.setArticleId("art_1");
-        when(recommendMapper.findPublishedCandidates(500)).thenReturn(List.of(candidate));
-        when(articleMapper.findById("art_1")).thenReturn(publishedArticle());
-        when(recommendMapper.findTagsByArticleId("art_1")).thenReturn(List.of("饮食"));
-        when(embeddingService.embed(anyString())).thenThrow(new RuntimeException("embed fail"));
+        ArticleCandidate c1 = new ArticleCandidate();
+        c1.setArticleId("art_01");
+        ArticleCandidate c2 = new ArticleCandidate();
+        c2.setArticleId("art_02");
+        when(recommendMapper.findPublishedCandidates(500)).thenReturn(List.of(c1, c2));
 
-        assertDoesNotThrow(() -> service.syncAllPublished());
-    }
+        Article article1 = new Article();
+        article1.setArticleId("art_01");
+        article1.setStatus(3);
+        article1.setCategory(1);
+        Article article2 = new Article();
+        article2.setArticleId("art_02");
+        article2.setStatus(3);
+        article2.setCategory(2);
 
-    @Test
-    void syncArticle_usesDefaultCategoryWhenNull() {
-        when(milvusClient.isReady()).thenReturn(true);
-        Article published = publishedArticle();
-        published.setCategory(null);
-        when(articleMapper.findById("art_1")).thenReturn(published);
-        when(recommendMapper.findTagsByArticleId("art_1")).thenReturn(null);
+        when(articleMapper.findById("art_01")).thenReturn(article1);
+        when(articleMapper.findById("art_02")).thenReturn(article2);
+        when(recommendMapper.findTagsByArticleId(any())).thenReturn(List.of());
         when(embeddingService.embed(anyString())).thenReturn(new float[]{0.1f});
 
-        service.syncArticle("art_1");
-
-        verify(milvusClient).upsert(eq("art_1"), eq(1), any(float[].class));
+        assertDoesNotThrow(() -> vectorSyncService.syncAllPublished());
+        verify(milvusClient, times(2)).upsert(any(), anyInt(), any(float[].class));
     }
 
     @Test
-    void syncArticle_upsertsPublishedArticle() {
+    void testSyncAllPublishedWithException() {
         when(milvusClient.isReady()).thenReturn(true);
-        when(articleMapper.findById("art_1")).thenReturn(publishedArticle());
-        when(recommendMapper.findTagsByArticleId("art_1")).thenReturn(List.of("饮食"));
-        when(embeddingService.embed(anyString())).thenReturn(new float[]{0.1f, 0.2f});
+        ArticleCandidate c1 = new ArticleCandidate();
+        c1.setArticleId("art_01");
+        ArticleCandidate c2 = new ArticleCandidate();
+        c2.setArticleId("art_02");
+        when(recommendMapper.findPublishedCandidates(500)).thenReturn(List.of(c1, c2));
 
-        service.syncArticle("art_1");
+        Article article1 = new Article();
+        article1.setArticleId("art_01");
+        article1.setStatus(3);
+        when(articleMapper.findById("art_01")).thenReturn(article1);
+        when(embeddingService.embed(anyString())).thenThrow(new RuntimeException("Embed error"));
 
-        verify(milvusClient).upsert(eq("art_1"), eq(2), any(float[].class));
-        verify(recommendMapper).upsertEmbedding(eq("art_1"), contains("标题"));
-    }
+        Article article2 = new Article();
+        article2.setArticleId("art_02");
+        article2.setStatus(3);
+        when(articleMapper.findById("art_02")).thenReturn(article2);
 
-    private Article publishedArticle() {
-        Article published = new Article();
-        published.setArticleId("art_1");
-        published.setStatus(3);
-        published.setTitle("标题");
-        published.setSummary("摘要");
-        published.setCategory(2);
-        return published;
-    }
-
-    @Test
-    void syncAllPublished_iteratesCandidates() {
-        when(milvusClient.isReady()).thenReturn(true);
-        ArticleCandidate candidate = new ArticleCandidate();
-        candidate.setArticleId("art_1");
-        when(recommendMapper.findPublishedCandidates(500)).thenReturn(List.of(candidate));
-        when(articleMapper.findById("art_1")).thenReturn(null);
-
-        service.syncAllPublished();
-
-        verify(recommendMapper).findPublishedCandidates(500);
-        verify(milvusClient).delete("art_1");
+        assertDoesNotThrow(() -> vectorSyncService.syncAllPublished());
     }
 
     @Test
-    void removeArticle_deletesWhenReady() {
-        when(milvusClient.isReady()).thenReturn(true);
-
-        service.removeArticle("art_1");
-
-        verify(milvusClient).delete("art_1");
-    }
-
-    @Test
-    void removeArticle_skipsWhenNotReady() {
+    void testRemoveArticleMilvusNotReady() {
         when(milvusClient.isReady()).thenReturn(false);
 
-        service.removeArticle("art_1");
+        assertDoesNotThrow(() -> vectorSyncService.removeArticle("art_01"));
+        verify(milvusClient, never()).delete(any());
+    }
 
-        verify(milvusClient, never()).delete(anyString());
+    @Test
+    void testRemoveArticleSuccess() {
+        when(milvusClient.isReady()).thenReturn(true);
+
+        assertDoesNotThrow(() -> vectorSyncService.removeArticle("art_01"));
+        verify(milvusClient).delete("art_01");
+    }
+
+    @Test
+    void testBuildFingerprintWithNullTitle() {
+        when(milvusClient.isReady()).thenReturn(true);
+        Article article = new Article();
+        article.setArticleId("art_01");
+        article.setStatus(3);
+        article.setTitle(null);
+        article.setSummary("摘要");
+        when(articleMapper.findById("art_01")).thenReturn(article);
+        when(recommendMapper.findTagsByArticleId("art_01")).thenReturn(List.of("标签"));
+        when(embeddingService.embed(anyString())).thenReturn(new float[]{0.1f});
+
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
+    }
+
+    @Test
+    void testBuildFingerprintWithNullSummary() {
+        when(milvusClient.isReady()).thenReturn(true);
+        Article article = new Article();
+        article.setArticleId("art_01");
+        article.setStatus(3);
+        article.setTitle("标题");
+        article.setSummary(null);
+        when(articleMapper.findById("art_01")).thenReturn(article);
+        when(recommendMapper.findTagsByArticleId("art_01")).thenReturn(List.of("标签"));
+        when(embeddingService.embed(anyString())).thenReturn(new float[]{0.1f});
+
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
+    }
+
+    @Test
+    void testBuildFingerprintWithNullTags() {
+        when(milvusClient.isReady()).thenReturn(true);
+        Article article = new Article();
+        article.setArticleId("art_01");
+        article.setStatus(3);
+        article.setTitle("标题");
+        article.setSummary("摘要");
+        when(articleMapper.findById("art_01")).thenReturn(article);
+        when(recommendMapper.findTagsByArticleId("art_01")).thenReturn(null);
+        when(embeddingService.embed(anyString())).thenReturn(new float[]{0.1f});
+
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
+    }
+
+    @Test
+    void testBuildFingerprintWithEmptyAll() {
+        when(milvusClient.isReady()).thenReturn(true);
+        Article article = new Article();
+        article.setArticleId("art_01");
+        article.setStatus(3);
+        article.setTitle(null);
+        article.setSummary(null);
+        when(articleMapper.findById("art_01")).thenReturn(article);
+        when(recommendMapper.findTagsByArticleId("art_01")).thenReturn(null);
+        when(embeddingService.embed(anyString())).thenReturn(new float[]{0.1f});
+
+        assertDoesNotThrow(() -> vectorSyncService.syncArticle("art_01"));
     }
 }

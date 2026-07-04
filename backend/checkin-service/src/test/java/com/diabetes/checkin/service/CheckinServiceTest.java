@@ -4,7 +4,7 @@ import com.diabetes.checkin.entity.CheckinRecord;
 import com.diabetes.checkin.mapper.CheckinRecordMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.ValueOperations;
 
 import java.lang.reflect.Method;
@@ -19,7 +19,7 @@ import static org.mockito.Mockito.*;
 class CheckinServiceTest {
 
     private final CheckinRecordMapper mapper = mock(CheckinRecordMapper.class);
-    private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
+    private final RedisOperations<String, String> redis = mock(RedisOperations.class);
     @SuppressWarnings("unchecked")
     private final ValueOperations<String, String> valueOps = mock(ValueOperations.class);
     private final CheckinService service = new CheckinService(mapper, redis, new ObjectMapper());

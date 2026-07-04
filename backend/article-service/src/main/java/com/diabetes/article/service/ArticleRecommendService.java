@@ -18,7 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +44,7 @@ public class ArticleRecommendService {
     private static final double W_SEMANTIC = 3.0;
 
     private final RecommendMapper recommendMapper;
-    private final StringRedisTemplate redisTemplate;
+    private final RedisOperations<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
     private final MinioStorageService minioStorageService;
     private final HealthServiceClient healthServiceClient;
@@ -59,7 +59,7 @@ public class ArticleRecommendService {
     private final String difyInternalKey;
 
     public ArticleRecommendService(RecommendMapper recommendMapper,
-                                   StringRedisTemplate redisTemplate,
+                                   RedisOperations<String, String> redisTemplate,
                                    ObjectMapper objectMapper,
                                    MinioStorageService minioStorageService,
                                    HealthServiceClient healthServiceClient,
@@ -513,6 +513,9 @@ public class ArticleRecommendService {
     private JsonNode extractRecommendationsList(JsonNode node) {
         if (node == null || node.isMissingNode()) {
             return objectMapper.missingNode();
+        }
+        if (node.isArray()) {
+            return node;
         }
         JsonNode articleInfo = node.path("article_info");
         if (articleInfo.isTextual()) {
