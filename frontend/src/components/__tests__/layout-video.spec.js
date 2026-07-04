@@ -10,9 +10,11 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   loggedIn: false,
   redirectToLogin: vi.fn((redirect) => ({ path: '/login', query: { redirect } })),
+  isMobile: { __v_isRef: true, value: false },
   messageCenter: {
     unreadCount: { value: 0 },
     messageList: { value: [] },
+    loadList: vi.fn(async () => {}),
   },
 }))
 
@@ -59,7 +61,7 @@ vi.mock('@/composables/useMessageCenter', () => ({
     start: vi.fn(),
     stop: vi.fn(),
     refresh: vi.fn(async () => {}),
-    loadList: vi.fn(async () => {}),
+    loadList: mocks.messageCenter.loadList,
     unreadCount: mocks.messageCenter.unreadCount,
     messageList: mocks.messageCenter.messageList,
   }),
@@ -69,12 +71,9 @@ vi.mock('@/composables/useCheckinReminder', () => ({
   useCheckinReminder: () => ({ start: vi.fn(), stop: vi.fn() }),
 }))
 
-vi.mock('@/composables/useBreakpoints', async () => {
-  const { ref } = await import('vue')
-  return {
-    useIsMobile: () => ref(false),
-  }
-})
+vi.mock('@/composables/useBreakpoints', () => ({
+  useIsMobile: () => mocks.isMobile,
+}))
 
 vi.mock('@element-plus/icons-vue', () => ({
   ArrowLeft: { name: 'ArrowLeft', template: '<i />' },
@@ -83,6 +82,7 @@ vi.mock('@element-plus/icons-vue', () => ({
   HomeFilled: { name: 'HomeFilled', template: '<i />' },
   MagicStick: { name: 'MagicStick', template: '<i />' },
   User: { name: 'User', template: '<i />' },
+  Bell: { name: 'Bell', template: '<i />' },
 }))
 
 const dialogStub = defineComponent({
@@ -120,6 +120,10 @@ beforeEach(() => {
   mocks.route.path = '/home'
   mocks.route.meta = {}
   mocks.loggedIn = false
+  mocks.isMobile.value = false
+  mocks.messageCenter.unreadCount.value = 0
+  mocks.messageCenter.messageList.value = []
+  mocks.messageCenter.loadList.mockClear()
   mocks.push.mockClear()
   mocks.back.mockClear()
   mocks.replace.mockClear()
@@ -181,6 +185,15 @@ describe('layout and shell components', () => {
     const myNavLink = loggedHeader.findAll('.nav-link').find((item) => item.text().includes('我的'))
     await myNavLink.trigger('click')
     expect(mocks.push).toHaveBeenLastCalledWith('/user-center')
+    loggedHeader.findComponent({ name: 'ElPopover' }).vm.$emit('show')
+    expect(mocks.messageCenter.loadList).toHaveBeenCalled()
+    loggedHeader.findComponent({ name: 'MessagePopover' }).vm.$emit('open')
+
+    mocks.loggedIn = false
+    const staleHeader = mount(SiteHeader, { global })
+    await staleHeader.vm.goNav({ path: '/user-center' })
+    expect(mocks.redirectToLogin).toHaveBeenLastCalledWith('/user-center')
+    expect(mocks.push).toHaveBeenLastCalledWith({ path: '/login', query: { redirect: '/user-center' } })
 
     mocks.loggedIn = false
     const loggedOutHeader = mount(SiteHeader, { global })
@@ -190,7 +203,32 @@ describe('layout and shell components', () => {
     await nextTick()
     expect(loggedOutHeader.findAll('.nav-link').some((item) => item.classes('active'))).toBe(true)
 
+    mocks.isMobile.value = true
+    mocks.route.path = '/health-info'
+    mocks.route.meta = { title: '健康资讯' }
+    mocks.loggedIn = true
+    const mobileHeader = mount(SiteHeader, { global })
+    expect(mobileHeader.text()).toContain('健康资讯')
+    await mobileHeader.find('.header-back-btn').trigger('click')
+    expect(mobileHeader.find('.header-back-btn').exists()).toBe(true)
+    await mobileHeader.find('.bell-btn--mobile').trigger('click')
+    await nextTick()
+    expect(mobileHeader.vm.messageDrawerOpen).toBe(true)
+    mobileHeader.findComponent({ name: 'ElDrawer' }).vm.$emit('update:modelValue', false)
+    await nextTick()
+    expect(mobileHeader.vm.messageDrawerOpen).toBe(false)
+    mobileHeader.vm.messageDrawerOpen = true
+    await nextTick()
+    mobileHeader.findComponent({ name: 'MessagePopover' }).vm.$emit('open')
+    await nextTick()
+    expect(mobileHeader.vm.messageDrawerOpen).toBe(false)
+    mocks.route.path = '/home'
+    mocks.route.meta = {}
+    const mobileHomeHeader = mount(SiteHeader, { global })
+    expect(mobileHomeHeader.text()).toContain('糖尿病智能助手')
+
     mocks.loggedIn = false
+    mocks.isMobile.value = false
     const footer = mount(SiteFooter, { global })
     await footer.findAll('button').find((button) => button.text() === '风险评估').trigger('click')
     expect(mocks.push).toHaveBeenLastCalledWith({ path: '/login', query: { redirect: '/health-evaluation' } })
@@ -229,6 +267,18 @@ describe('layout and shell components', () => {
     expect(mocks.back).toHaveBeenCalled()
     const plainSite = mount(SiteLayout, { global })
     expect(plainSite.find('.page-toolbar').exists()).toBe(false)
+
+    mocks.isMobile.value = true
+    mocks.route.meta = {}
+    const mobileSite = mount(SiteLayout, { global })
+    expect(mobileSite.find('.site-page--mobile-nav').exists()).toBe(true)
+    const hiddenNavSite = mount(SiteLayout, { props: { hideBottomNav: true }, global })
+    expect(hiddenNavSite.find('.site-page--mobile-nav').exists()).toBe(false)
+    mocks.route.meta = { hideBottomNav: true }
+    const metaHiddenNavSite = mount(SiteLayout, { global })
+    expect(metaHiddenNavSite.find('.site-page--mobile-nav').exists()).toBe(false)
+    const hiddenHeaderSite = mount(SiteLayout, { props: { hideHeader: true }, global })
+    expect(hiddenHeaderSite.find('.site-page--no-header').exists()).toBe(true)
   })
 
   it('covers video player dialog events and reset branches', async () => {

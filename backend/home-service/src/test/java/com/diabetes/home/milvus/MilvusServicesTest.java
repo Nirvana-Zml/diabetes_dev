@@ -56,6 +56,17 @@ class MilvusServicesTest {
         assertEquals(8, fallback.length);
         assertTrue(norm(fallback) > 0.99 && norm(fallback) < 1.01);
 
+        props.getEmbedding().setProvider("local");
+        props.getEmbedding().setOpenaiBaseUrl("http://127.0.0.1:1/");
+        assertEquals(8, service.embed("本地向量").length);
+
+        props.getEmbedding().setProvider("openai");
+        props.getEmbedding().setOpenaiBaseUrl(null);
+        assertEquals(8, service.embed("空地址向量").length);
+
+        props.getEmbedding().setOpenaiBaseUrl(" ");
+        assertEquals(8, service.embed("空白地址向量").length);
+
         assertArrayEquals(new float[4], KnowledgeEmbeddingService.embedLocalHash("a b c", 4));
         assertArrayEquals(new float[4], KnowledgeEmbeddingService.embedLocalHash("a b", 4));
     }
@@ -96,6 +107,21 @@ class MilvusServicesTest {
     }
 
     @Test
+    void embeddingFallsBackWhenOpenAiEmbeddingIsNotArray() throws Exception {
+        startServer(exchange -> respond(exchange, 200, "{\"data\":[{\"embedding\":{}}]}"));
+        KnowledgeMilvusProperties props = new KnowledgeMilvusProperties();
+        props.setDimension(4);
+        props.getEmbedding().setProvider("openai");
+        props.getEmbedding().setOpenaiBaseUrl(baseUrl());
+
+        KnowledgeEmbeddingService service = new KnowledgeEmbeddingService(props, new ObjectMapper());
+        float[] vector = service.embed("fallback object");
+
+        assertEquals(4, vector.length);
+        assertTrue(norm(vector) > 0.99 && norm(vector) < 1.01);
+    }
+
+    @Test
     void milvusClientLifecycleSearchGuardAndPrivateHelpers() throws Exception {
         KnowledgeMilvusProperties props = new KnowledgeMilvusProperties();
         props.setEnabled(false);
@@ -103,9 +129,17 @@ class MilvusServicesTest {
         client.init();
         assertFalse(client.isReady());
         assertTrue(client.search(new float[]{1}, 1, null, 0).isEmpty());
-        assertTrue(client.search(null, 1, null, 0).isEmpty());
+
+        MilvusKnowledgeClient nullVectorClient = new MilvusKnowledgeClient(props);
+        injectClient(nullVectorClient, mock(MilvusServiceClient.class), true);
+        assertFalse(nullVectorClient.isReady());
 
         props.setEnabled(true);
+        MilvusKnowledgeClient noClient = new MilvusKnowledgeClient(props);
+        injectClient(noClient, null, true);
+        assertFalse(noClient.isReady());
+        assertTrue(noClient.search(null, 1, null, 0).isEmpty());
+
         props.setHost("bad-host.invalid");
         client.init();
         assertFalse(client.isReady());
@@ -206,6 +240,7 @@ class MilvusServicesTest {
         MilvusKnowledgeClient client = new MilvusKnowledgeClient(props);
         MilvusServiceClient mockClient = mock(MilvusServiceClient.class);
         injectClient(client, mockClient, true);
+        assertTrue(client.search(null, 3, null, 0).isEmpty());
 
         @SuppressWarnings("unchecked")
         R<SearchResults> failed = mock(R.class);
@@ -223,6 +258,13 @@ class MilvusServicesTest {
         when(emptyScores.getData()).thenReturn(emptyResults);
         when(mockClient.search(any(SearchParam.class))).thenReturn(emptyScores);
         assertTrue(client.search(new float[]{0.1f, 0.2f}, 3, null, 0).isEmpty());
+
+        @SuppressWarnings("unchecked")
+        R<SearchResults> nullData = mock(R.class);
+        when(nullData.getStatus()).thenReturn(R.Status.Success.getCode());
+        when(nullData.getData()).thenReturn(null);
+        when(mockClient.search(any(SearchParam.class))).thenReturn(nullData);
+        assertTrue(client.search(new float[]{0.1f, 0.2f}, 3, " ", 0).isEmpty());
 
         SearchResultsWrapper.IDScore idScore = mock(SearchResultsWrapper.IDScore.class);
         when(idScore.getScore()).thenReturn(0.95f);
@@ -251,17 +293,43 @@ class MilvusServicesTest {
             assertEquals(0.95, chunks.get(0).score(), 0.0001);
         }
 
+        try (MockedConstruction<SearchResultsWrapper> ignored = mockConstruction(SearchResultsWrapper.class,
+                (mock, context) -> when(mock.getIDScore(0)).thenReturn(null))) {
+            assertTrue(client.search(new float[]{0.1f, 0.2f}, 5, null, 0).isEmpty());
+        }
+
+        try (MockedConstruction<SearchResultsWrapper> ignored = mockConstruction(SearchResultsWrapper.class,
+                (mock, context) -> when(mock.getIDScore(0)).thenReturn(List.of(idScore)))) {
+            assertTrue(client.search(new float[]{0.1f, 0.2f}, 5, null, 0.99).isEmpty());
+        }
+
         SearchResultsWrapper.IDScore longIdScore = mock(SearchResultsWrapper.IDScore.class);
         when(longIdScore.getScore()).thenReturn(0.99f);
-        when(longIdScore.getStrID()).thenReturn("");
-        when(longIdScore.getLongID()).thenReturn(999L);
-        when(longIdScore.get("content")).thenReturn("long-id");
+        when(longIdScore.getStrID()).thenReturn(null);
+        when(longIdScore.getLongID()).thenReturn(998L);
+        when(longIdScore.get("content")).thenReturn("null-id");
         when(longIdScore.get("doc_title")).thenReturn("title");
         when(longIdScore.get("doc_source")).thenReturn("source");
         when(longIdScore.get("doc_type")).thenReturn("article");
 
         try (MockedConstruction<SearchResultsWrapper> ignored = mockConstruction(SearchResultsWrapper.class,
                 (mock, context) -> when(mock.getIDScore(0)).thenReturn(List.of(longIdScore)))) {
+            List<DocumentChunk> nullIdChunks = client.search(new float[]{0.1f, 0.2f}, 5, null, 0);
+            assertEquals(1, nullIdChunks.size());
+            assertEquals("998", nullIdChunks.get(0).id());
+        }
+
+        SearchResultsWrapper.IDScore blankIdScore = mock(SearchResultsWrapper.IDScore.class);
+        when(blankIdScore.getScore()).thenReturn(0.99f);
+        when(blankIdScore.getStrID()).thenReturn("");
+        when(blankIdScore.getLongID()).thenReturn(999L);
+        when(blankIdScore.get("content")).thenReturn("long-id");
+        when(blankIdScore.get("doc_title")).thenReturn("title");
+        when(blankIdScore.get("doc_source")).thenReturn("source");
+        when(blankIdScore.get("doc_type")).thenReturn("article");
+
+        try (MockedConstruction<SearchResultsWrapper> ignored = mockConstruction(SearchResultsWrapper.class,
+                (mock, context) -> when(mock.getIDScore(0)).thenReturn(List.of(blankIdScore)))) {
             List<DocumentChunk> longIdChunks = client.search(new float[]{0.1f, 0.2f}, 5, null, 0);
             assertEquals(1, longIdChunks.size());
             assertEquals("999", longIdChunks.get(0).id());

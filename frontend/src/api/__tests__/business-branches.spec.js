@@ -525,6 +525,13 @@ describe('core business branch coverage', () => {
       expect.objectContaining({ status: 'online' }),
     ])
 
+    mocks.getV2.mockImplementationOnce(invokeMock)
+    await expect(home.getDoctors()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: expect.any(String) }),
+      ]),
+    )
+
     mocks.getV2.mockResolvedValueOnce({ list: [] })
     await expect(consultation.getConsultMessages('empty')).resolves.toEqual([])
 

@@ -62,6 +62,8 @@ describe('AiChatDialog interactions without changing component source', () => {
     })
     const setup = setupOf(wrapper)
     assignMsgRef(setup, { scrollHeight: 120, scrollTo: vi.fn() })
+    await wrapper.find('textarea').setValue(' 怎么控制血糖 ')
+    expect(setup.query).toBe(' 怎么控制血糖 ')
     setup.query = ' 怎么控制血糖 '
 
     await setup.send()

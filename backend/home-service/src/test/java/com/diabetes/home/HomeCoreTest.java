@@ -24,6 +24,7 @@ class HomeCoreTest {
 
     @Test
     void applicationMainDelegatesToSpringApplication() {
+        assertNotNull(new HomeServiceApplication());
         try (MockedStatic<SpringApplication> spring = mockStatic(SpringApplication.class)) {
             HomeServiceApplication.main(new String[]{"--test"});
             spring.verify(() -> SpringApplication.run(eq(HomeServiceApplication.class), eq(new String[]{"--test"})));

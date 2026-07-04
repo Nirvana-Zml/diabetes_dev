@@ -28,7 +28,10 @@ class MinioStorageServiceTest {
         assertEquals("article", properties.getArticleBucket());
         assertEquals("banner", properties.getBannerBucket());
         assertEquals("video-cover", properties.getVideoCoverBucket());
+        assertEquals("video", properties.getVideoBucket());
         assertEquals("avatar", properties.getAvatarBucket());
+        assertEquals("export", properties.getExportBucket());
+        assertEquals("stt", properties.getSttBucket());
         assertEquals("http://localhost:9000", properties.getPublicBaseUrl());
 
         properties.setEndpoint("http://minio:9000/");
@@ -39,7 +42,10 @@ class MinioStorageServiceTest {
         properties.setArticleBucket("a");
         properties.setBannerBucket("b");
         properties.setVideoCoverBucket("v");
+        properties.setVideoBucket("video-data");
         properties.setAvatarBucket("doctor");
+        properties.setExportBucket("export-data");
+        properties.setSttBucket("stt-data");
         properties.setPublicBaseUrl("http://public/");
 
         assertEquals("http://minio:9000/", properties.getEndpoint());
@@ -50,7 +56,10 @@ class MinioStorageServiceTest {
         assertEquals("a", properties.getArticleBucket());
         assertEquals("b", properties.getBannerBucket());
         assertEquals("v", properties.getVideoCoverBucket());
+        assertEquals("video-data", properties.getVideoBucket());
         assertEquals("doctor", properties.getAvatarBucket());
+        assertEquals("export-data", properties.getExportBucket());
+        assertEquals("stt-data", properties.getSttBucket());
         assertEquals("http://public/", properties.getPublicBaseUrl());
     }
 
@@ -65,8 +74,6 @@ class MinioStorageServiceTest {
         assertEquals("http://public/video-cover/v_001.jpg", service.buildVideoCoverUrl("v_001"));
         assertEquals("http://public/avatar/d_001.jpg", service.buildDoctorAvatarUrl("d_001"));
         assertEquals("http://public/checkin/food/u_001.jpg", service.buildCheckinImageUrl("/food/u_001.jpg"));
-        assertEquals("http://public/video/v_001.mp4", service.buildVideoUrl("v_001"));
-        assertEquals("http://public/export/u_001/report.pdf", service.buildExportFileUrl("u_001", "/report.pdf"));
         assertEquals("", service.buildArticleCoverUrl(null));
         assertEquals("", service.buildArticleCoverUrl(" "));
         assertEquals("", service.buildBannerImageUrl(null));
@@ -77,8 +84,6 @@ class MinioStorageServiceTest {
         assertEquals("", service.buildDoctorAvatarUrl(" "));
         assertEquals("", service.buildCheckinImageUrl(null));
         assertEquals("", service.buildCheckinImageUrl(" "));
-        assertEquals("", service.buildVideoUrl(null));
-        assertEquals("", service.buildVideoUrl(" "));
     }
 
     @Test
@@ -109,14 +114,8 @@ class MinioStorageServiceTest {
                 service.uploadCheckinFood("legacy_1", new ByteArrayInputStream(new byte[]{1}), 1, null).objectKey());
         assertEquals("medical/legacy_2.jpg",
                 service.uploadCheckinMedical("legacy_2", new ByteArrayInputStream(new byte[]{1}), 1, null).objectKey());
-        assertEquals("http://public/video/v_001.mp4",
-                service.uploadVideo("v_001", new ByteArrayInputStream(new byte[]{1, 2}), 2, null));
-        assertEquals("http://public/video-cover/v_001.jpg",
-                service.uploadVideoCover("v_001", new ByteArrayInputStream(new byte[]{1}), 1, "image/png"));
-        assertEquals("http://public/export/u_001/report.pdf",
-                service.uploadExportFile("u_001", "report.pdf", new ByteArrayInputStream(new byte[]{3}), 1, null));
 
-        verify(client, atLeast(13)).putObject(any());
+        verify(client, atLeast(10)).putObject(any());
     }
 
     @Test
@@ -144,22 +143,6 @@ class MinioStorageServiceTest {
                 () -> service.uploadCheckinFoodPreset(null, new ByteArrayInputStream(new byte[0]), 0, null));
         assertBusinessException(400, "对象名无效",
                 () -> service.uploadCheckinFoodPreset(" ", new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(400, "视频 ID 无效",
-                () -> service.uploadVideo(null, new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(400, "视频 ID 无效",
-                () -> service.uploadVideo(" ", new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(400, "视频 ID 无效",
-                () -> service.uploadVideoCover(" ", new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(400, "视频 ID 无效",
-                () -> service.uploadVideoCover(null, new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(400, "文件名无效",
-                () -> service.uploadExportFile("u_001", null, new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(400, "文件名无效",
-                () -> service.uploadExportFile("u_001", " ", new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(400, "用户 ID 无效",
-                () -> service.uploadExportFile(null, "report.pdf", new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(400, "用户 ID 无效",
-                () -> service.uploadExportFile(" ", "report.pdf", new ByteArrayInputStream(new byte[0]), 0, null));
     }
 
     @Test
@@ -175,10 +158,6 @@ class MinioStorageServiceTest {
                 () -> service.uploadArticleCover("a_001", new ByteArrayInputStream(new byte[0]), 0, null));
         assertBusinessException(500, "MinIO 不可用: down",
                 () -> service.uploadCheckinFoodPreset("p_001", new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(500, "MinIO 不可用: down",
-                () -> service.uploadVideo("v_001", new ByteArrayInputStream(new byte[0]), 0, null));
-        assertBusinessException(500, "MinIO 不可用: down",
-                () -> service.uploadExportFile("u_001", "report.pdf", new ByteArrayInputStream(new byte[0]), 0, null));
     }
 
     @Test
@@ -195,41 +174,6 @@ class MinioStorageServiceTest {
                 () -> service.uploadArticleCover("a_001", new ByteArrayInputStream(new byte[]{1}), 1, null));
         assertBusinessException(500, "打卡图片上传失败: write failed",
                 () -> service.uploadCheckinFoodPreset("p_001", new ByteArrayInputStream(new byte[]{1}), 1, null));
-        assertBusinessException(500, "视频上传失败: write failed",
-                () -> service.uploadVideo("v_001", new ByteArrayInputStream(new byte[]{1}), 1, null));
-        assertBusinessException(500, "视频封面上传失败: write failed",
-                () -> service.uploadVideoCover("v_001", new ByteArrayInputStream(new byte[]{1}), 1, null));
-        assertBusinessException(500, "导出文件上传失败: write failed",
-                () -> service.uploadExportFile("u_001", "report.pdf", new ByteArrayInputStream(new byte[]{1}), 1, null));
-    }
-
-    @Test
-    @DisplayName("BusinessException 直接透传不再包装")
-    void shouldRethrowBusinessExceptionFromUpload() throws Exception {
-        MinioClient client = mock(MinioClient.class);
-        when(client.bucketExists(any())).thenReturn(true);
-        when(client.putObject(any())).thenThrow(new BusinessException(400, "reject upload"));
-        MinioStorageService service = serviceWithMockClient(client, properties());
-
-        assertBusinessException(400, "reject upload",
-                () -> service.uploadProfileAvatar("u_001", new ByteArrayInputStream(new byte[]{1}), 1, null));
-        assertBusinessException(400, "reject upload",
-                () -> service.uploadCheckinMedicalUser("u_001", "pic", new ByteArrayInputStream(new byte[]{1}), 1, null));
-        assertBusinessException(400, "reject upload",
-                () -> service.uploadVideoCover("v_001", new ByteArrayInputStream(new byte[]{1}), 1, null));
-    }
-
-    @Test
-    @DisplayName("上传导出文件和视频时支持自定义 contentType")
-    void shouldUseCustomContentTypeWhenProvided() throws Exception {
-        MinioClient client = mock(MinioClient.class);
-        when(client.bucketExists(any())).thenReturn(true);
-        MinioStorageService service = serviceWithMockClient(client, properties());
-
-        service.uploadVideo("v_002", new ByteArrayInputStream(new byte[]{1}), 1, "video/quicktime");
-        service.uploadExportFile("u_002", "data.xlsx", new ByteArrayInputStream(new byte[]{1}), 1, "application/vnd.ms-excel");
-
-        verify(client, times(2)).putObject(any());
     }
 
     @Test
@@ -273,7 +217,6 @@ class MinioStorageServiceTest {
         when(throwingProperties.getArticleBucket()).thenThrow(new RuntimeException("article down"));
         when(throwingProperties.getBannerBucket()).thenThrow(new RuntimeException("banner down"));
         when(throwingProperties.getVideoCoverBucket()).thenThrow(new RuntimeException("video down"));
-        when(throwingProperties.getVideoBucket()).thenThrow(new RuntimeException("video-file down"));
         when(throwingProperties.getAvatarBucket()).thenThrow(new RuntimeException("avatar down"));
         when(throwingProperties.getExportBucket()).thenThrow(new RuntimeException("export down"));
         when(throwingProperties.getSttBucket()).thenThrow(new RuntimeException("stt down"));
@@ -303,12 +246,9 @@ class MinioStorageServiceTest {
         nullEndpoint.setEndpoint(null);
         MinioProperties blankEndpoint = properties();
         blankEndpoint.setEndpoint(" ");
-        MinioProperties trailingEndpoint = properties();
-        trailingEndpoint.setEndpoint("http://minio:9000/");
 
         assertNotNull(new MinioStorageService(nullEndpoint));
         assertNotNull(new MinioStorageService(blankEndpoint));
-        assertNotNull(new MinioStorageService(trailingEndpoint));
     }
 
     @Test

@@ -28,6 +28,12 @@ vi.mock('@/utils/auth', () => ({
 vi.mock('@/views/Assistant/index.vue', () => ({ default: { name: 'AssistantMock' } }))
 vi.mock('@/views/CheckinAnalysis/index.vue', () => ({ default: { name: 'CheckinAnalysisMock' } }))
 vi.mock('@/views/CheckinRecords/index.vue', () => ({ default: { name: 'CheckinRecordsMock' } }))
+vi.mock('@/views/CheckinRecords/FoodCheckin.vue', () => ({ default: { name: 'FoodCheckinMock' } }))
+vi.mock('@/views/CheckinRecords/MedicationCheckin.vue', () => ({ default: { name: 'MedicationCheckinMock' } }))
+vi.mock('@/views/CheckinRecords/ExerciseCheckin.vue', () => ({ default: { name: 'ExerciseCheckinMock' } }))
+vi.mock('@/views/CheckinRecords/GlucoseCheckin.vue', () => ({ default: { name: 'GlucoseCheckinMock' } }))
+vi.mock('@/views/CheckinRecords/AchievementWall.vue', () => ({ default: { name: 'AchievementWallMock' } }))
+vi.mock('@/views/CheckinReminderSettings/index.vue', () => ({ default: { name: 'CheckinReminderSettingsMock' } }))
 vi.mock('@/views/Consultation/index.vue', () => ({ default: { name: 'ConsultationMock' } }))
 vi.mock('@/views/HealthEvaluation/index.vue', () => ({ default: { name: 'HealthEvaluationMock' } }))
 vi.mock('@/views/HealthInfo/index.vue', () => ({ default: { name: 'HealthInfoMock' } }))
@@ -42,6 +48,7 @@ describe('router modules', () => {
       import('../modules/assistant'),
       import('../modules/checkinAnalysis'),
       import('../modules/checkinRecords'),
+      import('../modules/checkinReminderSettings'),
       import('../modules/consultation'),
       import('../modules/healthEvaluation'),
       import('../modules/healthInfo'),
@@ -61,6 +68,7 @@ describe('router modules', () => {
       '/checkin-records/exercise',
       '/checkin-records/glucose',
       '/checkin-records/achievements',
+      '/checkin-reminder-settings',
       '/consultation',
       '/health-evaluation',
       '/health-info',
@@ -73,6 +81,14 @@ describe('router modules', () => {
     for (const route of routes.filter((item) => typeof item.component === 'function')) {
       await expect(route.component()).resolves.toHaveProperty('default')
     }
+
+    const checkinRoot = routes.find((route) => route.path === '/checkin-records')
+    expect(checkinRoot.beforeEnter({ query: { tab: 'food' } })).toEqual({
+      path: '/checkin-records/food',
+      replace: true,
+    })
+    expect(checkinRoot.beforeEnter({ query: { tab: 'unknown' } })).toBe(true)
+    expect(checkinRoot.beforeEnter({ query: {} })).toBe(true)
   }, 15000)
 
   it('creates app router and registers auth guard', async () => {

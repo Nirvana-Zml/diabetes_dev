@@ -51,5 +51,10 @@ describe('health evaluation constants', () => {
     expect(constants.genderLabel('custom')).toBe('custom')
     expect(constants.genderLabel(2)).toBe('女')
     expect(constants.genderLabel(99)).toBe('未知')
+
+    expect(constants.normalizeDietType()).toBe('balanced')
+    expect(constants.normalizeDietType('high-sugar')).toBe('high_sugar')
+    expect(constants.normalizeDietType('high-fat')).toBe('high_fat')
+    expect(constants.normalizeDietType('balanced')).toBe('balanced')
   })
 })
