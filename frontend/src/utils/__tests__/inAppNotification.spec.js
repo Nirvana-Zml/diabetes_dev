@@ -61,6 +61,16 @@ describe('inAppNotification', () => {
     expect(getNotificationActionButtons(undefined)).toEqual([])
   })
 
+  it('returns false when window is undefined', async () => {
+    const originalWindow = globalThis.window
+    // @ts-expect-error test-only
+    delete globalThis.window
+    vi.resetModules()
+    const mod = await import('../inAppNotification')
+    expect(mod.isMobileViewport()).toBe(false)
+    globalThis.window = originalWindow
+  })
+
   it('forwards onClose and custom duration', () => {
     const onClose = vi.fn()
     showInAppNotification({

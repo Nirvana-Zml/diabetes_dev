@@ -140,7 +140,7 @@ vi.mock('@/api/checkinManagement', () => ({
 }))
 
 const checkinDate = { __v_isRef: true, value: '2026-07-03' }
-vi.mock('../CheckinRecords/composables/useCheckinDate', () => ({
+vi.mock('@/views/CheckinRecords/composables/useCheckinDate', () => ({
   useCheckinDate: () => ({
     checkinDate,
     isToday: computed(() => checkinDate.value === '2026-07-03'),

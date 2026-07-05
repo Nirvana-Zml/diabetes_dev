@@ -65,6 +65,11 @@ afterEach(() => {
 
 describe('MessagePopover', () => {
   it('loads messages and renders empty or mobile states', async () => {
+    mocks.loadList.mockImplementationOnce(() => new Promise(() => {}))
+    const loadingWrapper = await mountPopover({ mobile: true })
+    expect(loadingWrapper.text()).toContain('加载中')
+
+    mocks.loadList.mockResolvedValueOnce(undefined)
     const wrapper = await mountPopover({ mobile: true })
 
     expect(mocks.loadList).toHaveBeenCalled()

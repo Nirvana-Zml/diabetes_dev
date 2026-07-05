@@ -118,4 +118,14 @@ describe('router modules', () => {
     afterEach({ meta: {} })
     expect(document.title).toBe('糖尿病智能助手 - 糖尿病智能助手')
   })
+
+  it('loads lazy auth route components', async () => {
+    const router = (await import('../index')).default
+    const authPaths = ['/login', '/register', '/forgot-password']
+    for (const path of authPaths) {
+      const route = router.options.routes.find((item) => item.path === path)
+      expect(route?.component).toBeTypeOf('function')
+      await expect(route.component()).resolves.toHaveProperty('default')
+    }
+  })
 })

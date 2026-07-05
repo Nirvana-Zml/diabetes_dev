@@ -159,4 +159,10 @@ describe('request utility', () => {
     mocks.clients[0].nextError = { message: 'timeout' }
     await expect(request.get('/timeout')).rejects.toThrow('timeout')
   })
+
+  it('falls back to default network error message', async () => {
+    const request = await import('../request')
+    mocks.clients[0].nextError = { response: { status: 503, data: {} } }
+    await expect(request.get('/offline')).rejects.toThrow('网络错误')
+  })
 })

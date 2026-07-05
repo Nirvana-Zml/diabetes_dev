@@ -62,6 +62,7 @@ export default defineConfig({
       exclude: [
         'src/**/*.test.js',
         'src/**/*.spec.js',
+        'src/**/__tests__/**',
       ],
       thresholds: {
         statements: 0,

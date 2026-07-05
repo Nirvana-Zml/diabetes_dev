@@ -5,6 +5,7 @@
 Thumbs.db
 Desktop.ini
 ehthumbs.db
+$RECYCLE.BIN/
 
 # =========================
 # IDE / Editor
@@ -28,6 +29,11 @@ ehthumbs.db
 .env.local
 .env.*.local
 !.env.example
+!**/.env.example
+
+# Ngrok 本地配置（含 authtoken）
+.ngrok/
+ngrok.yml
 
 # =========================
 # Logs
@@ -47,15 +53,28 @@ hs_err_pid*
 replay_pid*
 
 # =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# =========================
 # Node.js / Frontend
 # =========================
 node_modules/
 dist/
 .npm
 *.tsbuildinfo
+.vite/
 
 # =========================
-# Docker runtime data (keep nginx config)
+# Docker runtime data (keep nginx / maven config)
 # =========================
 docker/mysql/data/
 docker/kingbase/data/
@@ -65,6 +84,10 @@ docker/milvus/data/
 docker/maven/repository/*
 docker/node/
 !docker/maven/repository/.gitkeep
+
+# TLS 证书（保留 .gitkeep 占位）
+docker/nginx/ssl/*
+!docker/nginx/ssl/.gitkeep
 
 # =========================
 # Build / Temp
@@ -81,11 +104,12 @@ docker/node/
 coverage/
 .nyc_output/
 *.lcov
+test-results/
+playwright-report/
 
-web_html/
+# =========================
+# Local data & scratch (not for version control)
+# =========================
 diakg/
 diakg_text/
-
-
 db/migration/
-

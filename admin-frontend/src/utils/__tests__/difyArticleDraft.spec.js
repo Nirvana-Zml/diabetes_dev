@@ -21,6 +21,22 @@ describe('difyArticleDraft utils', () => {
     expect(resolveDifyWorkflowUrl('not-a-url')).toBe('not-a-url')
   })
 
+  it('uses custom proxy prefix from env', () => {
+    vi.stubEnv('VITE_DIFY_USE_PROXY', 'true')
+    vi.stubEnv('VITE_DIFY_PROXY_PREFIX', '/custom-dify')
+    expect(resolveDifyWorkflowUrl('http://localhost:58080/v1/workflows/run')).toBe(
+      '/custom-dify/v1/workflows/run',
+    )
+  })
+
+  it('falls back to default proxy prefix when env prefix is empty', () => {
+    vi.stubEnv('VITE_DIFY_USE_PROXY', 'true')
+    vi.stubEnv('VITE_DIFY_PROXY_PREFIX', '')
+    expect(resolveDifyWorkflowUrl('http://localhost:58080/v1/workflows/run')).toBe(
+      '/dify-proxy/v1/workflows/run',
+    )
+  })
+
   it('returns original url when proxy disabled', () => {
     vi.stubEnv('VITE_DIFY_USE_PROXY', 'false')
     const url = 'http://localhost:58080/v1/workflows/run'
@@ -35,6 +51,7 @@ describe('difyArticleDraft utils', () => {
     expect(extractArticleDraftPayload({ outputs: { article_draft: { summary: '摘要' } } })).toEqual({ summary: '摘要' })
     expect(extractArticleDraftPayload({ data: { outputs: { article_draft: '{"title":"json"}' } } })).toEqual({ title: 'json' })
     expect(extractArticleDraftPayload({ data: { outputs: { article_draft: 'bad-json' } } })).toBeNull()
+    expect(extractArticleDraftPayload({ data: { outputs: { article_draft: '"primitive"' } } })).toBe('primitive')
     expect(extractArticleDraftPayload({ sse_data: JSON.stringify({ title: '嵌套' }) })).toEqual({ title: '嵌套' })
     expect(extractArticleDraftPayload({ sse_data: 'bad' })).toBeNull()
     expect(extractArticleDraftPayload({ text: JSON.stringify({ content: 'text字段' }) })).toEqual({ content: 'text字段' })
@@ -185,6 +202,104 @@ describe('difyArticleDraft utils', () => {
       text: async () => '',
     }))
     await expect(streamArticleDraft({ workflowUrl: '/run', apiKey: 'k' }, { topic: '主题' })).rejects.toThrow('Dify 请求失败: HTTP 400')
+  })
+
+  it('merges partial draft patches and skips done markers', async () => {
+    const chunks = []
+    const encoder = new TextEncoder()
+    let readCount = 0
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (readCount === 0) {
+                readCount += 1
+                return {
+                  done: false,
+                  value: encoder.encode([
+                    'data: [DONE]\n\n',
+                    '\n\n',
+                    'data: {"event":"text_chunk","data":{"summary":"仅摘要"}}\n\n',
+                    'data: {"event":"text_chunk","data":{"content":"","tags":[]}}\n\n',
+                    'data: {"event":"text_chunk","data":{"tags":["控糖","饮食"]}}\n\n',
+                    'data: {"event":"complete","data":{"title":"最终标题","content":"最终正文"}}\n\n',
+                  ].join('')),
+                }
+              }
+              return { done: true, value: undefined }
+            },
+          }
+        },
+      },
+    }))
+
+    const draft = await streamArticleDraft(
+      { workflowUrl: '/run', apiKey: 'k' },
+      { topic: '合并测试' },
+      { onChunk: (value) => chunks.push({ ...value }) },
+    )
+
+    expect(draft).toMatchObject({
+      title: '最终标题',
+      summary: '仅摘要',
+      content: '最终正文',
+      tags: ['控糖', '饮食'],
+    })
+    expect(chunks.some((item) => item.summary === '仅摘要')).toBe(true)
+  })
+
+  it('maps http error body when message is empty but error field exists', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 422,
+      text: async () => JSON.stringify({ message: '', error: 'validation failed' }),
+    }))
+    await expect(streamArticleDraft({ workflowUrl: '/run', apiKey: 'k' }, { topic: '主题' })).rejects.toThrow('validation failed')
+  })
+
+  it('falls back to raw response text when json body has no message or error', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 400,
+      text: async () => JSON.stringify({ code: 400 }),
+    }))
+    await expect(streamArticleDraft({ workflowUrl: '/run', apiKey: 'k' }, { topic: '主题' })).rejects.toThrow('{"code":400}')
+  })
+
+  it('skips merging when extracted patch is not an object', async () => {
+    const encoder = new TextEncoder()
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      body: {
+        getReader() {
+          let sent = false
+          return {
+            async read() {
+              if (!sent) {
+                sent = true
+                return {
+                  done: false,
+                  value: encoder.encode([
+                    'data: {"data":{"outputs":{"article_draft":"\\"ignored\\""}}}\n\n',
+                    'data: {"event":"complete","data":{"title":"有效标题","content":"有效正文"}}\n\n',
+                  ].join('')),
+                }
+              }
+              return { done: true, value: undefined }
+            },
+          }
+        },
+      },
+    }))
+
+    const draft = await streamArticleDraft(
+      { workflowUrl: '/run', apiKey: 'k' },
+      { topic: '非对象补丁' },
+    )
+
+    expect(draft).toMatchObject({ title: '有效标题', content: '有效正文' })
   })
 
   it('ignores invalid sse blocks and handles workflow errors', async () => {

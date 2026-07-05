@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 
+const storeRef = vi.hoisted(() => ({ current: null }))
+
+vi.mock('@/stores/user', async () => {
+  const { reactive } = await import('vue')
+  storeRef.current = reactive({ isLoggedIn: false })
+  return { useUserStore: () => storeRef.current }
+})
+
 const mocks = vi.hoisted(() => ({
   route: { meta: {} },
-  userStore: { isLoggedIn: false },
   reminderStart: vi.fn(),
   reminderStop: vi.fn(),
   messageStart: vi.fn(),
@@ -12,10 +19,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('vue-router', () => ({
   useRoute: () => mocks.route,
-}))
-
-vi.mock('@/stores/user', () => ({
-  useUserStore: () => mocks.userStore,
 }))
 
 vi.mock('@/composables/useCheckinReminder', () => ({
@@ -35,7 +38,7 @@ vi.mock('@/composables/useMessageCenter', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.route.meta = {}
-  mocks.userStore.isLoggedIn = false
+  if (storeRef.current) storeRef.current.isLoggedIn = false
 })
 
 describe('App', () => {
@@ -73,7 +76,7 @@ describe('App', () => {
   })
 
   it('starts and stops reminder services when logged in', async () => {
-    mocks.userStore.isLoggedIn = true
+    storeRef.current.isLoggedIn = true
     const App = (await import('../App.vue')).default
     const wrapper = mount(App, {
       global: {
@@ -91,5 +94,21 @@ describe('App', () => {
 
     expect(mocks.reminderStop).toHaveBeenCalledTimes(1)
     expect(mocks.messageStop).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops background services when user logs out', async () => {
+    const { nextTick } = await import('vue')
+    storeRef.current.isLoggedIn = true
+    const App = (await import('../App.vue')).default
+    const wrapper = mount(App, {
+      global: { stubs: { RouterView: { template: '<main />' } } },
+    })
+    mocks.reminderStop.mockClear()
+    mocks.messageStop.mockClear()
+    storeRef.current.isLoggedIn = false
+    await nextTick()
+    expect(mocks.reminderStop).toHaveBeenCalledTimes(1)
+    expect(mocks.messageStop).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
   })
 })

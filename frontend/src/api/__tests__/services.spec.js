@@ -27,6 +27,20 @@ vi.mock('@/utils/sse', () => ({
   mockSSEStream: mocks.mockSSEStream,
 }))
 
+vi.mock('@/config', () => ({
+  USE_MOCK: true,
+  API_BASE: '/api/v1',
+  API_V2_BASE: '/api/v2',
+  APP_NAME: '糖尿病智能助手',
+  DIFY_WORKFLOWS: {
+    QA: 'qa-url',
+    CONSULTATION: 'consult-url',
+    RISK: 'risk-url',
+    PLAN: 'plan-url',
+    ARTICLE_DRAFT: 'article-url',
+  },
+}))
+
 vi.mock('@/utils/delay', () => ({
   delay: vi.fn(async () => {}),
 }))
@@ -121,7 +135,7 @@ describe('remaining frontend api modules', () => {
   it('covers checkin api calls and normalizers', async () => {
     const api = await import('../checkin')
     await expect(api.uploadCheckinImage('food', new File(['x'], 'a.png'))).resolves.toMatchObject({ object_key: expect.stringContaining('food/') })
-    await expect(api.getFoodCategories()).resolves.toHaveLength(4)
+    await expect(api.getFoodCategories()).resolves.toHaveLength(5)
     await expect(api.getFoodPresets('cat_drink')).resolves.toHaveLength(1)
     await expect(api.getFoodPresets()).resolves.toHaveLength(2)
     await expect(api.createFoodCheckin({ checkin_date: '2026-06-30' })).resolves.toMatchObject({ checkin_id: 'chk_food_mock' })
@@ -403,7 +417,19 @@ describe('remaining frontend api modules', () => {
   })
 
   it('builds achievement wall from live stats when mock mode is disabled', async () => {
-    vi.stubEnv('VITE_USE_MOCK', 'false')
+    vi.doMock('@/config', () => ({
+      USE_MOCK: false,
+      API_BASE: '/api/v1',
+      API_V2_BASE: '/api/v2',
+      APP_NAME: '糖尿病智能助手',
+      DIFY_WORKFLOWS: {
+        QA: 'qa-url',
+        CONSULTATION: 'consult-url',
+        RISK: 'risk-url',
+        PLAN: 'plan-url',
+        ARTICLE_DRAFT: 'article-url',
+      },
+    }))
     vi.resetModules()
     const checkin = await import('../checkin')
 
@@ -421,6 +447,9 @@ describe('remaining frontend api modules', () => {
       total: 12,
       achievements: expect.any(Array),
     })
+
+    vi.doUnmock('@/config')
+    vi.resetModules()
   })
 
   it('covers dify medium risk and non-mock log placeholder path', async () => {

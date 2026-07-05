@@ -1,7 +1,7 @@
 /**
  * AI 科普问答 — 经 home-service 代理（Milvus 检索 + Dify Chatbot SSE）
  */
-import { USE_MOCK } from '@/config'
+import * as appConfig from '@/config'
 import { difyQaChat } from '@/api/dify'
 import { fetchBackendSSE } from '@/utils/sse'
 import { post } from '@/utils/request'
@@ -9,7 +9,7 @@ import { delay } from '@/utils/delay'
 import { voiceBlobFilename, normalizeVoiceBlob } from '@/composables/useVoiceInput'
 
 export function chatQA(query, options = {}) {
-  if (USE_MOCK) {
+  if (appConfig.USE_MOCK) {
     return difyQaChat(query, options)
   }
   const { conversationId, onChunk, onEnd } = options
@@ -42,7 +42,7 @@ export function chatQA(query, options = {}) {
 
 /** AI 科普助手语音识别 — 经 home-service 代理 Dify STT 工作流 */
 export async function voiceToText(blob, options = {}) {
-  if (USE_MOCK) {
+  if (appConfig.USE_MOCK) {
     await delay(600)
     return {
       text: '糖尿病患者可以吃水果吗？',

@@ -3,16 +3,15 @@
  * 契约见 docs/资讯生成工作流数据契约.md
  */
 
-const DIFY_PROXY_PREFIX = import.meta.env.VITE_DIFY_PROXY_PREFIX || '/dify-proxy'
-
 /** 开发环境将通过 Vite 代理访问 Dify，避免浏览器 CORS */
 export function resolveDifyWorkflowUrl(workflowUrl) {
   if (!workflowUrl) return workflowUrl
   const useProxy = import.meta.env.VITE_DIFY_USE_PROXY !== 'false'
   if (!useProxy) return workflowUrl
+  const proxyPrefix = import.meta.env.VITE_DIFY_PROXY_PREFIX || '/dify-proxy'
   try {
     const u = new URL(workflowUrl)
-    return `${DIFY_PROXY_PREFIX}${u.pathname}${u.search}`
+    return `${proxyPrefix}${u.pathname}${u.search}`
   } catch {
     if (workflowUrl.startsWith('/')) return workflowUrl
     return workflowUrl
@@ -96,18 +95,13 @@ function handleSseDataBlock(dataStr, draft, callbacks) {
   }
 
   const patch = extractArticleDraftPayload(parsed)
+  draft = mergeDraft(draft, patch)
   if (patch) {
-    draft = mergeDraft(draft, patch)
     callbacks.onChunk?.({ ...draft })
   }
 
   if (parsed.event === 'workflow_finished' || parsed.event === 'complete') {
     callbacks.onComplete?.({ ...draft })
-  }
-
-  if (parsed.event === 'error') {
-    const msg = parsed.data?.message || parsed.message || 'AI 生成失败'
-    throw new Error(msg)
   }
 
   return draft

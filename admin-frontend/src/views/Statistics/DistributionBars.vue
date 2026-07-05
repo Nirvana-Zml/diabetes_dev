@@ -1,6 +1,6 @@
 <template>
   <div class="bars">
-    <div v-if="!items.length" class="empty">{{ emptyText }}</div>
+    <div v-if="!items?.length" class="empty">{{ emptyText }}</div>
     <div v-for="item in normalized" :key="item.label" class="bar-row">
       <span class="bar-label">{{ item.label }}</span>
       <div class="bar-track">

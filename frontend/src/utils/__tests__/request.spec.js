@@ -64,6 +64,10 @@ vi.mock('@/utils/delay', () => ({
   delay: vi.fn(async () => {}),
 }))
 
+vi.mock('@/utils/auth', () => ({
+  isPublicRoute: vi.fn(() => false),
+}))
+
 beforeEach(() => {
   localStorage.clear()
   mocks.clearTokens.mockClear()
@@ -125,5 +129,26 @@ describe('request utility', () => {
     await expect(request.get('/private')).rejects.toThrow('未登录')
     expect(mocks.clearTokens).toHaveBeenCalled()
     expect(mocks.routerPush).toHaveBeenCalledWith({ path: '/login', query: { redirect: '/private' } })
+  })
+
+  it('skips redirect on 401 for public pages', async () => {
+    const { isPublicRoute } = await import('@/utils/auth')
+    isPublicRoute.mockReturnValueOnce(true)
+    const request = await import('../request')
+    mocks.clients[0].nextError = { response: { status: 401, data: {} } }
+    await expect(request.get('/public')).rejects.toThrow('网络错误')
+    expect(mocks.routerPush).not.toHaveBeenCalled()
+  })
+
+  it('maps non-200 business codes and raw response bodies', async () => {
+    const request = await import('../request')
+    mocks.clients[0].nextResponse = { data: { code: 500 } }
+    await expect(request.get('/bad-default')).rejects.toThrow('请求失败')
+
+    mocks.clients[0].nextResponse = { data: { ok: true } }
+    await expect(request.get('/raw-body')).resolves.toEqual({ ok: true })
+
+    mocks.clients[0].nextResponse = { data: { code: 200, data: { value: 1 } } }
+    await expect(request.get('/wrapped')).resolves.toEqual({ value: 1 })
   })
 })

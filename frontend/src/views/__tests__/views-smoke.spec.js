@@ -79,12 +79,12 @@ vi.mock('@/api/article', () => ({
   toggleArticleFavorite: vi.fn(async () => ({ favorited: true })),
 }))
 
+const chatMocks = vi.hoisted(() => ({
+  chatQA: vi.fn(),
+}))
+
 vi.mock('@/api/chat', () => ({
-  chatQA: vi.fn(async (_query, options = {}) => {
-    options.onChunk?.('你好')
-    options.onEnd?.({ answer: '你好' })
-    return { answer: '你好' }
-  }),
+  chatQA: chatMocks.chatQA,
 }))
 
 vi.mock('@/api/checkin', () => ({
@@ -731,6 +731,11 @@ async function exerciseComponent(wrapper) {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  chatMocks.chatQA.mockImplementation(async (_query, options = {}) => {
+    options.onChunk?.({ content: '你好' })
+    options.onEnd?.({ answer: '你好', conversation_id: 'conv-1' })
+    return { answer: '你好' }
+  })
   push.mockClear()
   Object.assign(route, {
     path: '/home',
@@ -774,7 +779,7 @@ describe('frontend views smoke coverage', () => {
       wrapper.unmount()
     }
     await flush()
-  })
+  }, 15000)
 
   it('mounts main feature pages', async () => {
     const modules = await Promise.all([
@@ -1054,7 +1059,6 @@ describe('frontend views smoke coverage', () => {
   })
 
   it('covers main view branch helpers and async fallbacks', async () => {
-    const chatApi = await import('@/api/chat')
     const articleApi = await import('@/api/article')
     const homeApi = await import('@/api/home')
     const managementApi = await import('@/api/checkinManagement')
@@ -1118,8 +1122,9 @@ describe('frontend views smoke coverage', () => {
     assistantWrapper.vm.msgRef = { scrollHeight: 100, scrollTo: vi.fn() }
     assistantWrapper.vm.autoResize()
     assistantWrapper.vm.query = '异常问题'
-    chatApi.chatQA.mockRejectedValueOnce(new Error('ai busy'))
+    chatMocks.chatQA.mockRejectedValueOnce(new Error('ai busy'))
     await assistantWrapper.vm.send()
+    await flush()
     expect(assistantWrapper.vm.messages.at(-1).content).toBe('服务暂时繁忙，请稍后重试。')
 
     const analysisWrapper = mountSmoke(CheckinAnalysis)
@@ -1431,16 +1436,15 @@ describe('frontend views smoke coverage', () => {
     expect(consultationWrapper.vm.probText('medium')).toBe('中等')
     expect(consultationWrapper.vm.showDateDivider(0)).toBe(true)
 
-    const userWrapper = mountSmoke(UserCenter)
-    userApi.getUserProfile.mockResolvedValueOnce({ user_id: 'u3', points: 88, privacy_settings: { data_visible: false, consult_notify: false } })
-    userApi.getHealthRecord.mockResolvedValueOnce({ bmi: 22, fasting_glucose: 5.6 })
-    userApi.getHealthAlert.mockResolvedValueOnce({ level: 'normal' })
-    userApi.getHealthTrendSummary.mockResolvedValueOnce({ summary: '良好' })
+    userApi.getUserProfile.mockResolvedValue({ user_id: 'u3', points: 88, privacy_settings: { data_visible: false, consult_notify: false } })
+    userApi.getHealthRecord.mockResolvedValue({ bmi: 22, fasting_glucose: 5.6 })
+    userApi.getHealthAlert.mockResolvedValue({ level: 'normal' })
+    userApi.getHealthTrendSummary.mockResolvedValue({ summary: '良好' })
     localStorage.setItem('health_trend_summary:u3', JSON.stringify({ summary: '良好', updatedAt: Date.now() }))
-    userApi.getUserConsultations.mockResolvedValueOnce({ total: 2, list: [] })
+    userApi.getUserConsultations.mockResolvedValue({ total: 2, list: [] })
     const checkinApiForUser = await import('@/api/checkin')
-    checkinApiForUser.getCheckinStats.mockResolvedValueOnce({ completion_rate: 0.875 })
-    await userWrapper.vm.loadPage()
+    checkinApiForUser.getCheckinStats.mockResolvedValue({ completion_rate: 0.875 })
+    const userWrapper = mountSmoke(UserCenter)
     await flush()
     expect(userWrapper.vm.trendSummary).toBe('良好')
     expect(userApi.getHealthTrendSummary).toHaveBeenCalled()

@@ -2,8 +2,6 @@
 
 本文档汇总本项目所有**后端调用**的 Dify 工作流：传入数据结构、期望返回数据结构、环境变量与代码/Schema 文件位置。
 
-> 最后更新：与 `backend/*/dify/*WorkflowContract.java` 及 `backend/*/resources/dify/*.schema.json` 保持一致。
-
 ---
 
 ## 1. 通用约定
@@ -95,12 +93,17 @@
 
 ## 2. 工作流一览
 
-| # | 业务 | 服务 | 环境变量 | 输出变量名 | 契约查询 API |
-|---|------|------|----------|------------|--------------|
-| 1 | 打卡 AI 行为分析 | checkin-service | `DIFY_CHECKIN_API_KEY` | `behavior_analysis` | `GET /api/v1/checkin-management/dify-workflow-spec` |
-| 2 | 健康方案生成 | plan-service | `DIFY_PLAN_API_KEY` | `plan_llm_output`（浅层，后端组装） | `GET /api/v1/plan/dify-workflow-spec` |
-| 3 | 糖尿病风险评估 | health-service | `DIFY_RISK_API_KEY` | `risk_assessment` | `GET /api/v1/risk/dify-workflow-spec` |
-| 4 | 资讯个性化推荐 | article-service | `DIFY_ARTICLE_RECOMMEND_API_KEY` | `article_info.recommendations` | `GET /api/v1/articles/recommend/dify-workflow-spec` |
+| # | 业务 | 服务 | 环境变量 | 输出变量名 | 响应模式 | 契约查询 API |
+|---|------|------|----------|------------|----------|--------------|
+| 1 | 打卡 AI 行为分析 | checkin-service | `DIFY_CHECKIN_API_KEY` | `behavior_analysis` | blocking | `GET /api/v1/checkin-management/dify-workflow-spec` |
+| 2 | 健康方案生成 | plan-service | `DIFY_PLAN_API_KEY` | `plan_llm_output`（浅层，后端组装） | blocking | `GET /api/v1/plan/dify-workflow-spec` |
+| 3 | 糖尿病风险评估 | health-service | `DIFY_RISK_API_KEY` | `risk_assessment` | blocking | `GET /api/v1/risk/dify-workflow-spec` |
+| 4 | 资讯个性化推荐 | article-service | `DIFY_ARTICLE_RECOMMEND_API_KEY` | `article_info.recommendations` | blocking | `GET /api/v1/articles/recommend/dify-workflow-spec` |
+| 5 | 健康趋势分析 | user-service | `DIFY_HEALTH_TREND_API_KEY` | `trend_analysis` | blocking | `GET /api/v1/user/health-trend/dify-workflow-spec` |
+| 6 | AI 模拟医生问诊 | consultation-service | `DIFY_CONSULTATION_API_KEY` | `doctor_reply` | blocking | `GET /api/v1/consultations/dify-workflow-spec` |
+| 7 | 科普问答 | home-service | `DIFY_QA_API_KEY` | `valid` / `text` 等 5 字段 | streaming | `GET /api/v1/chat/dify-workflow-spec` |
+| 8 | 食物图片识别 | checkin-service | `DIFY_FOOD_RECOGNITION_API_KEY` | `food_recognition` | blocking | `GET /api/v1/checkin/food/dify-workflow-spec` |
+| 9 | 资讯初稿生成 | 管理端直调 / article-service 下发 config | `DIFY_ARTICLE_DRAFT_API_KEY` | `article_draft` | streaming | `GET /api/v1/admin/articles/ai-draft/config` |
 
 ---
 
@@ -115,8 +118,8 @@
 ### 3.1 传入数据 JSON Schema（`inputs`，7 字段平铺）
 
 > 与 `backend/checkin-service/src/main/resources/dify/checkin-analysis-input.schema.json` 一致。  
-> **开始节点配置 7 个独立变量**（如图），后端/API 直接将各字段写入请求体 `inputs`，**不再**使用单个 `inputs` Object 包裹。  
-> 专家角色与输出约束写在 **LLM 节点系统提示词**中，**不要**作为开始节点入参 `system_prompt`。
+> **开始节点配置 7 个独立变量**，后端/API 直接将各字段写入请求体 `inputs`。  
+> 专家角色与输出约束写在 **LLM 节点系统提示词**中。
 
 ```json
 {
@@ -364,7 +367,6 @@
 ### 4.1 传入数据 JSON Schema（`inputs`，7 字段平铺）
 
 > 与 `backend/plan-service/src/main/resources/dify/plan-generation-input.schema.json` 一致。  
-> **与其他工作流不同**：开始节点配置 7 个独立变量，后端直接将各字段写入 API 请求体 `inputs`，**不再**使用 `inputs.inputs` 双层嵌套。
 
 ```json
 {
@@ -546,7 +548,7 @@
 
 > 与 `backend/plan-service/src/main/resources/dify/plan-generation-llm-output.schema.json` 一致。  
 > **因 Dify JSON 深度限制为 5**，工作流结束节点只输出 LLM Structured Output（浅层字段），**不在 Dify 内组装**嵌套 `health_plan`。  
-> 后端 `DifyPlanLlmOutputAssembler` 接收 `plan_llm_output` 后组装为完整方案并落库。
+> 后端 `DifyPlanLlmOutputAssembler` 接收 `plan_llm_output` 后组装为完整方案。
 
 **Dify 结束节点配置：**
 
@@ -620,9 +622,6 @@
 | `rest_glucose_monitor_times` / `rest_routine_tips` | string[] | 监测时点 / 作息建议 |
 | `medication_note` | string | 用药注意事项 |
 
-> 可删除工作流内的「JSON 标准化清洗」节点；兜底 LLM 输出同样赋给 `plan_llm_output` 即可。  
-> 兼容：若旧工作流仍输出嵌套 `health_plan`，后端也可解析。
-
 ### 4.3 后端组装后的完整方案结构（参考）
 
 以下为 plan-service 组装后内部使用的结构（**不必**在 Dify 结束节点输出）：
@@ -671,7 +670,7 @@
 }
 ```
 
-**完整 nested Schema（仅供后端参考，勿粘贴到 Dify）：**
+**完整 nested Schema（仅供后端参考）：**
 
 ```json
 {
@@ -872,7 +871,7 @@
 
 > 与 `backend/health-service/src/main/resources/dify/risk-assessment-input.schema.json` 一致。  
 > 默认 `DIFY_RISK_INPUT_VAR=flat`：开始节点 5 个独立变量，后端平铺写入 API `inputs`。  
-> **`user_profile`、`questionnaire`、`medical_calc_results`、`risk_factors` 在 HTTP 请求中为 JSON 文本字符串**；Dify 内可用 Code 节点 `JSON.parse` 后引用。
+> **`user_profile`、`questionnaire`、`medical_calc_results`、`risk_factors` 在 HTTP 请求中为 JSON 文本字符串**。
 
 **开始节点 Schema（各变量类型）：**
 
@@ -990,7 +989,7 @@
 ```
 
 > 后端 `DifyRiskAssessmentWorkflowContract.buildInputObject` 将 `user_profile`、`questionnaire`、`medical_calc_results`、`risk_factors` 序列化为 JSON 字符串后写入 Dify `inputs`。  
-> 若 `DIFY_RISK_INPUT_VAR=inputs`（单变量包裹），请将上述可读形式整体作为 `inputs.inputs` 的一个 Object（见 §1.2）；**flat 模式（默认）下各 JSON 字段必须为字符串**。
+> 若 `DIFY_RISK_INPUT_VAR=inputs`（单变量包裹），请将上述可读形式整体作为 `inputs.inputs` 的一个 Object；**flat 模式（默认）下各 JSON 字段必须为字符串**。
 
 ### 5.2 工作流需返回（`outputs.risk_assessment`）
 
@@ -1148,18 +1147,366 @@
 
 ---
 
-## 7. 环境变量速查
+## 7. 健康趋势分析
+
+| 项目 | 值 |
+|------|-----|
+| 契约类 | `backend/user-service/.../DifyHealthTrendWorkflowContract.java` |
+| 业务服务 | `HealthTrendAnalysisService` |
+| 默认 API Key | `DIFY_HEALTH_TREND_API_KEY` |
+| 对外 API | `GET /api/v1/user/health-trend` |
+
+### 7.1 传入数据（开始节点 3 字段平铺）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `query` | string | 固定「请分析用户近期的健康指标变化趋势」 |
+| `health_history` | string | 近 N 条（默认 30）健康记录 **JSON 数组字符串** |
+| `user_baseline` | string | 最新一条健康档案 **JSON 对象字符串** |
+
+**HTTP 请求体示例：**
+
+```json
+{
+  "response_mode": "blocking",
+  "user": "usr_001",
+  "inputs": {
+    "query": "请分析用户近期的健康指标变化趋势",
+    "health_history": "[{\"recordId\":\"hr_001\",\"recordedAt\":\"2024-05-11T08:00:00\",\"height\":170,\"weight\":71,\"bmi\":24.1,\"fastingGlucose\":5.2,\"systolicBp\":120,\"diastolicBp\":80}]",
+    "user_baseline": "{\"recordId\":\"hr_004\",\"recordedAt\":\"2024-06-10T08:00:00\",\"height\":170,\"weight\":70.5,\"bmi\":24.2,\"fastingGlucose\":6.8,\"systolicBp\":116,\"diastolicBp\":76}"
+  }
+}
+```
+
+**`health_history` 数组元素字段：** `recordId`、`recordedAt`、`height`、`weight`、`bmi`、`fastingGlucose`、`postprandialGlucose`、`systolicBp`、`diastolicBp`（camelCase，与 `HealthRecord` 实体对齐）。
+
+### 7.2 工作流需返回（`outputs.trend_analysis`）
+
+```json
+{
+  "summary": "近30天健康趋势分析：血糖水平呈上升趋势...",
+  "risk_level": "attention",
+  "bmi_trend": {
+    "direction": "stable",
+    "avg_value": 24.2,
+    "change_rate": 0.5,
+    "data_points": [{ "date": "2024-05-11", "value": 24.1 }]
+  },
+  "glucose_trend": {
+    "direction": "rising",
+    "avg_value": 6.1,
+    "change_rate": 15.4,
+    "data_points": [{ "date": "2024-05-11", "value": 5.2 }]
+  },
+  "bp_trend": {
+    "direction": "stable",
+    "avg_systolic": 118,
+    "avg_diastolic": 78,
+    "data_points": [{ "date": "2024-05-11", "systolic": 120, "diastolic": 80 }]
+  },
+  "anomalies": [{
+    "type": "glucose",
+    "date": "2024-06-10",
+    "value": 6.8,
+    "severity": "warning",
+    "description": "空腹血糖6.8mmol/L，超过正常上限(6.1mmol/L)",
+    "suggestion": "建议复查空腹血糖，如持续偏高请内分泌科就诊"
+  }]
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `summary` | string | 趋势总结（80~300 字） |
+| `risk_level` | string | `normal` / `attention` / `warning` / `critical` |
+| `bmi_trend` / `glucose_trend` | object | `direction`、`avg_value`、`change_rate`、`data_points[]` |
+| `bp_trend` | object | 含 `avg_systolic`、`avg_diastolic`、`data_points[]`（`systolic`/`diastolic`） |
+| `anomalies[]` | array | `type`（`glucose`/`bmi`/`bp`）、`severity`（`info`/`warning`/`critical`）等 |
+
+**降级：** 未配置 API Key、Dify 失败或历史记录 &lt; 2 条时不阻断主流程，返回本地折线或固定提示。
+
+---
+
+## 8. AI 模拟医生问诊
+
+| 项目 | 值 |
+|------|-----|
+| 契约类 | `backend/consultation-service/.../DifyConsultationWorkflowContract.java` |
+| 业务服务 | `ConsultationService` / `AIDoctorService` |
+| 默认 API Key | `DIFY_CONSULTATION_API_KEY` |
+| 超时建议 | `DIFY_CONSULTATION_TIMEOUT_SECONDS` ≥ 120 |
+
+### 8.1 传入数据（开始节点 6 字段平铺）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `query` | string | 用户最新消息原文 |
+| `conversation_id` | string | 咨询会话 ID |
+| `doctor_role` | string | AI 医生角色设定（科室、擅长、语气） |
+| `patient_profile` | string | 健康档案 JSON 字符串 |
+| `conversation_history` | string | 最近 20 条消息拼接文本 |
+| `knowledge_context` | string | 诊疗指南 / Milvus 检索片段 |
+
+**HTTP 请求体示例：**
+
+```json
+{
+  "response_mode": "blocking",
+  "user": "usr_001",
+  "inputs": {
+    "query": "大概两个月了，确实口渴明显，夜尿增多，需要做什么检查？",
+    "conversation_id": "sess_a1b2c3d4",
+    "doctor_role": "你是一名资深内分泌科主任医师，擅长糖尿病及代谢综合征诊疗...",
+    "patient_profile": "{\"age\":52,\"gender\":\"male\",\"height\":170,\"weight\":78,\"fastingGlucose\":7.2}",
+    "conversation_history": "[用户 2024-06-10 10:00] 医生您好...\n[AI医生 2024-06-10 10:01] 感谢您的描述...",
+    "knowledge_context": "【片段1 | 中国2型糖尿病防治指南 | 相似度:0.93】\n空腹血糖≥7.0mmol/L..."
+  }
+}
+```
+
+> 问诊安全规则、免责声明写在 **LLM 系统提示词**中，不作为开始节点入参。
+
+### 8.2 工作流需返回（`outputs.doctor_reply`）
+
+```json
+{
+  "content": "根据您描述的情况，建议您：\n1. 完善糖耐量试验（OGTT）...\n\n⚠️ 以上建议仅供参考，不能替代线下就医。",
+  "suggestion": {
+    "possible_diagnoses": [
+      { "name": "2型糖尿病", "probability": "high" },
+      { "name": "糖耐量异常", "probability": "medium" }
+    ],
+    "suggested_questions": ["您是否有多饮、多尿的症状？"],
+    "recommended_exams": ["空腹血糖", "OGTT", "糖化血红蛋白"],
+    "treatment_strategy": "生活方式干预为基础，必要时启动口服降糖药物治疗"
+  }
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `content` | string | 是 | 面向用户的 Markdown 回复 |
+| `suggestion` | object | 否 | 结构化辅助建议（供 `ai-suggestion` API） |
+| `suggestion.possible_diagnoses[].probability` | string | — | `high` / `medium` / `low` |
+
+---
+
+## 9. 科普问答
+
+| 项目 | 值 |
+|------|-----|
+| 契约类 | `backend/home-service/.../DifyQaChatContract.java` |
+| 业务服务 | `AIChatService` |
+| 默认 API Key | `DIFY_QA_API_KEY` |
+| 对外 API | `POST /api/v1/chat/qa`（SSE） |
+| Milvus | 后端 `KnowledgeRetrieval` 预检索 Top-5，`docType=guideline` |
+
+> **实现说明：** 使用 Dify **Workflow API**（`/v1/workflows/run`，`streaming`），非 Chatbot API。Milvus 检索在**后端**完成，结果写入 `knowledge_context`。
+
+### 9.1 传入数据（开始节点 2 字段平铺）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `query` | string | 用户科普问题，≤ 500 字符 |
+| `knowledge_context` | string | Milvus Top-5 片段拼接文本 |
+
+**`knowledge_context` 格式示例：**
+
+```text
+【片段1 | 来源: 糖尿病饮食指南.pdf | 相似度: 0.956】
+糖尿病患者应控制碳水化合物摄入...
+
+【片段2 | 来源: 中国2型糖尿病防治指南 | 相似度: 0.912】
+每日膳食纤维摄入建议 25~30g...
+```
+
+**HTTP 请求体示例：**
+
+```json
+{
+  "response_mode": "streaming",
+  "user": "usr_001",
+  "inputs": {
+    "query": "糖尿病患者可以吃水果吗？哪些水果比较适合？",
+    "knowledge_context": "【片段1 | 来源: 糖尿病饮食指南.pdf | 相似度: 0.956】\n糖尿病患者可以适量吃水果..."
+  }
+}
+```
+
+### 9.2 工作流结束节点输出（平铺 5 字段）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `valid` | boolean | 输入校验是否通过 |
+| `message` | string | 校验说明 |
+| `error_message` | string | 校验失败时的用户可见错误 |
+| `error_type` | string | 错误类型标识 |
+| `text` | string | 校验通过后的 Markdown 科普回答 |
+
+**blocking 调试响应示例：**
+
+```json
+{
+  "data": {
+    "status": "succeeded",
+    "outputs": {
+      "valid": true,
+      "message": "校验通过",
+      "error_message": "",
+      "error_type": "",
+      "text": "## 糖尿病患者可以吃水果吗？\n\n可以适量食用..."
+    }
+  }
+}
+```
+
+**后端 SSE 转发格式：** `event: message` + `{"type":"text","content":"..."}`；`event: message_end` + `{"type":"end","metadata":{"sources":[...]}}`。
+
+---
+
+## 10. 食物图片识别
+
+| 项目 | 值 |
+|------|-----|
+| 契约类 | `backend/checkin-service/.../DifyFoodRecognitionWorkflowContract.java` |
+| 业务服务 | `FoodRecognitionService` |
+| 默认 API Key | `DIFY_FOOD_RECOGNITION_API_KEY` |
+| 规划 API | `POST /api/v1/checkin/food/recognize` |
+| 图片 URL | `DIFY_FOOD_RECOGNITION_IMAGE_PUBLIC_BASE_URL` + MinIO objectKey（须 Dify 可达） |
+
+### 10.1 传入数据（开始节点 6 字段平铺）
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `query` | string | 是 | 固定识别请求文案 |
+| `user_id` | string | 是 | 当前用户 ID |
+| `image_url` | string | 是 | MinIO 公开 URL |
+| `meal_period` | string | 否 | 餐次 1~6（Dify 开始节点为 text-input，传字符串） |
+| `food_categories` | string | 否 | 分类 JSON 数组字符串 |
+| `food_presets` | string | 否 | 预设食物 JSON 数组字符串 |
+
+**HTTP 请求体示例：**
+
+```json
+{
+  "response_mode": "blocking",
+  "user": "usr_001",
+  "inputs": {
+    "query": "请识别图片中的食物，返回名称、分类、营养参数及建议食用量，便于糖尿病用户饮食打卡。",
+    "user_id": "usr_001",
+    "image_url": "http://localhost:9000/checkin/food/usr_001/upload_abc123.jpg",
+    "meal_period": "2",
+    "food_categories": "[{\"category_id\":\"cat_grain\",\"category_name\":\"主食\"}]",
+    "food_presets": "[{\"food_id\":\"food_rice_001\",\"food_name\":\"糙米饭\",\"calories_per_gram\":1.16}]"
+  }
+}
+```
+
+### 10.2 工作流需返回（`outputs.food_recognition`）
+
+**成功示例：**
+
+```json
+{
+  "food_name": "糙米饭",
+  "category_id": "cat_grain",
+  "category_name": "主食",
+  "calories_per_gram": 1.16,
+  "is_liquid": false,
+  "ml_to_g_ratio": 1.0,
+  "suggested_input_unit": 1,
+  "suggested_input_amount": 150,
+  "suggested_grams": 150,
+  "suggested_total_calories": 174,
+  "matched_food_id": "food_rice_001",
+  "source_type": 1,
+  "confidence": "high",
+  "gi_level": "medium",
+  "nutrition_tip": "糙米饭升糖较白米饭慢，建议控制在一碗以内并搭配蔬菜。",
+  "recognition_summary": "识别为一碗糙米饭，估算约 150g。",
+  "items": [],
+  "has_error": false,
+  "error_message": ""
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| 核心预填 | `food_name`、`category_id`、`calories_per_gram`、`is_liquid`、`suggested_input_*`、`suggested_grams`、`suggested_total_calories` |
+| 预设匹配 | `matched_food_id`；`source_type`：1=预设，2=自定义 |
+| AI 展示 | `confidence`、`gi_level`、`nutrition_tip`、`recognition_summary`、`items[]` |
+| 错误 | `has_error`、`error_message`（识别失败时不抛 HTTP 错误） |
+
+> AI 结果**不直接写库**；用户确认后仍调用 `POST /api/v1/checkin/food`。核心 5 营养字段与 `USER_FOOD_PRESETS` 表对齐。
+
+---
+
+## 11. 资讯初稿生成
+
+| 项目 | 值 |
+|------|-----|
+| 契约类 | `backend/article-service/.../DifyArticleDraftWorkflowContract.java` |
+| 调用方 | **管理端前端直调** Dify；后端 `GET /api/v1/admin/articles/ai-draft/config` 下发 URL 与 Key |
+| 默认 API Key | `DIFY_ARTICLE_DRAFT_API_KEY` |
+| 可选 URL 覆盖 | `DIFY_ARTICLE_DRAFT_URL` |
+
+### 11.1 传入数据（开始节点 2 字段平铺）
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `topic` | string | 是 | 资讯主题，如「糖尿病饮食管理」 |
+| `keywords` | string | 否 | 关键词，逗号分隔 |
+
+**HTTP 请求体示例（streaming）：**
+
+```json
+{
+  "response_mode": "streaming",
+  "user": "admin_001",
+  "inputs": {
+    "topic": "糖尿病饮食管理",
+    "keywords": "糖尿病,饮食,GI值,血糖控制,低糖"
+  }
+}
+```
+
+### 11.2 工作流需返回
+
+**流式 SSE 事件（管理端约定）：**
+
+| event | 说明 |
+|-------|------|
+| `text_chunk` | 正文增量；`data` 含 `title`、`summary`、`content`、`tags` |
+| `complete` | 生成完成，携带完整初稿 |
+| `error` | `{ "code", "message" }` |
+
+**blocking 调试（`outputs.article_draft`）：**
+
+```json
+{
+  "title": "糖尿病患者的科学饮食指南",
+  "summary": "本文详细介绍了糖尿病患者如何通过科学饮食控制血糖...",
+  "content": "# 糖尿病患者的科学饮食指南\n\n## 一、饮食原则\n...",
+  "tags": ["糖尿病", "饮食", "血糖控制", "营养"]
+}
+```
+
+> 封面图不由工作流生成；保存草稿时管理员自行上传。知识库检索与写作专家角色在 **Dify 工作流内**配置。
+
+---
+
+## 12. 环境变量速查
 
 ```bash
 # 公共
 DIFY_BASE_URL=http://host.docker.internal:58080
 DIFY_INTERNAL_KEY=LoginAuth2026          # Dify 回调后端内部 API（Header: X-Dify-Key）
 
-# 打卡行为分析（开始节点 7 变量平铺，无需 DIFY_CHECKIN_INPUT_VAR）
+# 打卡行为分析（开始节点 7 变量平铺）
 DIFY_CHECKIN_API_KEY=app-kFnPhD8YUmCfG2DeHubp1Scc
 DIFY_CHECKIN_RESPONSE_MODE=blocking
 
-# 健康方案生成（开始节点 7 变量平铺，无需 DIFY_PLAN_INPUT_VAR）
+# 健康方案生成（开始节点 7 变量平铺）
 DIFY_PLAN_API_KEY=app-fHORDdQjVq9GVtLcyD9WaL3g
 DIFY_PLAN_RESPONSE_MODE=blocking
 
@@ -1170,16 +1517,43 @@ DIFY_RISK_INPUT_FORMAT=object
 DIFY_RISK_TRIGGER_MODE=api
 DIFY_RISK_RESPONSE_MODE=blocking
 
+# 健康趋势分析（user-service，开始节点 3 变量平铺）
+DIFY_HEALTH_TREND_API_KEY=app-xxxxxxxx
+DIFY_HEALTH_TREND_RESPONSE_MODE=blocking
+
 # 资讯推荐
 DIFY_ARTICLE_RECOMMEND_API_KEY=app-Af1Iv6Y51WrahbDXQMBDUy7f
 DIFY_ARTICLE_RECOMMEND_INPUT_VAR=flat
 DIFY_ARTICLE_RECOMMEND_INPUT_FORMAT=object
 DIFY_ARTICLE_RECOMMEND_RESPONSE_MODE=blocking
+
+# 资讯初稿（管理端直调 / article-service config）
+DIFY_ARTICLE_DRAFT_API_KEY=app-xxxxxxxx
+DIFY_ARTICLE_DRAFT_URL=                    # 可选，覆盖 workflowUrl
+
+# 食物图片识别（checkin-service，开始节点 6 变量平铺）
+DIFY_FOOD_RECOGNITION_API_KEY=app-xxxxxxxx
+DIFY_FOOD_RECOGNITION_RESPONSE_MODE=blocking
+DIFY_FOOD_RECOGNITION_IMAGE_PUBLIC_BASE_URL=   # Dify 拉取图片用公网 URL
+
+# 科普问答（home-service，Workflow streaming）
+DIFY_QA_API_KEY=app-xxxxxxxx
+
+# AI 模拟医生问诊（consultation-service，开始节点 6 变量平铺）
+DIFY_CONSULTATION_API_KEY=app-xxxxxxxx
+DIFY_CONSULTATION_RESPONSE_MODE=blocking
+DIFY_CONSULTATION_TIMEOUT_SECONDS=120
+
+# 语音识别 — 生产用 DashScope Fun-ASR（非 Dify）
+DASHSCOPE_API_KEY=sk-xxxxxxxx
+DASHSCOPE_STT_MODEL=fun-asr
+STT_MAX_AUDIO_BYTES=5242880
+STT_AUDIO_PUBLIC_BASE_URL=http://localhost:9000
 ```
 
 ---
 
-## 8. Schema 文件与契约类对照
+## 13. Schema 文件与契约类对照
 
 | 工作流 | Schema 文件 | 契约类 |
 |--------|-------------|--------|
@@ -1187,14 +1561,20 @@ DIFY_ARTICLE_RECOMMEND_RESPONSE_MODE=blocking
 | 健康方案生成 | 入参：`plan-generation-input.schema.json`<br>出参（LLM 浅层）：`plan-generation-llm-output.schema.json` | `DifyPlanWorkflowContract` / `DifyPlanLlmOutputAssembler` |
 | 风险评估 | `backend/health-service/src/main/resources/dify/risk-assessment-input.schema.json` | `DifyRiskAssessmentWorkflowContract` |
 | 资讯推荐 | `backend/article-service/src/main/resources/dify/article-recommend-input.schema.json` | `DifyArticleRecommendWorkflowContract` |
+| 健康趋势分析 | 契约类内 `inputJsonSchema()` / `outputJsonSchema()` | `DifyHealthTrendWorkflowContract` |
+| AI 问诊 | 契约类内 Schema | `DifyConsultationWorkflowContract` |
+| 科普问答 | 契约类内 Schema | `DifyQaChatContract` |
+| 食物识别 | 契约类内 Schema | `DifyFoodRecognitionWorkflowContract` |
+| 资讯初稿 | 契约类内 Schema | `DifyArticleDraftWorkflowContract` |
 
-配置 Dify 工作流时，将对应 Schema 文件内容粘贴到开始节点的 `inputs` 变量 JSON Schema 配置中。
+配置 Dify 工作流时，将对应 Schema 粘贴到开始节点变量 JSON Schema 配置中；LLM Structured Output 使用各章出参 Schema。
 
 ---
 
-## 9. 未纳入本文档的 Dify 相关项
+## 14. 其他 Dify 相关项
 
 | 项目 | 说明 |
 |------|------|
-| 资讯初稿生成 (`DIFY_ARTICLE_DRAFT_*`) | 管理端前端占位，尚未由后端统一封装 Workflow 契约 |
-| Dify 对话 / SSE 流式 | 方案生成对外 SSE 由 `plan-service` 拆分 blocking 响应推送，工作流本身使用 blocking 模式 |
+| Dify 对话 / SSE 流式 | 科普问答、资讯初稿使用 Workflow streaming；方案生成对外 SSE 由 `plan-service` 拆分 blocking 响应推送 |
+| 资讯详情 TTS | 使用阿里云百炼 `qwen3-tts-flash`（`article-service` 直连），非 Dify 工作流 |
+| 主动健康干预 | 规则引擎 + 消息中心，不调用 Dify 工作流 |

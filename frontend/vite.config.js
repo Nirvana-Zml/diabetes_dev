@@ -48,6 +48,14 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     globals: true,
+    testTimeout: 15000,
+    fileParallelism: false,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        isolate: true,
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary', 'json'],

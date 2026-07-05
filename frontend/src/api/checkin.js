@@ -1,6 +1,6 @@
 import { get, post } from '@/utils/request'
 import { toSnakeCase, toCamelCase } from '@/utils/normalize'
-import { USE_MOCK } from '@/config'
+import * as appConfig from '@/config'
 import { mockAchievements, mockAchievementStats } from '@/mock/data'
 import { buildAchievementWall } from '@/views/CheckinRecords/achievements/mergeAchievements'
 import dayjs from 'dayjs'
@@ -283,7 +283,7 @@ export async function getAchievementWall() {
   ])
 
   const apiList = normalizeApiAchievements(achRes)
-  const mockOverrides = USE_MOCK
+  const mockOverrides = appConfig.USE_MOCK
     ? {
         unlockDates: Object.fromEntries(
           mockAchievements
@@ -293,7 +293,7 @@ export async function getAchievementWall() {
       }
     : {}
 
-  const mergedStats = USE_MOCK
+  const mergedStats = appConfig.USE_MOCK
     ? { ...stats, ...mockAchievementStats }
     : stats
 

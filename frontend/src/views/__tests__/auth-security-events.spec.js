@@ -213,7 +213,7 @@ describe('auth and security template events', () => {
   it('submits login form and follows redirect branch', async () => {
     const Login = (await import('../Login/index.vue')).default
     route.query = { redirect: '/user-center' }
-    mocks.login.mockResolvedValue({ access_token: 'token', role: 'user' })
+    mocks.login.mockResolvedValueOnce({ access_token: 'token', user: { role: 'user' } })
 
     const wrapper = mountWithStubs(Login)
     const setup = setupOf(wrapper)
@@ -227,6 +227,33 @@ describe('auth and security template events', () => {
     expect(localStorage.getItem('remember_username')).toBe('testuser')
     expect(replace).toHaveBeenCalledWith('/user-center')
     expect(mocks.success).toHaveBeenCalledWith('登录成功')
+  })
+
+  it('resolves role from nested user object when role is missing', async () => {
+    const Login = (await import('../Login/index.vue')).default
+    mocks.login.mockResolvedValueOnce({ access_token: 'token', user: { role: 'user' } })
+
+    const wrapper = mountWithStubs(Login)
+    const setup = setupOf(wrapper)
+    setup.formRef = validForm()
+    Object.assign(setup.form, { username: 'nested', password: '123456', remember: false })
+    await setup.handleSubmit()
+    await flushPromises()
+
+    expect(mocks.saveTokens).toHaveBeenCalled()
+    expect(mocks.clearTokens).not.toHaveBeenCalled()
+  })
+
+  it('defaults role to user when login response omits role fields', async () => {
+    const Login = (await import('../Login/index.vue')).default
+    mocks.login.mockResolvedValueOnce({ access_token: 'token-only' })
+    const wrapper = mountWithStubs(Login)
+    const setup = setupOf(wrapper)
+    setup.formRef = validForm()
+    Object.assign(setup.form, { username: 'plain', password: '123456', remember: false })
+    await setup.handleSubmit()
+    await flushPromises()
+    expect(mocks.saveTokens).toHaveBeenCalledWith({ access_token: 'token-only' })
   })
 
   it('covers auth page template model updates and validation short-circuit branches', async () => {

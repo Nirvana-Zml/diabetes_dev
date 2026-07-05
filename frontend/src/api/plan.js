@@ -1,5 +1,5 @@
 import { get, post } from '@/utils/request'
-import { USE_MOCK } from '@/config'
+import * as appConfig from '@/config'
 import { difyPlanGenerate } from '@/api/dify'
 import { fetchBackendSSE } from '@/utils/sse'
 import { normalizePlan, toSnakeCase } from '@/utils/normalize'
@@ -47,7 +47,7 @@ const STAGE_MAP = {
 
 /** POST /api/plan/generate — SSE 分阶段返回 */
 export async function generatePlan(options = {}) {
-  if (USE_MOCK) {
+  if (appConfig.USE_MOCK) {
     return difyPlanGenerate(options)
   }
   const { onStage } = options

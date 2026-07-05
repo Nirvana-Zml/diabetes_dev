@@ -3,10 +3,27 @@ import { mount, flushPromises } from '@vue/test-utils'
 
 const mocks = vi.hoisted(() => ({
   chatQA: vi.fn(),
+  voiceToText: vi.fn(),
+  recordingRef: null,
+  startVoice: vi.fn(),
+  stopVoice: vi.fn(),
 }))
 
 vi.mock('@/api/chat', () => ({
   chatQA: mocks.chatQA,
+  voiceToText: mocks.voiceToText,
+}))
+
+vi.mock('@/composables/useVoiceInput', () => ({
+  useVoiceInput: () => ({
+    recording: mocks.recordingRef,
+    start: mocks.startVoice,
+    stop: mocks.stopVoice,
+  }),
+}))
+
+vi.mock('element-plus', () => ({
+  ElMessage: { warning: vi.fn(), error: vi.fn() },
 }))
 
 const stubs = {
@@ -43,8 +60,10 @@ function assignMsgRef(setup, el) {
   }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks()
+  const { ref } = await import('vue')
+  mocks.recordingRef = ref(false)
 })
 
 describe('AiChatDialog interactions without changing component source', () => {
@@ -62,8 +81,6 @@ describe('AiChatDialog interactions without changing component source', () => {
     })
     const setup = setupOf(wrapper)
     assignMsgRef(setup, { scrollHeight: 120, scrollTo: vi.fn() })
-    await wrapper.find('textarea').setValue(' 怎么控制血糖 ')
-    expect(setup.query).toBe(' 怎么控制血糖 ')
     setup.query = ' 怎么控制血糖 '
 
     await setup.send()
@@ -134,5 +151,111 @@ describe('AiChatDialog interactions without changing component source', () => {
     await wrapper.setProps({ modelValue: true })
     await flushPromises()
     expect(setup.messages).toHaveLength(1)
+  })
+
+  it('covers voice input branches', async () => {
+    const { ElMessage } = await import('element-plus')
+    const AiChatDialog = (await import('../AiChatDialog.vue')).default
+    const wrapper = mount(AiChatDialog, {
+      props: { modelValue: true },
+      global: { stubs },
+    })
+    const setup = setupOf(wrapper)
+
+    setup.streaming = true
+    await setup.toggleVoice()
+    expect(mocks.startVoice).not.toHaveBeenCalled()
+
+    setup.streaming = false
+    setup.transcribing = true
+    await setup.toggleVoice()
+    expect(mocks.startVoice).not.toHaveBeenCalled()
+
+    setup.transcribing = false
+    mocks.startVoice.mockRejectedValueOnce(new Error('denied'))
+    await setup.toggleVoice()
+    expect(ElMessage.warning).toHaveBeenCalledWith('无法访问麦克风，请检查浏览器权限')
+
+    mocks.recordingRef.value = true
+    mocks.stopVoice.mockResolvedValueOnce(null)
+    await setup.toggleVoice()
+    expect(ElMessage.warning).toHaveBeenCalledWith('录音时间过短，请重试')
+
+    mocks.recordingRef.value = true
+    mocks.stopVoice.mockResolvedValueOnce(new Blob(['voice'], { type: 'audio/webm' }))
+    mocks.voiceToText.mockResolvedValueOnce({ text: ' 血糖问题 ' })
+    await setup.toggleVoice()
+    expect(setup.query).toBe(' 血糖问题 ')
+
+    mocks.recordingRef.value = true
+    mocks.stopVoice.mockResolvedValueOnce(new Blob(['voice'], { type: 'audio/webm' }))
+    mocks.voiceToText.mockRejectedValueOnce(new Error('识别失败'))
+    await setup.toggleVoice()
+    expect(ElMessage.error).toHaveBeenCalledWith('识别失败')
+    expect(setup.transcribing).toBe(false)
+  })
+
+  it('covers voice without text result and send scroll callbacks', async () => {
+    const AiChatDialog = (await import('../AiChatDialog.vue')).default
+    const wrapper = mount(AiChatDialog, {
+      props: { modelValue: true },
+      global: { stubs },
+    })
+    const setup = setupOf(wrapper)
+
+    mocks.recordingRef.value = true
+    mocks.stopVoice.mockResolvedValueOnce(new Blob(['voice'], { type: 'audio/webm' }))
+    mocks.voiceToText.mockResolvedValueOnce({ text: '' })
+    await setup.toggleVoice()
+    expect(setup.query).toBe('')
+
+    setup.msgRef = { scrollHeight: 100, scrollTo: vi.fn() }
+    setup.query = '问题'
+    mocks.chatQA.mockImplementationOnce(async (_q, opts) => {
+      opts.onChunk({ content: '片段' })
+      opts.onEnd({ conversation_id: 'c1' })
+    })
+    await setup.send()
+    await flushPromises()
+    expect(setup.conversationId).toBe('c1')
+
+    setup.streaming = false
+    setup.query = '失败'
+    mocks.chatQA.mockRejectedValueOnce(new Error('network'))
+    await setup.send()
+    await flushPromises()
+    expect(setup.messages.at(-1).content).toContain('繁忙')
+  })
+
+  it('renders recording and transcribing placeholder branches', async () => {
+    const AiChatDialog = (await import('../AiChatDialog.vue')).default
+    const wrapper = mount(AiChatDialog, {
+      props: { modelValue: true },
+      global: {
+        stubs: {
+          ...stubs,
+          'el-input': {
+            props: ['modelValue', 'placeholder', 'disabled'],
+            template: '<textarea :placeholder="placeholder" :disabled="disabled" />',
+          },
+        },
+      },
+    })
+    mocks.recordingRef.value = true
+    await flushPromises()
+    expect(wrapper.find('textarea').attributes('placeholder')).toContain('聆听')
+    mocks.recordingRef.value = false
+    const setup = setupOf(wrapper)
+    setup.transcribing = true
+    await flushPromises()
+    expect(wrapper.find('textarea').attributes('placeholder')).toContain('识别')
+
+    mocks.recordingRef.value = true
+    setup.transcribing = false
+    mocks.stopVoice.mockResolvedValueOnce(new Blob(['v'], { type: 'audio/webm' }))
+    mocks.voiceToText.mockRejectedValueOnce({})
+    const { ElMessage } = await import('element-plus')
+    await setup.toggleVoice()
+    expect(ElMessage.error).toHaveBeenCalledWith('语音识别失败')
   })
 })

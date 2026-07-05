@@ -69,6 +69,17 @@ describe('mock-mode api branches', () => {
     expect(mocks.difyQaChat).toHaveBeenCalledWith('饮食建议', { conversationId: 'c-mock' })
   })
 
+  it('returns mock voiceToText result when mock mode is enabled', async () => {
+    const chat = await import('../chat')
+    const withLang = await chat.voiceToText(new Blob(['voice']), { language: 'en-US' })
+    expect(withLang).toEqual({
+      text: '糖尿病患者可以吃水果吗？',
+      language: 'en-US',
+    })
+    const defaultLang = await chat.voiceToText(new Blob(['voice']))
+    expect(defaultLang.language).toBe('zh-CN')
+  })
+
   it('delegates generatePlan to dify when mock mode is enabled', async () => {
     const plan = await import('../plan')
     const onStage = vi.fn()
